@@ -246,7 +246,7 @@ module axi_regs_top_rab
       begin
             for ( byte_index = 0; byte_index < C_AXICFG_DATA_WIDTH/8; byte_index = byte_index+1 )
               if ( wstrb_reg[byte_index])
-                CONFIGURATION_REGISTERS[waddr_reg[9:2]][byte_index] <= wdata_reg[byte_index];
+                CONFIGURATION_REGISTERS[waddr_reg[ADDR_REG_MSB:2]][byte_index] <= wdata_reg[byte_index];
       end
   end // SLAVE_REG_WRITE_PROC
 
