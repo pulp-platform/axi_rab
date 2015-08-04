@@ -1,197 +1,198 @@
-module axi_rab_top
-    
-  #(   NUM_SLICES          = 16,
-       C_AXI_DATA_WIDTH    = 64,
-       C_AXICFG_DATA_WIDTH = 32,
-       C_AXI_ID_WIDTH      = 8,
-       C_AXI_USER_WIDTH    = 6,
-       N_PORTS             = 3
-   ) (
-      input   logic                            axi4_aclk,
-      input   logic                            axi4_arstn,
-      input   logic                            axi4lite_aclk,
-      input   logic                            axi4lite_arstn,
+module axi_rab_top   
+  #(
+    parameter NUM_SLICES          = 16,
+    parameter C_AXI_DATA_WIDTH    = 64,
+    parameter C_AXICFG_DATA_WIDTH = 32,
+    parameter C_AXI_ID_WIDTH      = 8,
+    parameter C_AXI_USER_WIDTH    = 6,
+    parameter N_PORTS             = 3
+    )
+   (
+    input   logic axi4_aclk,
+    input   logic axi4_arstn,
+    input   logic axi4lite_aclk,
+    input   logic axi4lite_arstn,
 
-      input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_awid,
-      input   logic    [N_PORTS-1:0]                   [31:0] s_axi4_awaddr,
-      input   logic    [N_PORTS-1:0]                          s_axi4_awvalid,
-      output  logic    [N_PORTS-1:0]        	              s_axi4_awready,
-      input   logic    [N_PORTS-1:0]       	           [7:0]  s_axi4_awlen,
-      input   logic    [N_PORTS-1:0]                   [2:0]  s_axi4_awsize,
-      input   logic    [N_PORTS-1:0]                   [1:0]  s_axi4_awburst,
-      input   logic    [N_PORTS-1:0]                          s_axi4_awlock,
-      input   logic    [N_PORTS-1:0]      	           [2:0]  s_axi4_awprot,
-      input   logic    [N_PORTS-1:0]      	           [3:0]  s_axi4_awcache,
-      input   logic    [N_PORTS-1:0]      	           [3:0]  s_axi4_awregion,
-      input   logic    [N_PORTS-1:0]     	           [3:0]  s_axi4_awqos,
-      input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_awuser,
+    input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_awid,
+    input   logic    [N_PORTS-1:0]                   [31:0] s_axi4_awaddr,
+    input   logic    [N_PORTS-1:0]                          s_axi4_awvalid,
+    output  logic    [N_PORTS-1:0]        	            s_axi4_awready,
+    input   logic    [N_PORTS-1:0]       	     [7:0]  s_axi4_awlen,
+    input   logic    [N_PORTS-1:0]                   [2:0]  s_axi4_awsize,
+    input   logic    [N_PORTS-1:0]                   [1:0]  s_axi4_awburst,
+    input   logic    [N_PORTS-1:0]                          s_axi4_awlock,
+    input   logic    [N_PORTS-1:0]      	     [2:0]  s_axi4_awprot,
+    input   logic    [N_PORTS-1:0]      	     [3:0]  s_axi4_awcache,
+    input   logic    [N_PORTS-1:0]      	     [3:0]  s_axi4_awregion,
+    input   logic    [N_PORTS-1:0]     	             [3:0]  s_axi4_awqos,
+    input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_awuser,
 
-      input   logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] s_axi4_wdata,
-      input   logic    [N_PORTS-1:0] 	                      s_axi4_wvalid,
-      output  logic    [N_PORTS-1:0]  	                      s_axi4_wready,
-      input   logic    [N_PORTS-1:0] [C_AXI_DATA_WIDTH/8-1:0] s_axi4_wstrb,
-      input   logic    [N_PORTS-1:0]  		                  s_axi4_wlast,
-      input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_wuser,
+    input   logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] s_axi4_wdata,
+    input   logic    [N_PORTS-1:0] 	                    s_axi4_wvalid,
+    output  logic    [N_PORTS-1:0]  	                    s_axi4_wready,
+    input   logic    [N_PORTS-1:0] [C_AXI_DATA_WIDTH/8-1:0] s_axi4_wstrb,
+    input   logic    [N_PORTS-1:0]                          s_axi4_wlast,
+    input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_wuser,
 
-      output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_bid,
-      output  logic    [N_PORTS-1:0]                    [1:0] s_axi4_bresp,
-      output  logic    [N_PORTS-1:0]                          s_axi4_bvalid,
-      output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_buser,
-      input   logic    [N_PORTS-1:0]                          s_axi4_bready,
+    output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_bid,
+    output  logic    [N_PORTS-1:0]                    [1:0] s_axi4_bresp,
+    output  logic    [N_PORTS-1:0]                          s_axi4_bvalid,
+    output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_buser,
+    input   logic    [N_PORTS-1:0]                          s_axi4_bready,
 
-      input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_arid,
-      input   logic    [N_PORTS-1:0]                   [31:0] s_axi4_araddr,
-      input   logic    [N_PORTS-1:0]          	              s_axi4_arvalid,
-      output  logic    [N_PORTS-1:0]                          s_axi4_arready,
-      input   logic    [N_PORTS-1:0]          	       [7:0]  s_axi4_arlen,
-      input   logic    [N_PORTS-1:0]          	       [2:0]  s_axi4_arsize,
-      input   logic    [N_PORTS-1:0]                   [1:0]  s_axi4_arburst,
-      input   logic    [N_PORTS-1:0]                          s_axi4_arlock,
-      input   logic    [N_PORTS-1:0]         	       [2:0]  s_axi4_arprot,
-      input   logic    [N_PORTS-1:0]                   [3:0]  s_axi4_arcache,
-      input   logic    [N_PORTS-1:0]  [C_AXI_USER_WIDTH-1:0]  s_axi4_aruser,
+    input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_arid,
+    input   logic    [N_PORTS-1:0]                   [31:0] s_axi4_araddr,
+    input   logic    [N_PORTS-1:0]          	            s_axi4_arvalid,
+    output  logic    [N_PORTS-1:0]                          s_axi4_arready,
+    input   logic    [N_PORTS-1:0]          	     [7:0]  s_axi4_arlen,
+    input   logic    [N_PORTS-1:0]          	     [2:0]  s_axi4_arsize,
+    input   logic    [N_PORTS-1:0]                   [1:0]  s_axi4_arburst,
+    input   logic    [N_PORTS-1:0]                          s_axi4_arlock,
+    input   logic    [N_PORTS-1:0]         	     [2:0]  s_axi4_arprot,
+    input   logic    [N_PORTS-1:0]                   [3:0]  s_axi4_arcache,
+    input   logic    [N_PORTS-1:0]  [C_AXI_USER_WIDTH-1:0]  s_axi4_aruser,
 
-      output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_rid,
-      output  logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] s_axi4_rdata,
-      output  logic    [N_PORTS-1:0]                    [1:0] s_axi4_rresp,
-      output  logic    [N_PORTS-1:0]                          s_axi4_rvalid,
-      input   logic    [N_PORTS-1:0]                          s_axi4_rready,
-      output  logic    [N_PORTS-1:0]                          s_axi4_rlast,
-      output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_ruser,
+    output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] s_axi4_rid,
+    output  logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] s_axi4_rdata,
+    output  logic    [N_PORTS-1:0]                    [1:0] s_axi4_rresp,
+    output  logic    [N_PORTS-1:0]                          s_axi4_rvalid,
+    input   logic    [N_PORTS-1:0]                          s_axi4_rready,
+    output  logic    [N_PORTS-1:0]                          s_axi4_rlast,
+    output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] s_axi4_ruser,
 
-      output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_awid,
-      output  logic    [N_PORTS-1:0]                   [31:0] m_axi4_awaddr,
-      output  logic    [N_PORTS-1:0]           	              m_axi4_awvalid,
-      input   logic    [N_PORTS-1:0]           	              m_axi4_awready,
-      output  logic    [N_PORTS-1:0]          	       [7:0]  m_axi4_awlen,
-      output  logic    [N_PORTS-1:0]           	       [2:0]  m_axi4_awsize,
-      output  logic    [N_PORTS-1:0]                   [1:0]  m_axi4_awburst,
-      output  logic    [N_PORTS-1:0]                          m_axi4_awlock,
-      output  logic    [N_PORTS-1:0]           	       [2:0]  m_axi4_awprot,
-      output  logic    [N_PORTS-1:0]           	       [3:0]  m_axi4_awcache,
-      output  logic    [N_PORTS-1:0]           	       [3:0]  m_axi4_awregion,
-      output  logic    [N_PORTS-1:0]           	       [3:0]  m_axi4_awqos,
-      output  logic    [N_PORTS-1:0]  [C_AXI_USER_WIDTH-1:0]  m_axi4_awuser,
+    output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_awid,
+    output  logic    [N_PORTS-1:0]                   [31:0] m_axi4_awaddr,
+    output  logic    [N_PORTS-1:0]           	            m_axi4_awvalid,
+    input   logic    [N_PORTS-1:0]           	            m_axi4_awready,
+    output  logic    [N_PORTS-1:0]          	     [7:0]  m_axi4_awlen,
+    output  logic    [N_PORTS-1:0]           	     [2:0]  m_axi4_awsize,
+    output  logic    [N_PORTS-1:0]                   [1:0]  m_axi4_awburst,
+    output  logic    [N_PORTS-1:0]                          m_axi4_awlock,
+    output  logic    [N_PORTS-1:0]           	     [2:0]  m_axi4_awprot,
+    output  logic    [N_PORTS-1:0]           	     [3:0]  m_axi4_awcache,
+    output  logic    [N_PORTS-1:0]           	     [3:0]  m_axi4_awregion,
+    output  logic    [N_PORTS-1:0]           	     [3:0]  m_axi4_awqos,
+    output  logic    [N_PORTS-1:0]  [C_AXI_USER_WIDTH-1:0]  m_axi4_awuser,
 
-      output  logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] m_axi4_wdata,
-      output  logic    [N_PORTS-1:0]           	              m_axi4_wvalid,
-      input   logic    [N_PORTS-1:0]           	              m_axi4_wready,
-      output  logic    [N_PORTS-1:0] [C_AXI_DATA_WIDTH/8-1:0] m_axi4_wstrb,
-      output  logic    [N_PORTS-1:0]           	              m_axi4_wlast,
-      output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_wuser,
+    output  logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] m_axi4_wdata,
+    output  logic    [N_PORTS-1:0]                          m_axi4_wvalid,
+    input   logic    [N_PORTS-1:0]                          m_axi4_wready,
+    output  logic    [N_PORTS-1:0] [C_AXI_DATA_WIDTH/8-1:0] m_axi4_wstrb,
+    output  logic    [N_PORTS-1:0]                          m_axi4_wlast,
+    output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_wuser,
 
-      input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_bid,
-      input   logic    [N_PORTS-1:0]                    [1:0] m_axi4_bresp,
-      input   logic    [N_PORTS-1:0]                          m_axi4_bvalid,
-      input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_buser,
-      output  logic    [N_PORTS-1:0]              	          m_axi4_bready,
+    input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_bid,
+    input   logic    [N_PORTS-1:0]                    [1:0] m_axi4_bresp,
+    input   logic    [N_PORTS-1:0]                          m_axi4_bvalid,
+    input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_buser,
+    output  logic    [N_PORTS-1:0]                          m_axi4_bready,
 
-      output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_arid,
-      output  logic    [N_PORTS-1:0]                   [31:0] m_axi4_araddr,
-      output  logic    [N_PORTS-1:0]                          m_axi4_arvalid,
-      input   logic    [N_PORTS-1:0]           	              m_axi4_arready,
-      output  logic    [N_PORTS-1:0]          	       [7:0]  m_axi4_arlen,
-      output  logic    [N_PORTS-1:0]           	       [2:0]  m_axi4_arsize,
-      output  logic    [N_PORTS-1:0]                   [1:0]  m_axi4_arburst,
-      output  logic    [N_PORTS-1:0]                          m_axi4_arlock,
-      output  logic    [N_PORTS-1:0]           	       [2:0]  m_axi4_arprot,
-      output  logic    [N_PORTS-1:0]           	       [3:0]  m_axi4_arcache,
-      output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_aruser,
+    output  logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_arid,
+    output  logic    [N_PORTS-1:0]                   [31:0] m_axi4_araddr,
+    output  logic    [N_PORTS-1:0]                          m_axi4_arvalid,
+    input   logic    [N_PORTS-1:0]           	            m_axi4_arready,
+    output  logic    [N_PORTS-1:0]          	     [7:0]  m_axi4_arlen,
+    output  logic    [N_PORTS-1:0]           	     [2:0]  m_axi4_arsize,
+    output  logic    [N_PORTS-1:0]                   [1:0]  m_axi4_arburst,
+    output  logic    [N_PORTS-1:0]                          m_axi4_arlock,
+    output  logic    [N_PORTS-1:0]           	     [2:0]  m_axi4_arprot,
+    output  logic    [N_PORTS-1:0]           	     [3:0]  m_axi4_arcache,
+    output  logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_aruser,
 
-      input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_rid,
-      input   logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] m_axi4_rdata,
-      input   logic    [N_PORTS-1:0]                    [1:0] m_axi4_rresp,
-      input   logic    [N_PORTS-1:0]           	 	          m_axi4_rvalid,
-      output  logic    [N_PORTS-1:0]           		          m_axi4_rready,
-      input   logic    [N_PORTS-1:0]          		          m_axi4_rlast,
-      input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_ruser,
+    input   logic    [N_PORTS-1:0]     [C_AXI_ID_WIDTH-1:0] m_axi4_rid,
+    input   logic    [N_PORTS-1:0]   [C_AXI_DATA_WIDTH-1:0] m_axi4_rdata,
+    input   logic    [N_PORTS-1:0]                    [1:0] m_axi4_rresp,
+    input   logic    [N_PORTS-1:0]           	            m_axi4_rvalid,
+    output  logic    [N_PORTS-1:0]           	            m_axi4_rready,
+    input   logic    [N_PORTS-1:0]          	            m_axi4_rlast,
+    input   logic    [N_PORTS-1:0]   [C_AXI_USER_WIDTH-1:0] m_axi4_ruser,
 
-      input    logic                    [31:0] s_axi4lite_awaddr,
-      input    logic              		       s_axi4lite_awvalid,
-      output   logic                  	       s_axi4lite_awready,
+    input    logic                      [31:0] s_axi4lite_awaddr,
+    input    logic                             s_axi4lite_awvalid,
+    output   logic                             s_axi4lite_awready,
 
-      input    logic [C_AXICFG_DATA_WIDTH-1:0] s_axi4lite_wdata,
-      input    logic           		           s_axi4lite_wvalid,
-      output   logic             	           s_axi4lite_wready,
-      input    logic [C_AXICFG_DATA_WIDTH/8-1:0] s_axi4lite_wstrb,
+    input    logic   [C_AXICFG_DATA_WIDTH-1:0] s_axi4lite_wdata,
+    input    logic           	               s_axi4lite_wvalid,
+    output   logic             	               s_axi4lite_wready,
+    input    logic [C_AXICFG_DATA_WIDTH/8-1:0] s_axi4lite_wstrb,
 
-      output   logic                     [1:0] s_axi4lite_bresp,
-      output   logic                           s_axi4lite_bvalid,
-      input    logic                           s_axi4lite_bready,
+    output   logic                       [1:0] s_axi4lite_bresp,
+    output   logic                             s_axi4lite_bvalid,
+    input    logic                             s_axi4lite_bready,
 
-      input    logic                    [31:0] s_axi4lite_araddr,
-      input    logic           		           s_axi4lite_arvalid,
-      output   logic             	           s_axi4lite_arready,
+    input    logic                      [31:0] s_axi4lite_araddr,
+    input    logic           	               s_axi4lite_arvalid,
+    output   logic             	               s_axi4lite_arready,
 
-      output   logic [C_AXICFG_DATA_WIDTH-1:0] s_axi4lite_rdata,
-      output   logic                     [1:0] s_axi4lite_rresp,
-      output   logic                           s_axi4lite_rvalid,
-      input    logic                           s_axi4lite_rready,
+    output   logic   [C_AXICFG_DATA_WIDTH-1:0] s_axi4lite_rdata,
+    output   logic                       [1:0] s_axi4lite_rresp,
+    output   logic                             s_axi4lite_rvalid,
+    input    logic                             s_axi4lite_rready,
 
-      output   logic   [N_PORTS-1:0]           int_miss,
-      output   logic   [N_PORTS-1:0]           int_multi,
-      output   logic   [N_PORTS-1:0]           int_prot);
+    output   logic [N_PORTS-1:0] int_miss,
+    output   logic [N_PORTS-1:0] int_multi,
+    output   logic [N_PORTS-1:0] int_prot,
+    output   logic               int_mhr_full
+    );
    
+   wire [N_PORTS-1:0]      [C_AXI_ID_WIDTH-1:0] int_awid;
+   wire [N_PORTS-1:0]                    [31:0] int_awaddr;
+   wire [N_PORTS-1:0] 				int_awvalid;
+   wire [N_PORTS-1:0] 				int_awready;
+   wire [N_PORTS-1:0]        	          [7:0] int_awlen;
+   wire [N_PORTS-1:0]                     [2:0] int_awsize;
+   wire [N_PORTS-1:0]                     [1:0] int_awburst;
+   wire [N_PORTS-1:0] 		                int_awlock;
+   wire [N_PORTS-1:0]                     [2:0] int_awprot;
+   wire [N_PORTS-1:0]                     [3:0] int_awcache;
+   wire [N_PORTS-1:0]                     [3:0] int_awregion;
+   wire [N_PORTS-1:0]                     [3:0] int_awqos;
+   wire [N_PORTS-1:0]    [C_AXI_USER_WIDTH-1:0] int_awuser;
 
-  wire      [N_PORTS-1:0]      [C_AXI_ID_WIDTH-1:0]  int_awid;
-  wire      [N_PORTS-1:0]                    [31:0]  int_awaddr;
-  wire      [N_PORTS-1:0]        	                 int_awvalid;
-  wire      [N_PORTS-1:0]         	                 int_awready;
-  wire      [N_PORTS-1:0]        	           [7:0] int_awlen;
-  wire      [N_PORTS-1:0]                      [2:0] int_awsize;
-  wire      [N_PORTS-1:0]                      [1:0] int_awburst;
-  wire      [N_PORTS-1:0]                            int_awlock;
-  wire      [N_PORTS-1:0]                      [2:0] int_awprot;
-  wire      [N_PORTS-1:0]                      [3:0] int_awcache;
-  wire      [N_PORTS-1:0]                      [3:0] int_awregion;
-  wire      [N_PORTS-1:0]                      [3:0] int_awqos;
-  wire      [N_PORTS-1:0]     [C_AXI_USER_WIDTH-1:0] int_awuser;
+   wire [N_PORTS-1:0]    [C_AXI_DATA_WIDTH-1:0] int_wdata;
+   wire [N_PORTS-1:0] 	            	        int_wvalid;
+   wire [N_PORTS-1:0] 			        int_wready;
+   wire [N_PORTS-1:0]  [C_AXI_DATA_WIDTH/8-1:0] int_wstrb;
+   wire [N_PORTS-1:0] 				int_wlast;
+   wire [N_PORTS-1:0]    [C_AXI_USER_WIDTH-1:0] int_wuser;
 
-  wire      [N_PORTS-1:0]     [C_AXI_DATA_WIDTH-1:0] int_wdata;
-  wire      [N_PORTS-1:0]        		             int_wvalid;
-  wire      [N_PORTS-1:0]         		             int_wready;
-  wire      [N_PORTS-1:0]   [C_AXI_DATA_WIDTH/8-1:0] int_wstrb;
-  wire      [N_PORTS-1:0]        		             int_wlast;
-  wire      [N_PORTS-1:0]     [C_AXI_USER_WIDTH-1:0] int_wuser;
+   wire [N_PORTS-1:0]      [C_AXI_ID_WIDTH-1:0] int_bid;
+   wire [N_PORTS-1:0]                     [1:0] int_bresp;
+   wire [N_PORTS-1:0]                           int_bvalid;
+   wire [N_PORTS-1:0]    [C_AXI_USER_WIDTH-1:0] int_buser;
+   wire [N_PORTS-1:0] 	                        int_bready;
 
-  wire      [N_PORTS-1:0]       [C_AXI_ID_WIDTH-1:0] int_bid;
-  wire      [N_PORTS-1:0]                      [1:0] int_bresp;
-  wire      [N_PORTS-1:0]         		             int_bvalid;
-  wire      [N_PORTS-1:0]     [C_AXI_USER_WIDTH-1:0] int_buser;
-  wire      [N_PORTS-1:0]          	          	     int_bready;
+   wire [N_PORTS-1:0]      [C_AXI_ID_WIDTH-1:0] int_arid;
+   wire [N_PORTS-1:0]                    [31:0] int_araddr;
+   wire [N_PORTS-1:0]          		        int_arvalid;
+   wire [N_PORTS-1:0] 			        int_arready;
+   wire [N_PORTS-1:0]        	          [7:0] int_arlen;
+   wire [N_PORTS-1:0]        	          [2:0] int_arsize;
+   wire [N_PORTS-1:0]                     [1:0] int_arburst;
+   wire [N_PORTS-1:0] 		                int_arlock;
+   wire [N_PORTS-1:0]        	          [2:0] int_arprot;
+   wire [N_PORTS-1:0]        	          [3:0] int_arcache;
+   wire [N_PORTS-1:0]    [C_AXI_USER_WIDTH-1:0] int_aruser;
 
-  wire      [N_PORTS-1:0]       [C_AXI_ID_WIDTH-1:0] int_arid;
-  wire      [N_PORTS-1:0]                    [31:0]  int_araddr;
-  wire      [N_PORTS-1:0]        		             int_arvalid;
-  wire      [N_PORTS-1:0]         		             int_arready;
-  wire      [N_PORTS-1:0]        	           [7:0] int_arlen;
-  wire      [N_PORTS-1:0]        	           [2:0] int_arsize;
-  wire      [N_PORTS-1:0]                      [1:0] int_arburst;
-  wire      [N_PORTS-1:0]                            int_arlock;
-  wire      [N_PORTS-1:0]        	           [2:0] int_arprot;
-  wire      [N_PORTS-1:0]        	           [3:0] int_arcache;
-  wire      [N_PORTS-1:0]     [C_AXI_USER_WIDTH-1:0] int_aruser;
+   wire [N_PORTS-1:0]      [C_AXI_ID_WIDTH-1:0] int_rid;
+   wire [N_PORTS-1:0]                     [1:0] int_rresp;
+   wire [N_PORTS-1:0]    [C_AXI_DATA_WIDTH-1:0] int_rdata;
+   wire [N_PORTS-1:0] 	                        int_rlast;
+   wire [N_PORTS-1:0]    [C_AXI_USER_WIDTH-1:0] int_ruser;
+   wire [N_PORTS-1:0]                           int_rvalid;
+   wire [N_PORTS-1:0] 			        int_rready;
 
-  wire      [N_PORTS-1:0]       [C_AXI_ID_WIDTH-1:0] int_rid;
-  wire      [N_PORTS-1:0]                      [1:0] int_rresp;
-  wire      [N_PORTS-1:0]     [C_AXI_DATA_WIDTH-1:0] int_rdata;
-  wire      [N_PORTS-1:0]                            int_rlast;
-  wire      [N_PORTS-1:0]     [C_AXI_USER_WIDTH-1:0] int_ruser;
-  wire      [N_PORTS-1:0]         		             int_rvalid;
-  wire      [N_PORTS-1:0]          		             int_rready;
+   wire [N_PORTS-1:0]                    [31:0] int_wtrans_addr;
+   wire [N_PORTS-1:0] 			        int_wtrans_accept;
+   wire [N_PORTS-1:0] 			        int_wtrans_drop;
+   wire [N_PORTS-1:0] 			        int_wtrans_sent;
 
-  wire      [N_PORTS-1:0]                     [31:0] int_wtrans_addr;
-  wire      [N_PORTS-1:0]                   	     int_wtrans_accept;
-  wire      [N_PORTS-1:0]         	          	     int_wtrans_drop;
-  wire      [N_PORTS-1:0]         		             int_wtrans_sent;
+   wire [N_PORTS-1:0]                    [31:0] int_rtrans_addr;
+   wire [N_PORTS-1:0] 			        int_rtrans_accept;
+   wire [N_PORTS-1:0] 			        int_rtrans_drop;
+   wire [N_PORTS-1:0] 			        int_rtrans_sent;
 
-  wire      [N_PORTS-1:0]                     [31:0] int_rtrans_addr;
-  wire      [N_PORTS-1:0]         		             int_rtrans_accept;
-  wire      [N_PORTS-1:0]         		             int_rtrans_drop;
-  wire      [N_PORTS-1:0]                 		     int_rtrans_sent;
-
-
-genvar i;
+   genvar 					i;
 
 generate for (i = 0; i < N_PORTS; i++) begin
 
@@ -326,7 +327,7 @@ axi4_rwch_sender #(C_AXI_ID_WIDTH,C_AXI_USER_WIDTH) u_rwchsender(
                             .m_axi4_buser(int_buser[i]),
                             .m_axi4_bready(int_bready[i]));
 
-  axi4_arch_buffer #(C_AXI_ID_WIDTH,C_AXI_USER_WIDTH) u_arinbuffer(
+ axi4_arch_buffer #(C_AXI_ID_WIDTH,C_AXI_USER_WIDTH) u_arinbuffer(
                             .axi4_aclk(axi4_aclk),
                             .axi4_arstn(axi4_arstn),
                             .s_axi4_arid(s_axi4_arid [i]),
@@ -353,7 +354,7 @@ axi4_rwch_sender #(C_AXI_ID_WIDTH,C_AXI_USER_WIDTH) u_rwchsender(
                             .m_axi4_aruser(int_aruser [i]));
 
   axi4_arch_sender #(C_AXI_ID_WIDTH,C_AXI_USER_WIDTH) u_arsender(
-			    .axi4_aclk(axi4_aclk),
+			                      .axi4_aclk(axi4_aclk),
                             .axi4_arstn(axi4_arstn),
                             .trans_accept(int_rtrans_accept[i]),
                             .trans_drop(int_rtrans_drop[i]),
@@ -422,51 +423,58 @@ axi4_rrch_sender #(C_AXI_DATA_WIDTH,C_AXI_ID_WIDTH,C_AXI_USER_WIDTH) u_rrchsende
     end
 endgenerate
 
-
-
-rab_core #(.RAB_ENTRIES(NUM_SLICES), .C_AXI_DATA_WIDTH(32), .N_PORTS(N_PORTS)) u_rab_core(
-				  .s_axi_aclk(axi4lite_aclk),
-				  .s_axi_aresetn(axi4lite_arstn),
-				  .s_axi_awaddr(s_axi4lite_awaddr),
-				  .s_axi_awvalid(s_axi4lite_awvalid),
-				  .s_axi_awready(s_axi4lite_awready),
-				  .s_axi_wdata(s_axi4lite_wdata),
-				  .s_axi_wstrb(s_axi4lite_wstrb),
-				  .s_axi_wvalid(s_axi4lite_wvalid),
-				  .s_axi_wready(s_axi4lite_wready),
-				  .s_axi_bresp(s_axi4lite_bresp),
-				  .s_axi_bvalid(s_axi4lite_bvalid),
-				  .s_axi_bready(s_axi4lite_bready),
-				  .s_axi_araddr(s_axi4lite_araddr),
-				  .s_axi_arvalid(s_axi4lite_arvalid),
-				  .s_axi_arready(s_axi4lite_arready),
-				  .s_axi_rready(s_axi4lite_rready),
-				  .s_axi_rdata(s_axi4lite_rdata),
-				  .s_axi_rresp(s_axi4lite_rresp),
-				  .s_axi_rvalid(s_axi4lite_rvalid),
-				  .int_miss(int_miss),
-				  .int_multi(int_multi),
-				  .int_prot(int_prot),
-				  .port1_addr(int_awaddr),
-				  .port1_len(int_awlen),
-				  .port1_size(int_awsize),
-				  .port1_addr_valid(int_awvalid),
-				  .port1_type('1),
-				  .port1_sent(int_wtrans_sent),
-				  .port1_out_addr(int_wtrans_addr),
-				  .port1_accept(int_wtrans_accept),
-				  .port1_drop(int_wtrans_drop),
-				  .port2_addr(int_araddr),
-				  .port2_len(int_arlen),
-				  .port2_size(int_arsize),
-				  .port2_addr_valid(int_arvalid),
-				  .port2_type('0),
-				  .port2_sent(int_rtrans_sent),
-				  .port2_out_addr(int_rtrans_addr),
-				  .port2_accept(int_rtrans_accept),
-				  .port2_drop(int_rtrans_drop));
-
-
+   rab_core
+     #(
+       .RAB_ENTRIES(NUM_SLICES),
+       .C_AXI_DATA_WIDTH(32),
+       .C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
+       .N_PORTS(N_PORTS)
+       ) 
+   u_rab_core
+     (
+			.s_axi_aclk(axi4lite_aclk),
+			.s_axi_aresetn(axi4lite_arstn),
+			.s_axi_awaddr(s_axi4lite_awaddr),
+			.s_axi_awvalid(s_axi4lite_awvalid),
+			.s_axi_awready(s_axi4lite_awready),
+			.s_axi_wdata(s_axi4lite_wdata),
+			.s_axi_wstrb(s_axi4lite_wstrb),
+			.s_axi_wvalid(s_axi4lite_wvalid),
+			.s_axi_wready(s_axi4lite_wready),
+			.s_axi_bresp(s_axi4lite_bresp),
+			.s_axi_bvalid(s_axi4lite_bvalid),
+			.s_axi_bready(s_axi4lite_bready),
+			.s_axi_araddr(s_axi4lite_araddr),
+			.s_axi_arvalid(s_axi4lite_arvalid),
+			.s_axi_arready(s_axi4lite_arready),
+			.s_axi_rready(s_axi4lite_rready),
+			.s_axi_rdata(s_axi4lite_rdata),
+			.s_axi_rresp(s_axi4lite_rresp),
+			.s_axi_rvalid(s_axi4lite_rvalid),
+			.int_miss(int_miss),
+			.int_multi(int_multi),
+			.int_prot(int_prot),
+      .int_mhr_full(int_mhr_full),                                                                                       	.port1_addr(int_awaddr),
+      .port1_id(int_awid),                                                                                
+			.port1_len(int_awlen),
+			.port1_size(int_awsize),
+			.port1_addr_valid(int_awvalid),
+			.port1_type('1),
+			.port1_sent(int_wtrans_sent),
+			.port1_out_addr(int_wtrans_addr),
+			.port1_accept(int_wtrans_accept),
+			.port1_drop(int_wtrans_drop),
+			.port2_addr(int_araddr),
+      .port2_id(int_arid),                                                                                      
+			.port2_len(int_arlen),
+			.port2_size(int_arsize),
+			.port2_addr_valid(int_arvalid),
+			.port2_type('0),
+			.port2_sent(int_rtrans_sent),
+			.port2_out_addr(int_rtrans_addr),
+			.port2_accept(int_rtrans_accept),
+			.port2_drop(int_rtrans_drop)
+      );
 
 endmodule
 

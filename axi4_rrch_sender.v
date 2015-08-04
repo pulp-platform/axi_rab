@@ -79,7 +79,7 @@ module axi4_rrch_sender (axi4_aclk,
   assign s_axi4_rresp  = dropping ? 2'b10 : m_axi4_rresp;
 
  assign s_axi4_rvalid = dropping | m_axi4_rvalid;
- assign m_axi4_rready = ~dropping;
+ assign m_axi4_rready = ~dropping & s_axi4_rready;
 
 endmodule
 
