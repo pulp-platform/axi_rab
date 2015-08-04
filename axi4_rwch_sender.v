@@ -87,7 +87,8 @@ module axi4_rwch_sender (axi4_aclk,
   assign s_axi4_buser  = dropping ? {C_AXI_USER_WIDTH{1'b0}} : m_axi4_buser;
 
  assign s_axi4_bvalid = dropping | m_axi4_bvalid;
- assign m_axi4_bready = ~dropping & s_axi4_bready;
+ assign m_axi4_bready = ~dropping;
+
 
 endmodule
 
