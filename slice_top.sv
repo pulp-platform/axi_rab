@@ -14,11 +14,13 @@ module slice_top
     output  logic                   [31:0]  out_addr);
 
    
-   reg         first_hit;
-   genvar      i;
-   integer     j;
-   logic     [32*RAB_ENTRIES-1:0]  slice_out_addr;
-   
+   logic 				    first_hit;
+   genvar 				    i;
+   integer 				    j;
+   logic [32*RAB_ENTRIES-1:0] 		    slice_out_addr;
+
+   logic second_hit;
+   integer k;  
    
  generate
    for (i=0;i<RAB_ENTRIES;i=i+1)
@@ -38,27 +40,39 @@ module slice_top
    end
   endgenerate
 
-  always @(hit or slice_out_addr)
-  begin
-   first_hit = 0;
-   multiple_hit = 0;
-   out_addr = 32'hDEADBEEF;
-   for (j = 0; j < RAB_ENTRIES; j++)
-   begin
-    if (hit[j] == 1'b1)
+   always_comb
      begin
-       if (first_hit)
-       begin
-         multiple_hit = 1'b1;
-         out_addr = 32'hDEADBEEF;
-       end
-       else
-       begin
-         first_hit=1'b1;
-         out_addr = slice_out_addr[32*j +: 32];
-       end
+	first_hit = 0;
+	second_hit = 0;
+	k = 0;
+	multiple_hit = 0;
+	out_addr = 32'hDEADBEEF;
+	for (j = 0; j < RAB_ENTRIES; j++)
+	  begin
+	     if (hit[j] == 1'b1)
+	       begin
+		  if (first_hit)
+		    begin
+		       second_hit=1'b1;
+		       //if (slice_out_addr[32*k +: 32] != slice_out_addr[32*j +: 32])
+		       // begin
+		       //    multiple_hit = 1'b1;
+		       //    out_addr = 32'hDEADBEEF;
+		       // end
+		    end
+		  else if (second_hit)
+		    begin
+		       multiple_hit = 1'b1;
+		       out_addr = 32'hDEADBEEF;
+		    end
+		  else
+		    begin
+		       first_hit=1'b1;
+		       k = j;
+		       out_addr = slice_out_addr[32*j +: 32];
+		    end
+	       end
+	  end
      end
-   end
-  end
-
+   
 endmodule
