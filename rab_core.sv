@@ -63,8 +63,8 @@ module rab_core
    
    localparam  REG_ENTRIES = 4*RAB_ENTRIES*N_PORTS + 4;
 
-   logic [N_PORTS-1:0]                  [14:0] p1_burst_size;
-   logic [N_PORTS-1:0]                  [14:0] p2_burst_size;
+   logic [N_PORTS-1:0]                  [15:0] p1_burst_size;
+   logic [N_PORTS-1:0]                  [15:0] p2_burst_size;
 
    logic [N_PORTS-1:0]                  [31:0] p1_max_addr;
    logic [N_PORTS-1:0]                  [31:0] p2_max_addr;
@@ -107,11 +107,11 @@ module rab_core
            // select = 1 -> port2 active
            select[idx] = (curr_priority[idx] & port1_addr_valid[idx]) | ~port2_addr_valid[idx];
            
-           p1_burst_size[idx] = port1_len[idx] << port1_size[idx];
-           p2_burst_size[idx] = port2_len[idx] << port2_size[idx];
+           p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
+           p2_burst_size[idx] = (port2_len[idx] + 1) << port2_size[idx];
 
-           p1_max_addr[idx] = port1_addr[idx] + p1_burst_size[idx];
-           p2_max_addr[idx] = port2_addr[idx] + p2_burst_size[idx];
+           p1_max_addr[idx] = port1_addr[idx] + p1_burst_size[idx] - 1;
+           p2_max_addr[idx] = port2_addr[idx] + p2_burst_size[idx] - 1;
 
            int_addr_min[idx] = select[idx] ? port1_addr[idx]  : port2_addr[idx];
            int_addr_max[idx] = select[idx] ? p1_max_addr[idx] : p2_max_addr[idx];
