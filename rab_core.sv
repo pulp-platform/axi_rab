@@ -3,7 +3,8 @@
 module rab_core
   #(
     parameter RAB_ENTRIES      = 16,
-    parameter C_AXI_DATA_WIDTH = 32,
+    parameter C_AXI_DATA_WIDTH = 64,
+    parameter C_AXICFG_DATA_WIDTH = 32,
     parameter C_AXI_ID_WIDTH   = 8,
     parameter N_PORTS          = 3
     )
@@ -15,8 +16,8 @@ module rab_core
     input    logic                            s_axi_awvalid,
     output   logic                            s_axi_awready,
 
-    input    logic    [C_AXI_DATA_WIDTH-1:0]  s_axi_wdata,
-    input    logic  [C_AXI_DATA_WIDTH/8-1:0]  s_axi_wstrb,
+    input    logic   [C_AXICFG_DATA_WIDTH-1:0] s_axi_wdata,
+    input    logic [C_AXICFG_DATA_WIDTH/8-1:0] s_axi_wstrb,
     input    logic                            s_axi_wvalid,
     output   logic                            s_axi_wready,
 
@@ -25,7 +26,7 @@ module rab_core
     output   logic                            s_axi_arready,
 
     input    logic                            s_axi_rready,
-    output   logic    [C_AXI_DATA_WIDTH-1:0]  s_axi_rdata,
+    output   logic    [C_AXICFG_DATA_WIDTH-1:0] s_axi_rdata,
     output   logic                     [1:0]  s_axi_rresp,
     output   logic                            s_axi_rvalid,
 
@@ -61,11 +62,18 @@ module rab_core
     output   logic    [N_PORTS-1:0]                       port2_drop
     );
    
-   localparam  REG_ENTRIES = 4*RAB_ENTRIES*N_PORTS + 4;
-
+   localparam REG_ENTRIES = 4*RAB_ENTRIES*N_PORTS + 4;
+   localparam AXI_SIZE_WIDTH = `log2(C_AXI_DATA_WIDTH/8-1);
+   
    logic [N_PORTS-1:0]                  [15:0] p1_burst_size;
    logic [N_PORTS-1:0]                  [15:0] p2_burst_size;
 
+   logic [N_PORTS-1:0]                  [31:0] p1_align_addr;
+   logic [N_PORTS-1:0]                  [31:0] p2_align_addr;
+
+   logic [N_PORTS-1:0]    [AXI_SIZE_WIDTH-1:0] p1_mask;
+   logic [N_PORTS-1:0]    [AXI_SIZE_WIDTH-1:0] p2_mask;
+   
    logic [N_PORTS-1:0]                  [31:0] p1_max_addr;
    logic [N_PORTS-1:0]                  [31:0] p2_max_addr;
    
@@ -95,12 +103,13 @@ module rab_core
    localparam  REGS_SLICE = 4 * 32; // stesso numero di reg da considerare come offset iniziale (top level) per la config
    localparam  REGS_CH    = REGS_SLICE * RAB_ENTRIES; // reg per ogni porta
    localparam  PORT_ID_WIDTH = (N_PORTS < 3) ? 1 : `log2(N_PORTS-1);
-   
+      
    //-----------------------------------------------------------------------------------
-   
+
    always_comb
      begin
         var integer idx;
+  
         for (idx=0; idx<N_PORTS; idx++) begin
 
            // select = 0 -> port1 active
@@ -110,8 +119,33 @@ module rab_core
            p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
            p2_burst_size[idx] = (port2_len[idx] + 1) << port2_size[idx];
 
-           p1_max_addr[idx] = port1_addr[idx] + p1_burst_size[idx] - 1;
-           p2_max_addr[idx] = port2_addr[idx] + p2_burst_size[idx] - 1;
+           // align min addr for max addr computation to allow for smart AXI bursts around the 4k boundary 
+           if      (port1_size[idx] == 3'b001)
+             p1_mask[idx] = 3'b110;
+           else if (port1_size[idx] == 3'b010)
+             p1_mask[idx] = 3'b100;
+           else if (port1_size[idx] == 3'b011)
+             p1_mask[idx] = 3'b000;
+           else 
+             p1_mask[idx] = 3'b111;
+
+           p1_align_addr[idx][C_AXICFG_DATA_WIDTH-1:AXI_SIZE_WIDTH] = port1_addr[idx][C_AXICFG_DATA_WIDTH-1:AXI_SIZE_WIDTH];
+           p1_align_addr[idx][AXI_SIZE_WIDTH-1:0] = port1_addr[idx][AXI_SIZE_WIDTH-1:0] & p1_mask[idx];
+           
+           if      (port2_size[idx] == 3'b001)
+             p2_mask[idx] = 3'b110;
+           else if (port2_size[idx] == 3'b010)
+             p2_mask[idx] = 3'b100;
+           else if (port2_size[idx] == 3'b011)
+             p2_mask[idx] = 3'b000;
+           else 
+             p2_mask[idx] = 3'b111;
+
+           p2_align_addr[idx][C_AXICFG_DATA_WIDTH-1:AXI_SIZE_WIDTH] = port2_addr[idx][C_AXICFG_DATA_WIDTH-1:AXI_SIZE_WIDTH];
+           p2_align_addr[idx][AXI_SIZE_WIDTH-1:0] = port2_addr[idx][AXI_SIZE_WIDTH-1:0] & p2_mask[idx];
+          
+           p1_max_addr[idx]  = p1_align_addr[idx] + p1_burst_size[idx] - 1;
+           p2_max_addr[idx]  = p2_align_addr[idx] + p2_burst_size[idx] - 1;
 
            int_addr_min[idx] = select[idx] ? port1_addr[idx]  : port2_addr[idx];
            int_addr_max[idx] = select[idx] ? p1_max_addr[idx] : p2_max_addr[idx];
