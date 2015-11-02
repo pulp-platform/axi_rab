@@ -426,7 +426,8 @@ endgenerate
    rab_core
      #(
        .RAB_ENTRIES(NUM_SLICES),
-       .C_AXI_DATA_WIDTH(32),
+       .C_AXI_DATA_WIDTH(C_AXI_DATA_WIDTH),
+       .C_AXICFG_DATA_WIDTH(C_AXICFG_DATA_WIDTH),
        .C_AXI_ID_WIDTH(C_AXI_ID_WIDTH),
        .N_PORTS(N_PORTS)
        ) 

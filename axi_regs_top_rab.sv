@@ -40,7 +40,7 @@ module axi_regs_top_rab
     output  logic                                  MhFifoFull_SO    
     );
 
-   localparam ADDR_REG_MSB = `log2(REG_ENTRIES-1)+2-1;
+   localparam ADDR_REG_MSB = `log2(REG_ENTRIES-1)+2;
    
    logic                                  awaddr_done_reg;
    logic                                  awaddr_done_reg_dly;
