@@ -2,11 +2,12 @@
 
 module rab_core
   #(
-    parameter RAB_ENTRIES      = 16,
-    parameter C_AXI_DATA_WIDTH = 64,
+    parameter RAB_ENTRIES         = 16,
+    parameter C_AXI_DATA_WIDTH    = 64,
     parameter C_AXICFG_DATA_WIDTH = 32,
-    parameter C_AXI_ID_WIDTH   = 8,
-    parameter N_PORTS          = 3
+    parameter C_AXI_ID_WIDTH      = 8,
+    parameter C_AXI_USER_WIDTH    = 6,
+    parameter N_PORTS             = 3
     )
    (
     input    logic                            s_axi_aclk,
@@ -39,27 +40,29 @@ module rab_core
     output   logic    [N_PORTS-1:0]  int_multi,
     output   logic                   int_mhr_full, 
 
-    input    logic    [N_PORTS-1:0]               [31:0]  port1_addr,
-    input    logic    [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]  port1_id,
-    input    logic    [N_PORTS-1:0]                [7:0]  port1_len,
-    input    logic    [N_PORTS-1:0]                [2:0]  port1_size,
-    input    logic    [N_PORTS-1:0]                       port1_addr_valid,
-    input    logic    [N_PORTS-1:0]                       port1_type,
-    input    logic    [N_PORTS-1:0]                       port1_sent,
-    output   logic    [N_PORTS-1:0]               [31:0]  port1_out_addr,
-    output   logic    [N_PORTS-1:0]                       port1_accept,
-    output   logic    [N_PORTS-1:0]                       port1_drop,
+    input    logic    [N_PORTS-1:0]                 [31:0] port1_addr,
+    input    logic    [N_PORTS-1:0]   [C_AXI_ID_WIDTH-1:0] port1_id,
+    input    logic    [N_PORTS-1:0]                  [7:0] port1_len,
+    input    logic    [N_PORTS-1:0]                  [2:0] port1_size,
+    input    logic    [N_PORTS-1:0]                        port1_addr_valid,
+    input    logic    [N_PORTS-1:0]                        port1_type,
+    input    logic    [N_PORTS-1:0] [C_AXI_USER_WIDTH-1:0] port1_ctrl,
+    input    logic    [N_PORTS-1:0]                        port1_sent,
+    output   logic    [N_PORTS-1:0]                 [31:0] port1_out_addr,
+    output   logic    [N_PORTS-1:0]                        port1_accept,
+    output   logic    [N_PORTS-1:0]                        port1_drop,
 
-    input    logic    [N_PORTS-1:0]               [31:0]  port2_addr,
-    input    logic    [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]  port2_id,
-    input    logic    [N_PORTS-1:0]                [7:0]  port2_len,
-    input    logic    [N_PORTS-1:0]                [2:0]  port2_size,
-    input    logic    [N_PORTS-1:0]                       port2_addr_valid,
-    input    logic    [N_PORTS-1:0]                       port2_type,
-    input    logic    [N_PORTS-1:0]                       port2_sent,
-    output   logic    [N_PORTS-1:0]               [31:0]  port2_out_addr,
-    output   logic    [N_PORTS-1:0]                       port2_accept,
-    output   logic    [N_PORTS-1:0]                       port2_drop
+    input    logic    [N_PORTS-1:0]                 [31:0] port2_addr,
+    input    logic    [N_PORTS-1:0]   [C_AXI_ID_WIDTH-1:0] port2_id,
+    input    logic    [N_PORTS-1:0]                  [7:0] port2_len,
+    input    logic    [N_PORTS-1:0]                  [2:0] port2_size,
+    input    logic    [N_PORTS-1:0]                        port2_addr_valid,
+    input    logic    [N_PORTS-1:0]                        port2_type,
+    input    logic    [N_PORTS-1:0] [C_AXI_USER_WIDTH-1:0] port2_ctrl,
+    input    logic    [N_PORTS-1:0]                        port2_sent,
+    output   logic    [N_PORTS-1:0]                 [31:0] port2_out_addr,
+    output   logic    [N_PORTS-1:0]                        port2_accept,
+    output   logic    [N_PORTS-1:0]                        port2_drop
     );
    
    localparam REG_ENTRIES = 4*RAB_ENTRIES*N_PORTS + 4;
@@ -76,12 +79,15 @@ module rab_core
    
    logic [N_PORTS-1:0]                  [31:0] p1_max_addr;
    logic [N_PORTS-1:0]                  [31:0] p2_max_addr;
-   
+ 
+   logic [N_PORTS-1:0]                         p1_skip;
+   logic [N_PORTS-1:0]                         p2_skip;
+  
    logic [N_PORTS-1:0]                         int_rw;   
    logic [N_PORTS-1:0]                  [31:0] int_addr_min;
    logic [N_PORTS-1:0]                  [31:0] int_addr_max;
-   logic [N_PORTS-1:0]    [C_AXI_ID_WIDTH-1:0] int_id; 
-   
+   logic [N_PORTS-1:0]    [C_AXI_ID_WIDTH-1:0] int_id;
+    
    logic [N_PORTS-1:0]                         no_hit; //   mi interessa solo sapere se c'e` stato hit,
    logic [N_PORTS-1:0]                         no_prot;//    vedi lunghezze diverse con hit e prot 
 
@@ -141,6 +147,16 @@ module rab_core
            else 
              p2_mask[idx] = 3'b111;
 
+           if (port1_ctrl[idx] == {C_AXI_USER_WIDTH{1'b1}})
+             p1_skip[idx] = 1'b1;
+           else
+             p1_skip[idx] = 1'b0;
+
+           if (port2_ctrl[idx] == {C_AXI_USER_WIDTH{1'b1}})
+             p2_skip[idx] = 1'b1;
+           else
+             p2_skip[idx] = 1'b0;
+           
            p2_align_addr[idx][C_AXICFG_DATA_WIDTH-1:AXI_SIZE_WIDTH] = port2_addr[idx][C_AXICFG_DATA_WIDTH-1:AXI_SIZE_WIDTH];
            p2_align_addr[idx][AXI_SIZE_WIDTH-1:0] = port2_addr[idx][AXI_SIZE_WIDTH-1:0] & p2_mask[idx];
           
@@ -271,6 +287,8 @@ module rab_core
               .s_axi_aresetn (s_axi_aresetn),
               .port1_addr_valid (port1_addr_valid[z]),
               .port2_addr_valid (port2_addr_valid[z]),
+              .port1_skip (p1_skip[z]),
+              .port2_skip (p2_skip[z]),
               .port1_sent (port1_sent[z]),
               .port2_sent (port2_sent[z]),
               .select (select[z]),        
@@ -279,9 +297,9 @@ module rab_core
               .no_prot (no_prot[z]),
               .out_addr (out_addr[z]),   
               .port1_accept (port1_accept[z]),
-              .port1_drop  (port1_drop[z]),  
+              .port1_drop   (port1_drop[z]),  
               .port2_accept (port2_accept[z]), 
-              .port2_drop (port2_drop[z]),  
+              .port2_drop   (port2_drop[z]),
               .out_addr_reg  (out_addr_reg[z]),
               .int_miss (int_miss[z]),    
               .int_multi (int_multi[z]),  

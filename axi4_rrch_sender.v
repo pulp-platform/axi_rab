@@ -71,15 +71,15 @@ module axi4_rrch_sender (axi4_aclk,
     end
   end
 
-  assign s_axi4_rdata  = m_axi4_rdata;
-  assign s_axi4_rlast  = dropping ? 1'b1 : m_axi4_rlast;
-  assign s_axi4_ruser  = dropping ? {C_AXI_USER_WIDTH{1'b0}} : m_axi4_ruser;
+   assign s_axi4_rdata  = m_axi4_rdata;
+   assign s_axi4_rlast  = dropping ? 1'b1 : m_axi4_rlast;
+   assign s_axi4_ruser  = dropping ? {C_AXI_USER_WIDTH{1'b0}} : m_axi4_ruser;
 
-  assign s_axi4_rid    = dropping ? id_to_drop : m_axi4_rid;
-  assign s_axi4_rresp  = dropping ? 2'b10 : m_axi4_rresp;
+   assign s_axi4_rid    = dropping ? id_to_drop : m_axi4_rid;
+   assign s_axi4_rresp  = dropping ? 2'b10 : m_axi4_rresp;
 
- assign s_axi4_rvalid = dropping | m_axi4_rvalid;
- assign m_axi4_rready = ~dropping & s_axi4_rready;
+   assign s_axi4_rvalid = dropping | m_axi4_rvalid;
+   assign m_axi4_rready = ~dropping & s_axi4_rready;
 
 endmodule
 
