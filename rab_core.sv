@@ -166,7 +166,7 @@ module rab_core
            int_addr_min[idx] = select[idx] ? port1_addr[idx]  : port2_addr[idx];
            int_addr_max[idx] = select[idx] ? p1_max_addr[idx] : p2_max_addr[idx];
            int_rw[idx]       = select[idx] ? port1_type[idx]  : port2_type[idx];
-           int_id[idx]       = select[idx] ? port1_id[idx]    : port2_id[idx];
+           int_id[idx]       = select[idx] ? ( port1_id[idx] & {C_AXI_ID_WIDTH{!p1_skip[idx]}}) : ( port2_id[idx] & {C_AXI_ID_WIDTH{!p2_skip[idx]}});
            
            no_hit [idx]      = ~| hit [idx];
            no_prot[idx]      = ~| prot[idx];
