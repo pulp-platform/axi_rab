@@ -49,6 +49,7 @@ module rab_core
     input    logic    [N_PORTS-1:0] [C_AXI_USER_WIDTH-1:0] port1_ctrl,
     input    logic    [N_PORTS-1:0]                        port1_sent,
     output   logic    [N_PORTS-1:0]                 [31:0] port1_out_addr,
+    output   logic    [N_PORTS-1:0]                        port1_master_select,
     output   logic    [N_PORTS-1:0]                        port1_accept,
     output   logic    [N_PORTS-1:0]                        port1_drop,
 
@@ -61,6 +62,7 @@ module rab_core
     input    logic    [N_PORTS-1:0] [C_AXI_USER_WIDTH-1:0] port2_ctrl,
     input    logic    [N_PORTS-1:0]                        port2_sent,
     output   logic    [N_PORTS-1:0]                 [31:0] port2_out_addr,
+    output   logic    [N_PORTS-1:0]                        port2_master_select,
     output   logic    [N_PORTS-1:0]                        port2_accept,
     output   logic    [N_PORTS-1:0]                        port2_drop
     );
@@ -98,6 +100,8 @@ module rab_core
    logic [N_PORTS-1:0]                     [31:0] out_addr_reg; 
    logic [REG_ENTRIES-1:0]                 [31:0] int_cfg_regs; 
    logic [N_PORTS-1:0] [4*RAB_ENTRIES-1:0] [31:0] int_cfg_regs_slices; 
+   logic [N_PORTS-1:0]                            master_select;
+   logic [N_PORTS-1:0]                            master_select_reg;
 
    logic [N_PORTS-1:0]                            select;
    reg [N_PORTS-1:0]                              curr_priority;
@@ -173,6 +177,9 @@ module rab_core
 
            port1_out_addr[idx] = out_addr_reg[idx];
            port2_out_addr[idx] = out_addr_reg[idx];
+
+           port1_master_select[idx] = master_select_reg[idx];
+           port2_master_select[idx] = master_select_reg[idx];
         end
      end   
 
@@ -271,7 +278,8 @@ module rab_core
               .out_addr(out_addr[z]),
               .multiple_hit(multiple_hit[z]),      
               .prot(prot[z]),
-              .hit(hit[z])
+              .hit(hit[z]),
+              .master_select(master_select[z])
               );
         end
    endgenerate
@@ -295,12 +303,14 @@ module rab_core
               .no_hit (no_hit[z]),   
               .multiple_hit (multiple_hit[z]),
               .no_prot (no_prot[z]),
-              .out_addr (out_addr[z]),   
+              .out_addr (out_addr[z]),
+              .master_select (master_select[z]),
               .port1_accept (port1_accept[z]),
               .port1_drop   (port1_drop[z]),  
               .port2_accept (port2_accept[z]), 
               .port2_drop   (port2_drop[z]),
               .out_addr_reg  (out_addr_reg[z]),
+              .master_select_reg (master_select_reg[z]),
               .int_miss (int_miss[z]),    
               .int_multi (int_multi[z]),  
               .int_prot (int_prot[z])

@@ -10,7 +10,8 @@ module slice_top
     input   logic                   [31:0]  int_addr_max,
     output  logic        [RAB_ENTRIES-1:0]  prot,
     output  logic        [RAB_ENTRIES-1:0]  hit,
-    output  logic                           multiple_hit, 
+    output  logic                           multiple_hit,
+    output  logic                           master_select,
     output  logic                   [31:0]  out_addr);
 
    
@@ -47,7 +48,7 @@ module slice_top
       k = 0;
       multiple_hit = 0;
       out_addr = 32'hDEADBEEF;
-      
+      master_select = 0;
         for (j = 0; j < RAB_ENTRIES; j++)
         begin
            if (hit[j] == 1'b1)
@@ -66,12 +67,14 @@ module slice_top
                 begin
                    multiple_hit = 1'b1;
                    out_addr = 32'hDEADBEEF;
+                   master_select = 0;
                 end
               else
                 begin
                    first_hit=1'b1;
                    k = j;
                    out_addr = slice_out_addr[32*j +: 32];
+                   master_select = int_cfg_regs[4*j+3][3];
                 end
              end
 	      end
