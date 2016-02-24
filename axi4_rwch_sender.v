@@ -63,7 +63,7 @@ module axi4_rwch_sender (axi4_aclk,
     if (axi4_arstn == 1'b0) begin
       dropping <= 1'b0;
     end else begin
-      if (trans_infifo && ~dropping && ~m_axi4_bvalid && wlast_received)
+      if (trans_infifo && ~dropping && wlast_received)
         dropping <= 1'b1;
       else if (trans_done)
         dropping <= 1'b0;
@@ -82,12 +82,13 @@ module axi4_rwch_sender (axi4_aclk,
     end
   end
 
-  assign s_axi4_bid    = dropping ? id_to_drop : m_axi4_bid;
-  assign s_axi4_bresp  = dropping ? 2'b00 : m_axi4_bresp;
-  assign s_axi4_buser  = dropping ? {C_AXI_USER_WIDTH{1'b0}} : m_axi4_buser;
-
- assign s_axi4_bvalid = dropping | m_axi4_bvalid;
- assign m_axi4_bready = ~dropping & s_axi4_bready;
+   assign s_axi4_buser  = dropping ? {C_AXI_USER_WIDTH{1'b0}} : m_axi4_buser;
+   
+   assign s_axi4_bid    = dropping ? id_to_drop : m_axi4_bid;
+   assign s_axi4_bresp  = dropping ? 2'b10 : m_axi4_bresp;
+   
+   assign s_axi4_bvalid = dropping | m_axi4_bvalid;
+   assign m_axi4_bready = ~dropping & s_axi4_bready;
 
 endmodule
 

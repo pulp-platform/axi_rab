@@ -1,7 +1,7 @@
 `define log2(VALUE) ( (VALUE) == ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
 
 module axi_regs_top_rab
-  #( 
+  #(
      parameter REG_ENTRIES         = 196,
      parameter C_AXICFG_DATA_WIDTH = 32,
      parameter AXI_ADDR_WIDTH      = 32, // needs to be equal to C_AXICFG_DATA_WIDTH
@@ -29,19 +29,19 @@ module axi_regs_top_rab
     output  logic [1:0]                            s_axi_rresp,
     output  logic                                  s_axi_rvalid,
     input   logic                                  s_axi_rready,
-    
+
     // Slice configuration
     output  logic [REG_ENTRIES-1:0][AXI_ADDR_WIDTH-1:0] cfg_regs,
-    
+
     // Miss handling
     input   logic [AXI_ADDR_WIDTH-1:0]             MissAddr_DI,
     input   logic [MISS_ID_WIDTH-1:0]              MissId_DI,
     input   logic                                  Miss_SI,
-    output  logic                                  MhFifoFull_SO    
+    output  logic                                  MhFifoFull_SO
     );
 
    localparam ADDR_REG_MSB = `log2(REG_ENTRIES-1)+2;
-   
+
    logic                                  awaddr_done_reg;
    logic                                  awaddr_done_reg_dly;
    logic                                  wdata_done_reg;
@@ -52,17 +52,17 @@ module axi_regs_top_rab
    logic                                  araddr_done_reg;
    logic                                  rresp_done_reg;
    logic                                  rresp_running_reg;
-   
+
    logic                                  awready;
    logic                                  wready;
    logic                                  bvalid;
-   
+
    logic                                  arready;
    logic                                  rvalid;
-   
+
    logic [AXI_ADDR_WIDTH-1:0]             waddr_reg;
    logic [C_AXICFG_DATA_WIDTH/8-1:0][7:0] wdata_reg;
-   
+
    logic [AXI_ADDR_WIDTH/8-1:0]           wstrb_reg;
 
    logic [AXI_ADDR_WIDTH-1:0]             raddr_reg;
@@ -71,20 +71,20 @@ module axi_regs_top_rab
    logic                                  write_en;
 
    logic [3:0][7:0]                       CONFIGURATION_REGISTERS [REG_ENTRIES];
-   
+
    logic                                  wdata_done_rise;
    logic                                  awaddr_done_rise;
 
    genvar j;
-         
+
    //********************************************************
    //****************** AXI Lite Interface ******************
    //********************************************************
-   
+
    assign write_en = (wdata_done_rise & awaddr_done_reg) | (awaddr_done_rise & wdata_done_reg);
    assign wdata_done_rise = wdata_done_reg & ~wdata_done_reg_dly;
    assign awaddr_done_rise = awaddr_done_reg & ~awaddr_done_reg_dly;
-   
+
    always @(posedge s_axi_aclk or negedge s_axi_aresetn)
      begin
         if (!s_axi_aresetn)
@@ -98,7 +98,7 @@ module axi_regs_top_rab
              awaddr_done_reg_dly <= awaddr_done_reg;
           end
      end
-   
+
    // WRITE ADDRESS CHANNEL logic
    always @(posedge s_axi_aclk or negedge s_axi_aresetn)
      begin
@@ -243,9 +243,9 @@ module axi_regs_top_rab
                end
           end
      end
-   
+
    // Configuration registers
-   always @( posedge s_axi_aclk or negedge s_axi_aresetn )   
+   always @( posedge s_axi_aclk or negedge s_axi_aresetn )
      begin
         var integer idx_regs, idx_byte;
         if ( s_axi_aresetn == 1'b0 )
@@ -262,7 +262,7 @@ module axi_regs_top_rab
                  CONFIGURATION_REGISTERS[waddr_reg[ADDR_REG_MSB:2]][idx_byte] <= wdata_reg[idx_byte];
           end
      end
-   
+
    assign data_out_reg = CONFIGURATION_REGISTERS[raddr_reg[ADDR_REG_MSB:2]];
 
    generate
@@ -271,7 +271,7 @@ module axi_regs_top_rab
            assign cfg_regs[j] = CONFIGURATION_REGISTERS[j];
         end
    endgenerate
-   
+
    assign s_axi_awready = awready;
    assign s_axi_wready = wready;
 
@@ -289,36 +289,36 @@ module axi_regs_top_rab
    //assign IdFifoWen_S   = '0;
    //assign AddrFifoRen_S = '0;
    //assign IdFifoRen_S   = '0;
-   
+
    //********************************************************
    //****************** Miss Handling FIFOs *****************
    //********************************************************
 
    logic [MHR_WIDTH-1:0] AddrFifoDin_D;
    logic                 AddrFifoWen_S;
-   logic                 AddrFifoRen_S;               
+   logic                 AddrFifoRen_S;
    logic [MHR_WIDTH-1:0] AddrFifoDout_D;
    logic                 AddrFifoFull_S;
    logic                 AddrFifoEmpty_S;
-   
+
    logic [MHR_WIDTH-1:0] IdFifoDin_D;
    logic                 IdFifoWen_S;
-   logic                 IdFifoRen_S;               
+   logic                 IdFifoRen_S;
    logic [MHR_WIDTH-1:0] IdFifoDout_D;
    logic                 IdFifoFull_S;
    logic                 IdFifoEmpty_S;
 
    logic [C_AXICFG_DATA_WIDTH-1:0] wdata_reg_vec;
-   
+
    assign MhFifoFull_SO = (AddrFifoWen_S & AddrFifoFull_S) | (IdFifoWen_S & IdFifoFull_S);
-   
+
    generate
       for (j=0; j<C_AXICFG_DATA_WIDTH/8; j++)
         begin
            assign wdata_reg_vec[(j+1)*8-1:j*8] = wdata_reg[j];
         end
    endgenerate
-   
+
    // write Address FIFO
    always_comb
      begin
@@ -335,7 +335,7 @@ module axi_regs_top_rab
              AddrFifoDin_D <= wdata_reg_vec[AXI_ADDR_WIDTH-1:AXI_ADDR_WIDTH-MHR_WIDTH];
           end
      end
-   
+
    // write ID FIFO
    always_comb
      begin
@@ -352,7 +352,7 @@ module axi_regs_top_rab
              IdFifoDin_D <= wdata_reg_vec[MHR_WIDTH-1:0];
           end
      end
-   
+
    // AXI read data
    always_comb
      begin
@@ -377,15 +377,15 @@ module axi_regs_top_rab
                   s_axi_rdata[C_AXICFG_DATA_WIDTH-2:MISS_ID_WIDTH] <= 'b0;
                   s_axi_rdata[MISS_ID_WIDTH-1:0]                   <= IdFifoDout_D;
                   if ( IdFifoEmpty_S == 1'b0 )
-                    IdFifoRen_S <= 1'b1;                  
+                    IdFifoRen_S <= 1'b1;
                end
           end // if ( rvalid == 1'b1 )
      end // always_comb begin
-      
+
    xilinx_fifo_rab_mh xilinx_fifo_addr_i
      (
-      .clk  (s_axi_aclk     ), 
-      .rst  (~s_axi_aresetn ), 
+      .clk  (s_axi_aclk     ),
+      .rst  (~s_axi_aresetn ),
       .din  (AddrFifoDin_D  ),
       .wr_en(AddrFifoWen_S & ~AddrFifoFull_S),
       .rd_en(AddrFifoRen_S  ),
@@ -393,11 +393,11 @@ module axi_regs_top_rab
       .full (AddrFifoFull_S ),
       .empty(AddrFifoEmpty_S)
       );
-   
+
    xilinx_fifo_rab_mh xilinx_fifo_stat_i
      (
-      .clk  (s_axi_aclk    ), 
-      .rst  (~s_axi_aresetn), 
+      .clk  (s_axi_aclk    ),
+      .rst  (~s_axi_aresetn),
       .din  (IdFifoDin_D   ),
       .wr_en(IdFifoWen_S & ~IdFifoFull_S),
       .rd_en(IdFifoRen_S   ),
@@ -405,5 +405,5 @@ module axi_regs_top_rab
       .full (IdFifoFull_S  ),
       .empty(IdFifoEmpty_S )
       );
-   
+
 endmodule

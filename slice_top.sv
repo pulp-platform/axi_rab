@@ -42,37 +42,39 @@ module slice_top
 
    always_comb
      begin
-	first_hit = 0;
-	second_hit = 0;
-	k = 0;
-	multiple_hit = 0;
-	out_addr = 32'hDEADBEEF;
-	for (j = 0; j < RAB_ENTRIES; j++)
-	  begin
-	     if (hit[j] == 1'b1)
-	       begin
-		  if (first_hit)
-		    begin
-		       second_hit=1'b1;
-		       //if (slice_out_addr[32*k +: 32] != slice_out_addr[32*j +: 32])
-		       // begin
-		       //    multiple_hit = 1'b1;
-		       //    out_addr = 32'hDEADBEEF;
-		       // end
-		    end
-		  else if (second_hit)
-		    begin
-		       multiple_hit = 1'b1;
-		       out_addr = 32'hDEADBEEF;
-		    end
-		  else
-		    begin
-		       first_hit=1'b1;
-		       k = j;
-		       out_addr = slice_out_addr[32*j +: 32];
-		    end
-	       end
-	  end
+      first_hit = 0;
+      second_hit = 0;
+      k = 0;
+      multiple_hit = 0;
+      out_addr = 32'hDEADBEEF;
+      
+        for (j = 0; j < RAB_ENTRIES; j++)
+        begin
+           if (hit[j] == 1'b1)
+             begin
+              if (first_hit)
+                begin
+                   second_hit=1'b1;
+                   first_hit=1'b0;
+                   //if (slice_out_addr[32*k +: 32] != slice_out_addr[32*j +: 32])
+                   // begin
+                   //    multiple_hit = 1'b1;
+                   //    out_addr = 32'hDEADBEEF;
+                   // end
+                end
+              else if (second_hit)
+                begin
+                   multiple_hit = 1'b1;
+                   out_addr = 32'hDEADBEEF;
+                end
+              else
+                begin
+                   first_hit=1'b1;
+                   k = j;
+                   out_addr = slice_out_addr[32*j +: 32];
+                end
+             end
+	      end
      end
    
 endmodule
