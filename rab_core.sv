@@ -1,8 +1,11 @@
+`include "ulpsoc_defines.sv"
 `define log2(VALUE) ( (VALUE) == ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+
+`define MY_ARRAY_SUM(MY_ARRAY,ARRAY_SIZE) ( (ARRAY_SIZE==1) ? MY_ARRAY[0] : (ARRAY_SIZE==2) ? MY_ARRAY[0] + MY_ARRAY[1] : (ARRAY_SIZE==3) ? MY_ARRAY[0] + MY_ARRAY[1] + MY_ARRAY[2] : (ARRAY_SIZE==4) ? MY_ARRAY[0] + MY_ARRAY[1] + MY_ARRAY[2] + MY_ARRAY[3] : 0 )
 
 module rab_core
   #(
-    parameter RAB_ENTRIES         = 16,
+    //parameter RAB_ENTRIES         = 16,
     parameter C_AXI_DATA_WIDTH    = 64,
     parameter C_AXICFG_DATA_WIDTH = 32,
     parameter C_AXI_ID_WIDTH      = 8,
@@ -62,10 +65,23 @@ module rab_core
     input    logic    [N_PORTS-1:0]                        port2_sent,
     output   logic    [N_PORTS-1:0]                 [31:0] port2_out_addr,
     output   logic    [N_PORTS-1:0]                        port2_accept,
-    output   logic    [N_PORTS-1:0]                        port2_drop
+    output   logic    [N_PORTS-1:0]                        port2_drop,
+
+    input    logic    [N_PORTS-1:0]                        miss_l2,
+    input    logic    [N_PORTS-1:0]                 [31:0] miss_addr_l2,
+    input    logic    [N_PORTS-1:0]   [C_AXI_ID_WIDTH-1:0] miss_id_l2,  
+
+    output  logic [N_PORTS-1:0] [C_AXICFG_DATA_WIDTH-1:0]       wdata_tlb_l2,
+    output  logic [N_PORTS-1:0] [31:0]                          waddr_tlb_l2,
+    output  logic [N_PORTS-1:0]                                 wren_tlb_l2      
     );
+
+   localparam integer RAB_ENTRIES[N_PORTS-1:0] = `NUM_RAB_ENTRIES_ARRAY;
+   localparam  TOTAL_RAB_ENTRIES = `MY_ARRAY_SUM(RAB_ENTRIES,N_PORTS);
+   localparam MAX_RAB_ENTRIES = `MAX_RAB_ENTRIES;
+      
    
-   localparam REG_ENTRIES = 4*RAB_ENTRIES*N_PORTS + 4;
+   localparam REG_ENTRIES = 4*TOTAL_RAB_ENTRIES + 4;
    localparam AXI_SIZE_WIDTH = `log2(C_AXI_DATA_WIDTH/8-1);
    
    logic [N_PORTS-1:0]                  [15:0] p1_burst_size;
@@ -91,24 +107,29 @@ module rab_core
    logic [N_PORTS-1:0]                         no_hit; //   mi interessa solo sapere se c'e` stato hit,
    logic [N_PORTS-1:0]                         no_prot;//    vedi lunghezze diverse con hit e prot 
 
-   logic [N_PORTS-1:0]       [RAB_ENTRIES-1:0] hit;
-   logic [N_PORTS-1:0]       [RAB_ENTRIES-1:0] prot;
+   logic [N_PORTS-1:0]       [MAX_RAB_ENTRIES-1:0] hit;
+   logic [N_PORTS-1:0]       [MAX_RAB_ENTRIES-1:0] prot;
    
    logic [N_PORTS-1:0]                     [31:0] out_addr;
    logic [N_PORTS-1:0]                     [31:0] out_addr_reg; 
    logic [REG_ENTRIES-1:0]                 [31:0] int_cfg_regs; 
-   logic [N_PORTS-1:0] [4*RAB_ENTRIES-1:0] [31:0] int_cfg_regs_slices; 
+   logic [N_PORTS-1:0] [4*MAX_RAB_ENTRIES-1:0] [31:0] int_cfg_regs_slices; 
 
    logic [N_PORTS-1:0]                            select;
    reg [N_PORTS-1:0]                              curr_priority;
 
    reg [N_PORTS-1:0]                              multiple_hit;
 
+   logic [N_PORTS-1:0]                            miss_valid_mhr;
+   logic [N_PORTS-1:0]                 [31:0]     miss_addr_mhr;
+   logic [N_PORTS-1:0]   [C_AXI_ID_WIDTH-1:0]     miss_id_mhr;
+
    genvar                                         z;
    
    localparam  REGS_SLICE = 4 * 32; // stesso numero di reg da considerare come offset iniziale (top level) per la config
-   localparam  REGS_CH    = REGS_SLICE * RAB_ENTRIES; // reg per ogni porta
    localparam  PORT_ID_WIDTH = (N_PORTS < 3) ? 1 : `log2(N_PORTS-1);
+
+   localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY; 
       
    //-----------------------------------------------------------------------------------
 
@@ -118,8 +139,8 @@ module rab_core
   
         for (idx=0; idx<N_PORTS; idx++) begin
 
-           // select = 0 -> port1 active
-           // select = 1 -> port2 active
+           // select = 1 -> port1 active
+           // select = 0 -> port2 active
            select[idx] = (curr_priority[idx] & port1_addr_valid[idx]) | ~port2_addr_valid[idx];
            
            p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
@@ -179,10 +200,16 @@ module rab_core
    always_comb
      begin
         var integer idx_port, idx_slice;
+        var integer reg_num;
+        reg_num=0;
         for ( idx_port = 0; idx_port < N_PORTS; idx_port++ ) begin
-           for ( idx_slice = 0; idx_slice < 4*RAB_ENTRIES; idx_slice++ ) begin
-              int_cfg_regs_slices[idx_port][idx_slice] =  int_cfg_regs[4+4*RAB_ENTRIES*idx_port+idx_slice]; 
+           for ( idx_slice = 0; idx_slice < 4*RAB_ENTRIES[idx_port]; idx_slice++ ) begin
+              int_cfg_regs_slices[idx_port][idx_slice] =  int_cfg_regs[4+reg_num];
+              reg_num++;
            end
+           //int_cfg_regs_slices[idx_port][MAX_RAB_ENTRIES:RAB_ENTRIES[idx_port]] will be dangling
+           // Fix to zero. Synthesis will remove these signals.
+           //int_cfg_regs_slices[idx_port][4*MAX_RAB_ENTRIES-1:4*RAB_ENTRIES[idx_port]] = 0;
         end   
      end
    
@@ -212,7 +239,7 @@ module rab_core
         PortIdx_D = 'b0; 
         for (idx_miss = 0; idx_miss < N_PORTS; idx_miss++)
           begin
-             if (int_miss[idx_miss] == 1'b1)
+             if (miss_valid_mhr[idx_miss] == 1'b1)
                begin
                   PortIdx_D = idx_miss;
                   break;
@@ -222,6 +249,7 @@ module rab_core
    
    axi_regs_top_rab
      #(
+       .N_PORTS(N_PORTS),
        .REG_ENTRIES(REG_ENTRIES),
        .MISS_ID_WIDTH(PORT_ID_WIDTH+C_AXI_ID_WIDTH)
        ) 
@@ -247,11 +275,30 @@ module rab_core
       .s_axi_bvalid(s_axi_bvalid),
       .s_axi_awready(s_axi_awready),
       .cfg_regs(int_cfg_regs),
-      .MissAddr_DI(int_addr_min[PortIdx_D]),
-      .MissId_DI({PortIdx_D,int_id[PortIdx_D]}),
-      .Miss_SI(int_miss[PortIdx_D]),
-      .MhFifoFull_SO(int_mhr_full)
+      .MissAddr_DI(miss_addr_mhr[PortIdx_D]),
+      .MissId_DI({PortIdx_D,miss_id_mhr[PortIdx_D]}),
+      .Miss_SI(miss_valid_mhr[PortIdx_D]),
+      .MhFifoFull_SO(int_mhr_full),
+      .wdata_tlb_l2(wdata_tlb_l2),
+      .waddr_tlb_l2(waddr_tlb_l2),
+      .wren_tlb_l2(wren_tlb_l2)
       );
+
+   generate
+      for (z = 0; z < N_PORTS; z++)
+        begin
+           if (ENABLE_L2TLB[z] == 1) begin // L2 TLB is enabled
+              assign miss_valid_mhr[z] = miss_l2[z];
+              assign miss_addr_mhr[z] = miss_addr_l2[z];
+              assign miss_id_mhr[z] = miss_id_l2[z];
+           end else begin// L2 TLB is disabled
+              assign miss_valid_mhr[z] = int_miss[z];
+              assign miss_addr_mhr[z] = int_addr_min[z];
+              assign miss_id_mhr[z] = int_id[z];
+           end
+        end
+   endgenerate
+   
 
    //--------------------  SLICE_TOP ------------------------------- 
 
@@ -260,11 +307,11 @@ module rab_core
         begin
            slice_top 
              #(
-               .RAB_ENTRIES(RAB_ENTRIES)
+               .RAB_ENTRIES(RAB_ENTRIES[z])
                )
            u_slice_top
              (
-              .int_cfg_regs(int_cfg_regs_slices[z]),
+              .int_cfg_regs(int_cfg_regs_slices[z][4*RAB_ENTRIES[z]-1:0]),
               .int_rw(int_rw[z]),
               .int_addr_min(int_addr_min[z]),
               .int_addr_max(int_addr_max[z]),
@@ -273,7 +320,12 @@ module rab_core
               .prot(prot[z]),
               .hit(hit[z])
               );
-        end
+           // hit[MAX_RAB_ENTRIES-1:MAX_RAB_ENTRIES-RAB_ENTRIES[z]] will be dangling
+           // prot[MAX_RAB_ENTRIES-1:MAX_RAB_ENTRIES-RAB_ENTRIES[z]] will be dangling
+           // Fix to zero. Synthesis will remove these signals.
+           assign hit[MAX_RAB_ENTRIES-1:RAB_ENTRIES[z]] = 0;
+           assign prot[MAX_RAB_ENTRIES-1:RAB_ENTRIES[z]] = 0;           
+        end // for (z = 0; z < N_PORTS; z++)
    endgenerate
    
    //------------------   FSM   --------------------------------

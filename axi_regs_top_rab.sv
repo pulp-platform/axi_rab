@@ -1,7 +1,9 @@
 `define log2(VALUE) ( (VALUE) == ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+//`define PULP_HSA 1
 
 module axi_regs_top_rab
   #( 
+     parameter N_PORTS             = 4,
      parameter REG_ENTRIES         = 196,
      parameter C_AXICFG_DATA_WIDTH = 32,
      parameter AXI_ADDR_WIDTH      = 32, // needs to be equal to C_AXICFG_DATA_WIDTH
@@ -37,11 +39,16 @@ module axi_regs_top_rab
     input   logic [AXI_ADDR_WIDTH-1:0]             MissAddr_DI,
     input   logic [MISS_ID_WIDTH-1:0]              MissId_DI,
     input   logic                                  Miss_SI,
-    output  logic                                  MhFifoFull_SO    
+    output  logic                                  MhFifoFull_SO,
+
+    // L2 TLB
+    output  logic [N_PORTS-1:0] [C_AXICFG_DATA_WIDTH-1:0]       wdata_tlb_l2,
+    output  logic [N_PORTS-1:0] [AXI_ADDR_WIDTH-1:0]            waddr_tlb_l2,
+    output  logic [N_PORTS-1:0]                                 wren_tlb_l2  
     );
 
    localparam ADDR_REG_MSB = `log2(REG_ENTRIES-1)+2;
-
+   
    logic                                  awaddr_done_reg;
    logic                                  awaddr_done_reg_dly;
    logic                                  wdata_done_reg;
@@ -69,7 +76,8 @@ module axi_regs_top_rab
    logic [C_AXICFG_DATA_WIDTH-1:0]        data_out_reg;
 
    logic                                  write_en;
-
+   logic                                  write_en_rab;
+   
    logic [3:0][7:0]                       CONFIGURATION_REGISTERS [REG_ENTRIES];
    
    logic                                  wdata_done_rise;
@@ -245,6 +253,7 @@ module axi_regs_top_rab
      end
    
    // Configuration registers
+   assign write_en_rab = write_en && (waddr_reg < 16'h8000);
    always @( posedge s_axi_aclk or negedge s_axi_aresetn )   
      begin
         var integer idx_regs, idx_byte;
@@ -255,14 +264,15 @@ module axi_regs_top_rab
                   CONFIGURATION_REGISTERS[idx_regs] <= '0;
                end
           end
-        else if (write_en)
+        else if (write_en_rab)
           begin
              for ( idx_byte = 0; idx_byte < C_AXICFG_DATA_WIDTH/8; idx_byte++ )
                if ( wstrb_reg[idx_byte])
                  CONFIGURATION_REGISTERS[waddr_reg[ADDR_REG_MSB:2]][idx_byte] <= wdata_reg[idx_byte];
           end
-     end
-   
+     end // always @ ( posedge s_axi_aclk or negedge s_axi_aresetn )
+
+
    assign data_out_reg = CONFIGURATION_REGISTERS[raddr_reg[ADDR_REG_MSB:2]];
 
    generate
@@ -270,6 +280,34 @@ module axi_regs_top_rab
         begin
            assign cfg_regs[j] = CONFIGURATION_REGISTERS[j];
         end
+   endgenerate
+
+   // wdata for L2 TLB
+   generate for(j=0; j< N_PORTS; j++) begin      
+      always @( posedge s_axi_aclk or negedge s_axi_aresetn )   
+        begin
+           var integer idx_byte;
+           if ( s_axi_aresetn == 1'b0 )
+             begin
+                wren_tlb_l2[j] <= 0;
+                wdata_tlb_l2[j] <= '0;
+             end
+           else if (write_en)
+             begin
+                if ( (waddr_reg >= (j+1)*16'h8000) && (waddr_reg < (j+2)*16'h8000) )
+                  wren_tlb_l2[j] <= 1;
+             
+                for ( idx_byte = 0; idx_byte < C_AXICFG_DATA_WIDTH/8; idx_byte++ )
+                  if ( wstrb_reg[idx_byte])
+                    wdata_tlb_l2[j][idx_byte*8 +: 8] <= wdata_reg[idx_byte];
+             end
+           else
+             begin
+                wren_tlb_l2[j] <= 0;
+             end // else: !if(write_en)        
+        end // always @ ( posedge s_axi_aclk or negedge s_axi_aresetn )
+      assign waddr_tlb_l2[j] = (waddr_reg - (j+1)*16'h8000)/4;      
+   end // for (j=0; j< N_PORTS; j++)
    endgenerate
    
    assign s_axi_awready = awready;
@@ -281,6 +319,8 @@ module axi_regs_top_rab
    assign s_axi_arready = arready;
    assign s_axi_rresp = 2'b00;
    assign s_axi_rvalid = rvalid;
+
+`ifdef PULP_HSA
    //assign s_axi_rdata = data_out_reg;
 
    //assign AddrFifoDin_D = '0;
@@ -329,7 +369,7 @@ module axi_regs_top_rab
              AddrFifoWen_S <= 1'b1;
              AddrFifoDin_D <= MissAddr_DI[AXI_ADDR_WIDTH-1:AXI_ADDR_WIDTH-MHR_WIDTH];
           end
-        else if ( (write_en == 1'b1) && (waddr_reg[ADDR_REG_MSB-1:0] == 'b0) ) // write request from AXI interface
+        else if ( (write_en_rab == 1'b1) && (waddr_reg[ADDR_REG_MSB-1:0] == 'b0) ) // write request from AXI interface
           begin
              AddrFifoWen_S <= 1'b1;
              AddrFifoDin_D <= wdata_reg_vec[AXI_ADDR_WIDTH-1:AXI_ADDR_WIDTH-MHR_WIDTH];
@@ -346,7 +386,7 @@ module axi_regs_top_rab
              IdFifoWen_S                   <= 1'b1;
              IdFifoDin_D[MISS_ID_WIDTH-1:0] <= MissId_DI;
           end
-        else if ( (write_en == 1'b1) && (waddr_reg == 4'h4) ) // write request from AXI interface
+        else if ( (write_en_rab == 1'b1) && (waddr_reg == 4'h4) ) // write request from AXI interface
           begin
              IdFifoWen_S <= 1'b1;
              IdFifoDin_D <= wdata_reg_vec[MHR_WIDTH-1:0];
@@ -405,5 +445,10 @@ module axi_regs_top_rab
       .full (IdFifoFull_S  ),
       .empty(IdFifoEmpty_S )
       );
+`else // !`ifdef PULP_HSA
+   assign s_axi_rdata = data_out_reg;
+`endif // !`ifdef PULP_HSA
+
+   
    
 endmodule
