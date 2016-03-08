@@ -14,12 +14,14 @@ module fsm
    input  logic             no_hit,   
    input  logic             multiple_hit,
    input  logic             no_prot,
-   input  logic [31:0]      out_addr,   
+   input  logic [31:0]      out_addr, 
+   input  logic             master_select,  
    output logic             port1_accept,
    output logic             port1_drop,  
    output logic             port2_accept, 
    output logic             port2_drop,
    output logic [31:0]      out_addr_reg,
+   output logic             master_select_reg,
    output logic             int_miss,    
    output logic             int_multi,  
    output logic             int_prot     
@@ -41,6 +43,7 @@ module fsm
    logic                    int_miss_SN;
    logic                    int_multi_SN;
    logic                    int_prot_SN;
+   logic                    master_select_reg_SN;
    
    //----------FSM comb------------------------------
    
@@ -71,7 +74,6 @@ module fsm
      end
    
    //----------Output comb---------------------------
-
    always_comb 
      begin: OUTPUT_COMB
 
@@ -84,17 +86,19 @@ module fsm
         int_miss_SN     = 1'b0;
         int_multi_SN    = 1'b0;
         int_prot_SN     = 1'b0;
+        master_select_reg_SN = master_select_reg; // hold
         
         if ( state == READY ) // Ready to accept new trans
           begin
-             port1_accept_SN = port1_addr_valid &  select & ~(no_hit | multiple_hit | ~no_prot | port1_skip);
-             port1_drop_SN   = port1_addr_valid &  select &  (no_hit | multiple_hit | ~no_prot | port1_skip);
-             port2_accept_SN = port2_addr_valid & ~select & ~(no_hit | multiple_hit | ~no_prot | port2_skip);
-             port2_drop_SN   = port2_addr_valid & ~select &  (no_hit | multiple_hit | ~no_prot | port2_skip);
-             int_miss_SN     = (port1_addr_valid || port2_addr_valid) & no_hit;
-             int_multi_SN    = (port1_addr_valid || port2_addr_valid) & multiple_hit;
-             int_prot_SN     = (port1_addr_valid || port2_addr_valid) & ~no_prot;
-             out_addr_reg_SN = out_addr;
+             port1_accept_SN      = port1_addr_valid &  select & ~(no_hit | multiple_hit | ~no_prot | port1_skip);
+             port1_drop_SN        = port1_addr_valid &  select &  (no_hit | multiple_hit | ~no_prot | port1_skip);
+             port2_accept_SN      = port2_addr_valid & ~select & ~(no_hit | multiple_hit | ~no_prot | port2_skip);
+             port2_drop_SN        = port2_addr_valid & ~select &  (no_hit | multiple_hit | ~no_prot | port2_skip);
+             int_miss_SN          = (port1_addr_valid || port2_addr_valid) & no_hit;
+             int_multi_SN         = (port1_addr_valid || port2_addr_valid) & multiple_hit;
+             int_prot_SN          = (port1_addr_valid || port2_addr_valid) & ~no_prot;
+             out_addr_reg_SN      = out_addr;
+             master_select_reg_SN = master_select;
           end
      end // block: OUTPUT_COMB
    
@@ -104,25 +108,27 @@ module fsm
      begin: OUTPUT_SEQ
         if (s_axi_aresetn == 1'b0)
           begin
-             port1_accept =  1'b0;
-             port1_drop   =  1'b0;
-             port2_accept =  1'b0;
-             port2_drop   =  1'b0;
-             out_addr_reg = 32'h0;
-             int_miss     =  1'b0;
-             int_multi    =  1'b0;
-             int_prot     =  1'b0;
+             port1_accept      =  1'b0;
+             port1_drop        =  1'b0;
+             port2_accept      =  1'b0;
+             port2_drop        =  1'b0;
+             out_addr_reg      = 32'h0;
+             int_miss          =  1'b0;
+             int_multi         =  1'b0;
+             int_prot          =  1'b0;
+             master_select_reg = 1'b0;
           end
         else
           begin
-             port1_accept = port1_accept_SN;
-             port1_drop   = port1_drop_SN;
-             port2_accept = port2_accept_SN;
-             port2_drop   = port2_drop_SN;
-             out_addr_reg = out_addr_reg_SN;
-             int_miss     = int_miss_SN;
-             int_multi    = int_multi_SN;
-             int_prot     = int_prot_SN;
+             port1_accept      = port1_accept_SN;
+             port1_drop        = port1_drop_SN;
+             port2_accept      = port2_accept_SN;
+             port2_drop        = port2_drop_SN;
+             out_addr_reg      = out_addr_reg_SN;
+             int_miss          = int_miss_SN;
+             int_multi         = int_multi_SN;
+             int_prot          = int_prot_SN;
+             master_select_reg = master_select_reg_SN;
           end
      end // block: OUTPUT_SEQ
    

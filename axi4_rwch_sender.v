@@ -97,6 +97,7 @@ end else begin
 end // else: !if(ENABLE_L2TLB == 1)
 endgenerate
 
+
    assign s_axi4_bid    = dropping ? id_to_drop : m_axi4_bid;
    assign s_axi4_bresp  = dropping ? 2'b00 : m_axi4_bresp;
    assign s_axi4_buser  = dropping ? {C_AXI_USER_WIDTH{1'b0}} : m_axi4_buser;

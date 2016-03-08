@@ -21,6 +21,7 @@ module check_ram
    input  logic [OFFSET_WIDTH-1:0]             offset_addr_d,
    input  logic                                start_search,
    output logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr,
+   output logic                                master,
    output logic                                hit,
    output logic                                multi_hit,
    output logic                                prot
@@ -43,7 +44,8 @@ module check_ram
    multi_state_t                        multi_SP; // Multi Hit FSM state
    multi_state_t                        multi_SN; // Multi Hit FSM next state
 
-   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr_saved;   
+   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr_saved; 
+   logic                                master_saved;
 `endif   
    
   //// --------------- Block RAM (Dual Port) -------------- ////
@@ -81,6 +83,7 @@ module check_ram
       hit_SN   = hit_SP;
       hit      = 1'b0;
       hit_addr = 0;
+      master   = 1'b0;
       unique case(hit_SP)
         SEARCH :
           if (searching)
@@ -89,13 +92,18 @@ module check_ram
                hit      = 1'b1;
                hit_addr = port0_hit ? {port0_addr[SET_WIDTH+OFFSET_WIDTH:OFFSET_WIDTH], offset_addr_d} :
                           port1_hit ? {port1_addr[SET_WIDTH+OFFSET_WIDTH:OFFSET_WIDTH], offset_addr_d} :
-                          0;               
+                          0;
+               master   = port0_hit ? port0_data_o[3] :
+                          port1_hit ? port1_data_o[3] :
+                          1'b0;
+               
             end
 
         HIT : begin
 `ifdef TLB_MULTIHIT // Since the search continues after the first hit, it needs to be saved to be accessed later.
            hit      = 1'b1;
            hit_addr = hit_addr_saved;
+           master   = master_saved;
 `endif           
            if (send_outputs)
              hit_SN = SEARCH;
@@ -115,8 +123,10 @@ module check_ram
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          hit_addr_saved <= 0;
+         master_saved <= 1'b0;
       end else if (searching) begin
          hit_addr_saved <= hit_addr;
+         master_saved <= master;
       end
    end
    

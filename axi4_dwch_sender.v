@@ -1,4 +1,6 @@
 `include "ulpsoc_defines.sv"
+`define log2(VALUE) ( (VALUE) < ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+
 module axi4_dwch_sender (axi4_aclk,
                          axi4_arstn,
                          l1_trans_accept,
@@ -24,6 +26,7 @@ module axi4_dwch_sender (axi4_aclk,
    parameter  C_AXI_DATA_WIDTH = 32;
    parameter  C_AXI_USER_WIDTH = 2;
    parameter  ENABLE_L2TLB = 0;
+   parameter  L2BUFFER_DEPTH = 20;   
 
    input                             axi4_aclk;
    input                             axi4_arstn;
@@ -109,14 +112,6 @@ if (ENABLE_L2TLB == 1) begin
    // wlast_received is used in rwch_sender to send write response signals. 
    // Write response signals have to be sent only after wlast is received as per AXI protocol.
    // l2_wlast_received_reg indicates if wlast is received for L2 trans.
-//   always @(stop_storing,response_sent) begin
-//      l2_wlast_received_reg = 1'b0;
-//      if(stop_storing) begin
-//         l2_wlast_received_reg = 1'b1;
-//      end else if (response_sent) begin
-//         l2_wlast_received_reg = 1'b0;
-//      end
-//   end
     always @(posedge axi4_aclk) begin
       if (axi4_arstn == 0) begin
          l2_wlast_received_reg <= 1'b0;
@@ -181,9 +176,10 @@ if (ENABLE_L2TLB == 1) begin
    assign s_axi4_wready = (m_axi4_wready & trans_is_l1_accept) | (trans_is_l1_miss & storing) | (storing && (trans_is_l2_accept | trans_is_drop));
 
    // Store signals in buffer in case of L1 miss.
-   axi_buffer_rab_bram #(.DATA_WIDTH(C_AXI_DATA_WIDTH+C_AXI_DATA_WIDTH/8+C_AXI_USER_WIDTH+1),.BUFFER_DEPTH(20),.LOG_BUFFER_DEPTH(5)) u_l2buffer(.clk(axi4_aclk), .rstn(axi4_arstn), 
+   axi_buffer_rab_bram #(.DATA_WIDTH(C_AXI_DATA_WIDTH+C_AXI_DATA_WIDTH/8+C_AXI_USER_WIDTH+1),.BUFFER_DEPTH(L2BUFFER_DEPTH),.LOG_BUFFER_DEPTH(`log2(L2BUFFER_DEPTH-1))) u_l2buffer(.clk(axi4_aclk), .rstn(axi4_arstn), 
                            .data_out(buffer_dataout), .valid_out(data_inbuffer), .ready_in(get_next_bufferdata), 
-                           .valid_in(buffer_datain_valid), .data_in(buffer_datain), .ready_out(buffer_not_full));
+                           .valid_in(buffer_datain_valid), .data_in(buffer_datain), .ready_out(buffer_not_full),
+                           .flush_entries(trans_is_drop));
    
    assign {l2_axi4_wlast,l2_axi4_wuser,l2_axi4_wstrb,l2_axi4_wdata} = buffer_dataout;
    
@@ -247,8 +243,8 @@ if (ENABLE_L2TLB == 1) begin
    
 end else begin // if (ENABLE_L2TLB == 1)
    wire                                                              trans_is_l1_accept,trans_is_drop;   
-   assign wlast_received     = 1'b0; // The signal is generated at rwch_sender
-   assign stall_aw           = 1'b0;
+   assign wlast_received     = 1'b0; // This signal is sent to rwch_sender
+   assign stall_aw           = 1'b0; // This signal is sent to awch_sender
    
    assign trans_is_l1_accept = trans_infifo & fifo_dataout[3];
    assign trans_is_drop      = trans_infifo & fifo_dataout[2];
@@ -267,23 +263,7 @@ end else begin // if (ENABLE_L2TLB == 1)
 end // !`ifdef ENABLE_L2TLB     
 endgenerate      
 
-// L2 hit/miss cannot happen simultaneously with L1 miss because L1 miss =0 when L2 is busy.
-
-//TODO
-   // In case of L2 miss, flush the buffer. There is no need for next trans to wait till flush completes. Parallelize this.
-   
-   //align AW and W. This is DONE. Have to verify thoroughly.
-
-// DONE
-   // In case of long trans for L1 miss, this will hang because buffer will be full which will halt the slave port.
-   // Solution: When buffer is full, set trans_done. Now you know if it is L2 hit or miss. If miss, just flush buffer.
-   // If hit, then send data from buffer to master port. Send data from slave port to buffer till you encounter wlast.
-   // Upon encountering wlast, the storing stops. The data is sent to master port till wlast is encountered in master port.
-
-
-   
-   
-   
+// L2 hit/miss cannot happen simultaneously with L1 miss because L1 miss =0 when L2 is busy.   
 endmodule
 
 

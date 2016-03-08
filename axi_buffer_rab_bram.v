@@ -1,4 +1,4 @@
-module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, data_in, ready_out);
+module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, data_in, ready_out, flush_entries);
 
     parameter DATA_WIDTH = 32;
     parameter BUFFER_DEPTH = 512;
@@ -16,6 +16,9 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
     input valid_in;
     input [DATA_WIDTH - 1 : 0] data_in;
     output ready_out;
+
+   input   flush_entries;
+   
 
     // Internal data structures
     reg [LOG_BUFFER_DEPTH - 1 : 0] pointer_in;      // location to which we last wrote
@@ -40,8 +43,10 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
           // ------------------
           // Are we filling up?
           // ------------------
+          if (flush_entries)
+            elements <= 1;
           // One out, none in
-          if (ready_in && valid_out && (!valid_in || full))
+          else if (ready_in && valid_out && (!valid_in || full))
             elements <= elements - 1;
           // None out, one in
           else if ((!valid_out || !ready_in) && valid_in && !full)
@@ -82,6 +87,12 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
 //            if (pointer_out_d == $unsigned(BUFFER_DEPTH - 1))
 //              pointer_out_d <= 0;
 //            else
+             if (flush_entries)
+               if (pointer_out == $unsigned(BUFFER_DEPTH - 1))
+                 pointer_out_d <= 0;
+               else
+                 pointer_out_d <= pointer_out + 1'b1;
+             else
               pointer_out_d <= pointer_out;
           end
           // Else stay on the same output location
@@ -94,10 +105,16 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
 
     assign ready_out = ~full;
 
-   assign pointer_out = ready_in && valid_out && (pointer_out_d == $unsigned(BUFFER_DEPTH - 1)) ? 0 :
+//   assign pointer_out = ready_in && valid_out && (pointer_out_d == $unsigned(BUFFER_DEPTH - 1)) ? 0 :
+//                        ready_in && valid_out ? pointer_out_d + 1'b1 : 
+//                        pointer_out_d;
+ 
+   assign pointer_out = flush_entries && (pointer_in==0) ? $unsigned(BUFFER_DEPTH - 1) :
+                        flush_entries ? pointer_in-1'b1 :
+                        ready_in && valid_out && (pointer_out_d == $unsigned(BUFFER_DEPTH - 1)) ? 0 :
                         ready_in && valid_out ? pointer_out_d + 1'b1 : 
                         pointer_out_d;
-                        
+                       
  
    ram #(
          .ADDR_WIDTH(LOG_BUFFER_DEPTH),
