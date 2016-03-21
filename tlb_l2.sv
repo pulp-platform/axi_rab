@@ -46,6 +46,7 @@ module tlb_l2
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_addr; // PA RAM addr
    logic [31:0]                                            pa_port0_data_o;
+   logic [ADDR_WIDTH-IGNORE_LSB-1:0]                       pa_port0_data_reg, pa_port0_data_saved;
    logic                                                   prot_top;
    logic                                                   first_hit_top, hit_top;
    logic                                                   send_outputs; 
@@ -375,8 +376,17 @@ module tlb_l2
              );
 
    assign out_addr[IGNORE_LSB-1:0]          = in_addr_saved[IGNORE_LSB-1:0];
-   assign out_addr[ADDR_WIDTH-1:IGNORE_LSB] = pa_port0_data_o[ADDR_WIDTH-IGNORE_LSB-1:0];
+   assign out_addr[ADDR_WIDTH-1:IGNORE_LSB] = pa_port0_data_saved;
 
+   always_ff @(posedge clk_i) begin
+      if (rst_ni == 0) begin
+         pa_port0_data_reg <= 0;
+      end else if (hit_l2) begin
+         pa_port0_data_reg <= pa_port0_data_o[ADDR_WIDTH-IGNORE_LSB-1:0];
+      end
+   end
+   assign pa_port0_data_saved = hit_l2 ? pa_port0_data_o[ADDR_WIDTH-IGNORE_LSB-1:0] : pa_port0_data_reg;
+   
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
    
    ///// Write enable for all block rams
@@ -395,7 +405,7 @@ end else begin
 end
 endgenerate   
    assign pa_ram_we      = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
-   assign ram_waddr      = waddr[VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
+   assign ram_waddr      = waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
    assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];             
    assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
 

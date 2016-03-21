@@ -7,6 +7,7 @@ module axi_regs_top_rab
      parameter REG_ENTRIES         = 196,
      parameter C_AXICFG_DATA_WIDTH = 32,
      parameter AXI_ADDR_WIDTH      = 32, // needs to be equal to C_AXICFG_DATA_WIDTH
+     parameter RAB_AXILITE_ADDRWIDTH = 32,
      parameter MHR_WIDTH           = 20, // needs to match FIFO width
      parameter MISS_ID_WIDTH       = 10  // <= FIFO_WIDTH
      )
@@ -14,7 +15,7 @@ module axi_regs_top_rab
     // AXI Lite interface
     input   logic                                  s_axi_aclk,
     input   logic                                  s_axi_aresetn,
-    input   logic [AXI_ADDR_WIDTH-1:0]             s_axi_awaddr,
+    input   logic [RAB_AXILITE_ADDRWIDTH-1:0]      s_axi_awaddr,
     input   logic                                  s_axi_awvalid,
     output  logic                                  s_axi_awready,
     input   logic [C_AXICFG_DATA_WIDTH/8-1:0][7:0] s_axi_wdata,
@@ -24,7 +25,7 @@ module axi_regs_top_rab
     output  logic [1:0]                            s_axi_bresp,
     output  logic                                  s_axi_bvalid,
     input   logic                                  s_axi_bready,
-    input   logic [AXI_ADDR_WIDTH-1:0]             s_axi_araddr,
+    input   logic [RAB_AXILITE_ADDRWIDTH-1:0]      s_axi_araddr,
     input   logic                                  s_axi_arvalid,
     output  logic                                  s_axi_arready,
     output  logic [C_AXICFG_DATA_WIDTH-1:0]        s_axi_rdata,
@@ -48,6 +49,7 @@ module axi_regs_top_rab
     );
 
    localparam ADDR_REG_MSB = `log2(REG_ENTRIES-1)+2;
+   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
    
    logic                                  awaddr_done_reg;
    logic                                  awaddr_done_reg_dly;
@@ -253,7 +255,7 @@ module axi_regs_top_rab
      end
    
    // Configuration registers
-   assign write_en_rab = write_en && (waddr_reg < 16'h8000);
+   assign write_en_rab = write_en && (waddr_reg < L2SINGLE_AMAP_SIZE);
    always @( posedge s_axi_aclk or negedge s_axi_aresetn )   
      begin
         var integer idx_regs, idx_byte;
@@ -294,7 +296,7 @@ module axi_regs_top_rab
              end
            else if (write_en)
              begin
-                if ( (waddr_reg >= (j+1)*16'h8000) && (waddr_reg < (j+2)*16'h8000) )
+                if ( (waddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (waddr_reg < (j+2)*L2SINGLE_AMAP_SIZE) )
                   wren_tlb_l2[j] <= 1;
              
                 for ( idx_byte = 0; idx_byte < C_AXICFG_DATA_WIDTH/8; idx_byte++ )
@@ -306,7 +308,7 @@ module axi_regs_top_rab
                 wren_tlb_l2[j] <= 0;
              end // else: !if(write_en)        
         end // always @ ( posedge s_axi_aclk or negedge s_axi_aresetn )
-      assign waddr_tlb_l2[j] = (waddr_reg - (j+1)*16'h8000)/4;      
+      assign waddr_tlb_l2[j] = (waddr_reg - (j+1)*L2SINGLE_AMAP_SIZE)/4;      
    end // for (j=0; j< N_PORTS; j++)
    endgenerate
    

@@ -10,13 +10,14 @@ module rab_core
     parameter C_AXICFG_DATA_WIDTH = 32,
     parameter C_AXI_ID_WIDTH      = 8,
     parameter C_AXI_USER_WIDTH    = 6,
+    parameter RAB_AXILITE_ADDRWIDTH = 32,
     parameter N_PORTS             = 3
     )
    (
     input    logic                            s_axi_aclk,
     input    logic                            s_axi_aresetn,
 
-    input    logic                    [31:0]  s_axi_awaddr,
+    input    logic [RAB_AXILITE_ADDRWIDTH-1:0] s_axi_awaddr,
     input    logic                            s_axi_awvalid,
     output   logic                            s_axi_awready,
 
@@ -25,7 +26,7 @@ module rab_core
     input    logic                            s_axi_wvalid,
     output   logic                            s_axi_wready,
 
-    input    logic                    [31:0]  s_axi_araddr,
+    input    logic [RAB_AXILITE_ADDRWIDTH-1:0] s_axi_araddr,
     input    logic                            s_axi_arvalid,
     output   logic                            s_axi_arready,
 
@@ -258,6 +259,7 @@ module rab_core
      #(
        .N_PORTS(N_PORTS),
        .REG_ENTRIES(REG_ENTRIES),
+       .RAB_AXILITE_ADDRWIDTH(RAB_AXILITE_ADDRWIDTH),
        .MISS_ID_WIDTH(PORT_ID_WIDTH+C_AXI_ID_WIDTH)
        ) 
    u_axi_regs

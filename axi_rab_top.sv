@@ -39,6 +39,7 @@ module axi_rab_top
     parameter C_AXICFG_DATA_WIDTH = 32,
     parameter C_AXI_ID_WIDTH      = 8,
     parameter C_AXI_USER_WIDTH    = 6,
+    parameter RAB_AXILITE_ADDRWIDTH = 32,
     parameter N_PORTS             = 2
     )
    (
@@ -196,7 +197,7 @@ module axi_rab_top
 
     input logic                                axi4lite_aclk,
     input logic                                axi4lite_arstn,
-    input    logic                      [31:0] s_axi4lite_awaddr,
+    input    logic [RAB_AXILITE_ADDRWIDTH-1:0] s_axi4lite_awaddr,
     input    logic                             s_axi4lite_awvalid,
     output   logic                             s_axi4lite_awready,
 
@@ -209,7 +210,7 @@ module axi_rab_top
     output   logic                             s_axi4lite_bvalid,
     input    logic                             s_axi4lite_bready,
 
-    input    logic                      [31:0] s_axi4lite_araddr,
+    input    logic [RAB_AXILITE_ADDRWIDTH-1:0] s_axi4lite_araddr,
     input    logic           	                 s_axi4lite_arvalid,
     output   logic             	               s_axi4lite_arready,
 
@@ -434,8 +435,8 @@ module axi_rab_top
    logic [N_PORTS-1:0]                           l1_multi_or_prot;
    
    logic [N_PORTS-1:0]                           update_id, update_id_next;
-   logic [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]      l2_awid;
-   logic [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]      l2_arid;
+   logic [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]      l2_awid,int_awid_d;
+   logic [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]      l2_arid,int_arid_d;
    logic [N_PORTS-1:0] [C_AXI_ID_WIDTH-1:0]      trans_id_l2;   
      
    genvar 					i;
@@ -789,7 +790,7 @@ axi4_dwch_sender #(C_AXI_DATA_WIDTH,C_AXI_USER_WIDTH,ENABLE_L2TLB[i],L2TLB_W_BUF
                 int_m0_wvalid[i] = int_wvalid[i] && ~clr_m0_wvalid[i];
                 int_m1_wvalid[i] = int_wvalid[i] && ~clr_m1_wvalid[i];
                 
-                int_wready[i]    = send_wready;
+                int_wready[i]    = send_wready[i];
              end else begin
                 int_m0_wvalid[i] = int_wvalid[i];
                 int_m1_wvalid[i] = 1'b0;
@@ -1247,7 +1248,8 @@ endgenerate
        .C_AXI_DATA_WIDTH   (C_AXI_DATA_WIDTH),
        .C_AXICFG_DATA_WIDTH(C_AXICFG_DATA_WIDTH),
        .C_AXI_ID_WIDTH     (C_AXI_ID_WIDTH),
-       .C_AXI_USER_WIDTH   (C_AXI_USER_WIDTH), 
+       .C_AXI_USER_WIDTH   (C_AXI_USER_WIDTH),
+       .RAB_AXILITE_ADDRWIDTH(RAB_AXILITE_ADDRWIDTH),
        .N_PORTS            (N_PORTS)
        ) 
    u_rab_core
@@ -1471,10 +1473,19 @@ generate for (i = 0; i < N_PORTS; i++) begin
             l2_awid[i] <= 0;
             l2_arid[i] <= 0;            
          end else if (update_id) begin
-            l2_awid[i] <= int_awid[i];
-            l2_arid[i] <= int_arid[i];
+            l2_awid[i] <= int_awid_d[i];
+            l2_arid[i] <= int_arid_d[i];
          end
-      end // always_ff @ (posedge axi4lite_aclk)      
+      end // always_ff @ (posedge axi4lite_aclk)     
+      always_ff @(posedge axi4lite_aclk) begin
+         if (axi4lite_arstn == 0) begin
+            int_awid_d[i] <= 0;
+            int_arid_d[i] <= 0;            
+         end else begin
+            int_awid_d[i] <= int_awid[i];
+            int_arid_d[i] <= int_arid[i];
+         end
+      end // always_ff @ (posedge axi4lite_aclk)             
       
       // Save drop status in flipflop
       always_ff @(posedge axi4lite_aclk) begin
