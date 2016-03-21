@@ -1,30 +1,34 @@
 `timescale 1ns / 1ps
 
 module fsm
+  #(
+    parameter AXI_ADDR_WIDTH = 40
+    )
   (
-   input  logic             s_axi_aclk,
-   input  logic             s_axi_aresetn,
-   input  logic             port1_addr_valid,
-   input  logic             port2_addr_valid,
-   input  logic             port1_skip,
-   input  logic             port2_skip,
-   input  logic             port1_sent,
-   input  logic             port2_sent,
-   input  logic             select,        
-   input  logic             no_hit,   
-   input  logic             multiple_hit,
-   input  logic             no_prot,
-   input  logic [31:0]      out_addr, 
-   input  logic             master_select,  
-   output logic             port1_accept,
-   output logic             port1_drop,  
-   output logic             port2_accept, 
-   output logic             port2_drop,
-   output logic [31:0]      out_addr_reg,
-   output logic             master_select_reg,
-   output logic             int_miss,    
-   output logic             int_multi,  
-   output logic             int_prot     
+   input  logic                      Clk_CI,
+   input  logic                      Rst_RBI
+   ,
+   input  logic                      port1_addr_valid,
+   input  logic                      port2_addr_valid,
+   input  logic                      port1_skip,
+   input  logic                      port2_skip,
+   input  logic                      port1_sent,
+   input  logic                      port2_sent,
+   input  logic                      select,        
+   input  logic                      no_hit,   
+   input  logic                      multiple_hit,
+   input  logic                      no_prot,
+   input  logic [AXI_ADDR_WIDTH-1:0] out_addr, 
+   input  logic                      master_select,  
+   output logic                      port1_accept,
+   output logic                      port1_drop,  
+   output logic                      port2_accept, 
+   output logic                      port2_drop,
+   output logic [AXI_ADDR_WIDTH-1:0] out_addr_reg,
+   output logic                      master_select_reg,
+   output logic                      int_miss,    
+   output logic                      int_multi,  
+   output logic                      int_prot     
    );
    
    parameter READY  = 1'b0;
@@ -32,18 +36,18 @@ module fsm
    
    //-------------Internal Signals----------------------
    
-   logic                    state;      // Seq part of the FSM
-   logic                    next_state; // combo part of FSM
-
-   logic                    port1_accept_SN;
-   logic                    port1_drop_SN;
-   logic                    port2_accept_SN;
-   logic                    port2_drop_SN;
-   logic [31:0]             out_addr_reg_SN;
-   logic                    int_miss_SN;
-   logic                    int_multi_SN;
-   logic                    int_prot_SN;
-   logic                    master_select_reg_SN;
+   logic                      state;      // Seq part of the FSM
+   logic                      next_state; // combo part of FSM
+  
+   logic                      port1_accept_SN;
+   logic                      port1_drop_SN;
+   logic                      port2_accept_SN;
+   logic                      port2_drop_SN;
+   logic [AXI_ADDR_WIDTH-1:0] out_addr_reg_SN;
+   logic                      int_miss_SN;
+   logic                      int_multi_SN;
+   logic                      int_prot_SN;
+   logic                      master_select_reg_SN;
    
    //----------FSM comb------------------------------
    
@@ -65,9 +69,9 @@ module fsm
    
    //----------FSM seq-------------------------------
    
-   always_ff @(posedge s_axi_aclk, negedge s_axi_aresetn)
+   always_ff @(posedge Clk_CI, negedge Rst_RBI)
      begin: FSM_SEQ
-        if (s_axi_aresetn == 1'b0)
+        if (Rst_RBI == 1'b0)
           state <= #1 READY;
         else
           state <= #1 next_state;
@@ -104,18 +108,18 @@ module fsm
    
    //----------Output seq--------------------------
    
-   always_ff @(posedge s_axi_aclk, negedge s_axi_aresetn)
+   always_ff @(posedge Clk_CI, negedge Rst_RBI)
      begin: OUTPUT_SEQ
-        if (s_axi_aresetn == 1'b0)
+        if (Rst_RBI == 1'b0)
           begin
-             port1_accept      =  1'b0;
-             port1_drop        =  1'b0;
-             port2_accept      =  1'b0;
-             port2_drop        =  1'b0;
-             out_addr_reg      = 32'h0;
-             int_miss          =  1'b0;
-             int_multi         =  1'b0;
-             int_prot          =  1'b0;
+             port1_accept      = 1'b0;
+             port1_drop        = 1'b0;
+             port2_accept      = 1'b0;
+             port2_drop        = 1'b0;
+             out_addr_reg      = '0;
+             int_miss          = 1'b0;
+             int_multi         = 1'b0;
+             int_prot          = 1'b0;
              master_select_reg = 1'b0;
           end
         else

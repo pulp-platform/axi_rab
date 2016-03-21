@@ -1,83 +1,89 @@
+module slice_top 
+ #(
+    parameter N_SLICES        = 16,
+    parameter N_REGS          = 4*N_SLICES,
+    parameter ADDR_WIDTH_PHYS = 40,
+    parameter ADDR_WIDTH_VIRT = 32,
+    )
+   (
+    input   logic   [N_REGS-1:0] [63:0] int_cfg_regs,
+    input   logic                       int_rw,
+    input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_min,
+    input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_max,
+    output  logic        [N_SLICES-1:0] prot,
+    output  logic        [N_SLICES-1:0] hit,
+    output  logic                       multiple_hit,
+    output  logic                       master_select,
+    output  logic [ADDR_WIDTH_PHYS-1:0] out_addr
+  );
  
-module slice_top
+  logic first_hit;
+  logic second_hit;
   
- #(  parameter RAB_ENTRIES = 16,  // slice per una porta
-     parameter REG_ENTRIES = 4*RAB_ENTRIES)
+  genvar  i;
+  integer j;
+  integer k;  
+  
+  logic [ADDR_WIDTH_PHYS*N_SLICES-1:0]  slice_out_addr;
    
-  ( input   logic     [REG_ENTRIES-1:0] [31:0]  int_cfg_regs,
-    input   logic                           int_rw,
-    input   logic                   [31:0]  int_addr_min,
-    input   logic                   [31:0]  int_addr_max,
-    output  logic        [RAB_ENTRIES-1:0]  prot,
-    output  logic        [RAB_ENTRIES-1:0]  hit,
-    output  logic                           multiple_hit,
-    output  logic                           master_select,
-    output  logic                   [31:0]  out_addr);
-
-   
-   logic 				    first_hit;
-   genvar 				    i;
-   integer 				    j;
-   logic [32*RAB_ENTRIES-1:0] 		    slice_out_addr;
-
-   logic second_hit;
-   integer k;  
-   
- generate
-   for (i=0;i<RAB_ENTRIES;i=i+1)
-   begin
-     rab_slice u_slice(.cfg_min(   int_cfg_regs[4*i]),
-                       .cfg_max(   int_cfg_regs[4*i+1]),
-                       .cfg_offset(int_cfg_regs[4*i+2]),
-                       .cfg_wen(   int_cfg_regs[4*i+3][2]),
-                       .cfg_ren(   int_cfg_regs[4*i+3][1]),
-                       .cfg_en(    int_cfg_regs[4*i+3][0]),
-                       .in_trans_type(int_rw),
-                       .in_addr_min(int_addr_min),
-                       .in_addr_max(int_addr_max),
-                       .out_addr(slice_out_addr[32*i+31:32*i]),
-                       .out_prot(prot[i]),
-                       .out_hit(hit[i]));
-   end
+  generate
+    for ( i=0; i<N_SLICES; i++ )
+      begin
+        rab_slice
+          #( 
+            .ADDR_WIDTH_PHYS ( ADDR_WIDTH_PHYS ),
+            .ADDR_WIDTH_VIRT ( ADDR_WIDTH_VIRT )
+            )
+          u_slice
+          (
+            .cfg_min       ( int_cfg_regs[4*i]  [ADDR_WIDTH_VIRT-1:0]                              ),
+            .cfg_max       ( int_cfg_regs[4*i+1][ADDR_WIDTH_VIRT-1:0]                              ),
+            .cfg_offset    ( int_cfg_regs[4*i+2][ADDR_WIDTH_PHYS-1:0]                              ),
+            .cfg_wen       ( int_cfg_regs[4*i+3][2]                                                ),
+            .cfg_ren       ( int_cfg_regs[4*i+3][1]                                                ),
+            .cfg_en        ( int_cfg_regs[4*i+3][0]                                                ),
+            .in_trans_type ( int_rw                                                                ),
+            .in_addr_min   ( int_addr_min                                                          ),
+            .in_addr_max   ( int_addr_max                                                          ),
+            .out_addr      ( slice_out_addr[ADDR_WIDTH_PHYS*i+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*i] ),
+            .out_prot      ( prot[i]                                                               ),
+            .out_hit       ( hit[i]                                                                )
+          );
+     end
   endgenerate
 
-   always_comb
-     begin
-      first_hit = 0;
-      second_hit = 0;
-      k = 0;
-      multiple_hit = 0;
-      out_addr = 32'hDEADBEEF;
+  always_comb
+    begin
+      first_hit     = 0;
+      second_hit    = 0;
+      k             = 0;
+      multiple_hit  = 0;
+      out_addr      = '0;
       master_select = 0;
-        for (j = 0; j < RAB_ENTRIES; j++)
+        for (j = 0; j < N_SLICES; j++)
         begin
-           if (hit[j] == 1'b1)
-             begin
+          if (hit[j] == 1'b1)
+            begin
               if (first_hit)
                 begin
-                   second_hit=1'b1;
-                   first_hit=1'b0;
-                   //if (slice_out_addr[32*k +: 32] != slice_out_addr[32*j +: 32])
-                   // begin
-                   //    multiple_hit = 1'b1;
-                   //    out_addr = 32'hDEADBEEF;
-                   // end
+                  second_hit = 1'b1;
+                  first_hit  = 1'b0;
                 end
               else if (second_hit)
                 begin
-                   multiple_hit = 1'b1;
-                   out_addr = 32'hDEADBEEF;
-                   master_select = 0;
+                  multiple_hit  = 1'b1;
+                  out_addr      = '0;
+                  master_select = 0;
                 end
               else
                 begin
-                   first_hit=1'b1;
-                   k = j;
-                   out_addr = slice_out_addr[32*j +: 32];
-                   master_select = int_cfg_regs[4*j+3][3];
+                  first_hit     = 1'b1;
+                  k             = j;
+                  out_addr      = slice_out_addr[ADDR_WIDTH_PHYS*k+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*k];
+                  master_select = int_cfg_regs[4*k+3][3];
                 end
-             end
-	      end
-     end
+            end
+        end
+    end
    
 endmodule

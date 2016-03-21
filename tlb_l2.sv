@@ -2,7 +2,10 @@
 //`define TLB_MULTIHIT
 module tlb_l2
   #(
-    parameter ADDR_WIDTH             = 32,
+    parameter AXI_S_ADDR_WIDTH       = 32,
+    parameter AXI_M_ADDR_WIDTH       = 40,
+    parameter AXI_LITE_DATA_WIDTH    = 64,
+    parameter AXI_LITE_ADDR_WIDTH    = 32,
     parameter SET                    = 32,
     parameter NUM_OFFSET             = 4, //per port. There are 2 ports.
     parameter PAGE_SIZE              = 4096, // 4kB
@@ -10,22 +13,22 @@ module tlb_l2
     parameter HIT_OFFSET_STORE_WIDTH = 2 // Num of bits of VA RAM offset stored. This should not be greater than OFFSET_WIDTH
     )
    (
-    input  logic                  clk_i,
-    input  logic                  rst_ni,
-    input  logic [ADDR_WIDTH-1:0] in_addr,
-    input  logic                  rw_type, //1 => write, 0=> read 
-    input  logic                  l1_miss,
-    input  logic                  we,
-    input  logic [31:0]           waddr,
-    input  logic [31:0]           wdata,
-    input  logic                  l2_trans_sent,
-    output logic                  miss_l2,
-    output logic                  hit_l2,
-    output logic                  multiple_hit_l2,
-    output logic                  prot_l2,
-    output logic                  l2_busy, 
-    output logic                  l2_master_select,
-    output logic [ADDR_WIDTH-1:0] out_addr   
+    input  logic                           clk_i,
+    input  logic                           rst_ni,
+    input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr,
+    input  logic                           rw_type, //1 => write, 0=> read 
+    input  logic                           l1_miss,
+    input  logic                           we,
+    input  logic [AXI_LITE_ADDR_WIDTH-1:0] waddr,
+    input  logic [AXI_LITE_DATA_WIDTH-1:0] wdata,
+    input  logic                           l2_trans_sent,
+    output logic                           miss_l2,
+    output logic                           hit_l2,
+    output logic                           multiple_hit_l2,
+    output logic                           prot_l2,
+    output logic                           l2_busy, 
+    output logic                           l2_master_select,
+    output logic    [AXI_M_ADDR_WIDTH-1:0] out_addr   
     );
 
    localparam VA_RAM_DEPTH      = SET * NUM_OFFSET * 2;
@@ -46,7 +49,7 @@ module tlb_l2
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_addr; // PA RAM addr
    logic [31:0]                                            pa_port0_data_o;
-   logic [ADDR_WIDTH-IGNORE_LSB-1:0]                       pa_port0_data_reg, pa_port0_data_saved;
+   logic [AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0]                 pa_port0_data_reg, pa_port0_data_saved;
    logic                                                   prot_top;
    logic                                                   first_hit_top, hit_top;
    logic                                                   send_outputs; 
@@ -60,7 +63,7 @@ module tlb_l2
    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    port0_addr, port0_raddr; // VA RAM port0 addr
    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    port1_addr; // VA RAM port1 addr
    logic [SET_WIDTH-1:0]                                   set_num;
-   logic [ADDR_WIDTH-1:0]                                  in_addr_reg, in_addr_saved;
+   logic [AXI_S_ADDR_WIDTH-1:0]                            in_addr_reg, in_addr_saved;
    logic                                                   rw_type_saved;
       
    genvar                                                  z;
@@ -91,10 +94,10 @@ module tlb_l2
       for (z = 0; z < PARALLEL_NUM; z++) begin
          check_ram
            #(
-    	       .ADDR_WIDTH   (ADDR_WIDTH) ,
-    	       .PAGE_SIZE    (PAGE_SIZE)  ,             
-    	       .SET_WIDTH    (SET_WIDTH)  ,
-    	       .OFFSET_WIDTH (OFFSET_WIDTH)
+    	       .ADDR_WIDTH   ( AXI_S_ADDR_WIDTH ),
+    	       .PAGE_SIZE    ( PAGE_SIZE        ),             
+    	       .SET_WIDTH    ( SET_WIDTH        ),
+    	       .OFFSET_WIDTH ( OFFSET_WIDTH     )
              )
          u_check_ram
              (
@@ -357,56 +360,58 @@ module tlb_l2
    ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-   ///////////////////// --------------- Physical Address -------------- ////////////////////////////
+  ///////////////////// --------------- Physical Address -------------- ////////////////////////////
   
-   /// PA Block RAM
-   ram #(
-         .ADDR_WIDTH(PA_RAM_ADDR_WIDTH),
-         .DATA_WIDTH(32)
-         )
-   pa_ram
-     (
-             .clk   (clk_i)           ,
-             .we    (pa_ram_we)       ,
-             .addr0 (pa_port0_addr)   ,
-             .addr1 (0)               ,
-             .d_i   (wdata)           ,
-             .d0_o  (pa_port0_data_o) ,
-             .d1_o  ()
-             );
+  /// PA Block RAM
+  ram #(
+        .ADDR_WIDTH( PA_RAM_ADDR_WIDTH ),
+        .DATA_WIDTH( AXI_M_ADDR_WIDTH  )
+        )
+  pa_ram
+    (
+      .clk   (clk_i)           ,
+      .we    (pa_ram_we)       ,
+      .addr0 (pa_port0_addr)   ,
+      .addr1 (0)               ,
+      .d_i   (wdata)           ,
+      .d0_o  (pa_port0_data_o) ,
+      .d1_o  ()
+    );
 
-   assign out_addr[IGNORE_LSB-1:0]          = in_addr_saved[IGNORE_LSB-1:0];
-   assign out_addr[ADDR_WIDTH-1:IGNORE_LSB] = pa_port0_data_saved;
+   assign out_addr[IGNORE_LSB-1:0]                = in_addr_saved[IGNORE_LSB-1:0];
+   assign out_addr[AXI_M_ADDR_WIDTH-1:IGNORE_LSB] = pa_port0_data_saved;
 
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          pa_port0_data_reg <= 0;
       end else if (hit_l2) begin
-         pa_port0_data_reg <= pa_port0_data_o[ADDR_WIDTH-IGNORE_LSB-1:0];
+         pa_port0_data_reg <= pa_port0_data_o[AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0];
       end
    end
-   assign pa_port0_data_saved = hit_l2 ? pa_port0_data_o[ADDR_WIDTH-IGNORE_LSB-1:0] : pa_port0_data_reg;
+   assign pa_port0_data_saved = hit_l2 ? pa_port0_data_o[AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0] : pa_port0_data_reg;
    
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
    
-   ///// Write enable for all block rams
+///// Write enable for all block rams
 generate if (LL_WIDTH != 0) begin
    always_comb begin
       var reg[LL_WIDTH:0] para;
       var int             para_int;      
       for (para = 0; para < PARALLEL_NUM; para=para+1'b1) begin
-         para_int         = int'(para);
-         //ram_we[para_int] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH:VA_RAM_ADDR_WIDTH] == para);
-         ram_we[para_int] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr[LL_WIDTH-1:0] == para);
+        para_int         = int'(para);
+        //ram_we[para_int] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH:VA_RAM_ADDR_WIDTH] == para);
+        ram_we[para_int] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr[LL_WIDTH-1:0] == para);
       end
    end
 end else begin
    assign ram_we[0] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
 end
-endgenerate   
-   assign pa_ram_we      = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
-   assign ram_waddr      = waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
-   assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];             
-   assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
+
+endgenerate  
+
+assign pa_ram_we      = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
+assign ram_waddr      = waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
+assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];             
+assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
 
 endmodule    
