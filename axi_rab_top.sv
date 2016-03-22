@@ -666,33 +666,33 @@ module axi_rab_top
   
   always_comb
     begin
-       if(int_wmaster_select[i] == 1'b0)
+       if (int_wmaster_select[i] == 1'b1)
          begin
-            int_wtrans_sent[i]       = int_m0_wtrans_sent[i];
-            int_awready[i]           = int_m0_awready[i];   
+            int_wtrans_sent[i]       = int_m1_wtrans_sent[i];
+            int_awready[i]           = int_m1_awready[i];   
          end
        else
          begin
-            int_wtrans_sent[i]       = int_m1_wtrans_sent[i];
-            int_awready[i]           = int_m1_awready[i];
+            int_wtrans_sent[i]       = int_m0_wtrans_sent[i];
+            int_awready[i]           = int_m0_awready[i];
          end
     end            
   
   always_comb
     begin
-       if(l2_master_select[i] == 1'b0)
-         begin
-            l2_m0_wtrans_accept[i]  = l2_wtrans_accept[i];
-            l2_m1_wtrans_accept[i]  = 1'b0;
-            
-            l2_wtrans_sent[i]       = l2_m0_wtrans_sent[i];
-         end
-       else if (l2_master_select[i] == 1'b1)
+       if (l2_master_select[i] == 1'b1)
          begin
             l2_m0_wtrans_accept[i]  = 1'b0;
             l2_m1_wtrans_accept[i]  = l2_wtrans_accept[i];
             
             l2_wtrans_sent[i]       = l2_m1_wtrans_sent[i];
+         end
+       else
+         begin
+            l2_m0_wtrans_accept[i]  = l2_wtrans_accept[i];
+            l2_m1_wtrans_accept[i]  = 1'b0;
+            
+            l2_wtrans_sent[i]       = l2_m0_wtrans_sent[i];
          end  
     end // always_comb begin   
    
@@ -1158,7 +1158,7 @@ module axi_rab_top
   // In case of L1 Miss, send the signals to both masters. They will be stored till L2 outputs are available.
   always_comb
     begin
-      if(int_rmaster_select[i] == 1'b0 && int_rtrans_accept[i])
+      if (int_rmaster_select[i] == 1'b0 && int_rtrans_accept[i])
         begin
           int_m0_rtrans_accept[i]  = int_rtrans_accept[i];
           l1_m0_rtrans_drop[i]     = l1_rtrans_drop[i];
@@ -1192,33 +1192,33 @@ module axi_rab_top
   
   always_comb
     begin
-      if(int_rmaster_select[i] == 1'b0)
+      if(int_rmaster_select[i] == 1'b1)
         begin
-          int_rtrans_sent[i]       = int_m0_rtrans_sent[i];
-          int_arready[i]           = int_m0_arready[i];   
+          int_rtrans_sent[i]       = int_m1_rtrans_sent[i];
+          int_arready[i]           = int_m1_arready[i];   
         end
       else
         begin
-          int_rtrans_sent[i]       = int_m1_rtrans_sent[i];
-          int_arready[i]           = int_m1_arready[i];
+          int_rtrans_sent[i]       = int_m0_rtrans_sent[i];
+          int_arready[i]           = int_m0_arready[i];
         end
     end          
      
   always_comb
     begin
-       if(l2_master_select[i] == 1'b0)
-         begin
-            l2_m0_rtrans_accept[i]  = l2_rtrans_accept[i];
-            l2_m1_rtrans_accept[i]  = 1'b0;
-            
-            l2_rtrans_sent[i]       = l2_m0_rtrans_sent[i];
-         end
-       else if (l2_master_select[i] == 1'b1)
+       if (l2_master_select[i] == 1'b1)
          begin
             l2_m0_rtrans_accept[i]  = 1'b0;
             l2_m1_rtrans_accept[i]  = l2_rtrans_accept[i];
             
             l2_rtrans_sent[i]       = l2_m1_rtrans_sent[i];
+         end
+       else
+         begin
+            l2_m0_rtrans_accept[i]  = l2_rtrans_accept[i];
+            l2_m1_rtrans_accept[i]  = 1'b0;
+            
+            l2_rtrans_sent[i]       = l2_m0_rtrans_sent[i];
          end  
     end // always_comb begin   
        
@@ -1701,6 +1701,7 @@ module axi_rab_top
     end else begin // if (ENABLE_L2TLB[i] == 1) 
    
       assign miss_l2[i]          = 1'b0;
+      assign l2_in_addr_reg[i]   = 0;
 
       assign l2_busy[i]          = 1'b0;
       assign l2_wtrans_accept[i] = 1'b0;
