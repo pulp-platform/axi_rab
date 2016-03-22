@@ -31,8 +31,8 @@ module fsm
    output logic                      int_prot     
    );
    
-   parameter READY  = 1'b0;
-   parameter WAIT   = 1'b1;
+   localparam READY  = 1'b0;
+   localparam WAIT   = 1'b1;
    
    //-------------Internal Signals----------------------
    

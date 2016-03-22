@@ -67,7 +67,7 @@ module axi4_aw_sender (axi4_aclk,
    input    [AXI_USER_WIDTH-1:0] s_axi4_awuser;
    
    output     [AXI_ID_WIDTH-1:0] m_axi4_awid;
-   output [AXI_M_ADDR_WIDTH-1:0] m_axi4_awaddr;
+   output   [AXI_ADDR_WIDTH-1:0] m_axi4_awaddr;
    output                        m_axi4_awvalid;
    input                         m_axi4_awready;
    output                  [7:0] m_axi4_awlen;

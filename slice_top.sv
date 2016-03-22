@@ -3,7 +3,7 @@ module slice_top
     parameter N_SLICES        = 16,
     parameter N_REGS          = 4*N_SLICES,
     parameter ADDR_WIDTH_PHYS = 40,
-    parameter ADDR_WIDTH_VIRT = 32,
+    parameter ADDR_WIDTH_VIRT = 32
     )
    (
     input   logic   [N_REGS-1:0] [63:0] int_cfg_regs,
@@ -79,8 +79,8 @@ module slice_top
                 begin
                   first_hit     = 1'b1;
                   k             = j;
-                  out_addr      = slice_out_addr[ADDR_WIDTH_PHYS*k+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*k];
-                  master_select = int_cfg_regs[4*k+3][3];
+                  out_addr      = slice_out_addr[ADDR_WIDTH_PHYS*j +: ADDR_WIDTH_PHYS];
+                  master_select = int_cfg_regs[4*j+3][3];
                 end
             end
         end

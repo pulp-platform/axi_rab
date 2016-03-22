@@ -101,23 +101,23 @@ module tlb_l2
              )
          u_check_ram
              (
-              .clk_i         (clk_i)         ,
-              .rst_ni        (rst_ni)        ,
-              .in_addr       (in_addr_saved) ,
-              .rw_type       (rw_type_saved) ,
-              .ram_we        (ram_we[z])     ,
-              .port0_addr    (port0_addr)    ,
-              .port1_addr    (port1_addr)    ,
-              .ram_wdata     (wdata)         ,
-              .send_outputs  (send_outputs)  ,
-              .searching     (searching)     ,
-              .offset_addr_d (offset_addr_d) ,
-              .start_search  (l1_miss)       ,
-              .hit_addr      (hit_addr[z])   ,
-              .master        (master_select[z]),
-              .hit           (hit[z])        ,
-              .multi_hit     (multi_hit[z])  ,
-              .prot          (prot[z])
+              .clk_i         ( clk_i                       ),
+              .rst_ni        ( rst_ni                      ),
+              .in_addr       ( in_addr_saved               ),
+              .rw_type       ( rw_type_saved               ),
+              .ram_we        ( ram_we[z]                   ),
+              .port0_addr    ( port0_addr                  ),
+              .port1_addr    ( port1_addr                  ),
+              .ram_wdata     ( wdata[AXI_S_ADDR_WIDTH-1:0] ),
+              .send_outputs  ( send_outputs                ),
+              .searching     ( searching                   ),
+              .offset_addr_d ( offset_addr_d               ),
+              .start_search  ( l1_miss                     ),
+              .hit_addr      ( hit_addr[z]                 ),
+              .master        ( master_select[z]            ),
+              .hit           ( hit[z]                      ),
+              .multi_hit     ( multi_hit[z]                ),
+              .prot          ( prot[z]                     )
               );
       end // for (z = 0; z < N_PORTS; z++)
    endgenerate
@@ -236,8 +236,8 @@ module tlb_l2
          logic [SET-1:0][HIT_OFFSET_STORE_WIDTH-1:0]             hit_offset_addr; // Contains offset addr for previous hit for every SET.
          logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    hit_addr_reg;
          
-         assign offset_start_addr = { hit_offset_addr[set_num],{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH{1'b0}} };
-         assign offset_end_addr   = hit_offset_addr[set_num]-1'b1;
+         assign offset_start_addr = { hit_offset_addr[set_num] , {{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH}{1'b0}} };
+         assign offset_end_addr   =   hit_offset_addr[set_num]-1'b1;
 
          // Register the hit addr
          always_ff @(posedge clk_i) begin
@@ -369,13 +369,13 @@ module tlb_l2
         )
   pa_ram
     (
-      .clk   (clk_i)           ,
-      .we    (pa_ram_we)       ,
-      .addr0 (pa_port0_addr)   ,
-      .addr1 (0)               ,
-      .d_i   (wdata)           ,
-      .d0_o  (pa_port0_data_o) ,
-      .d1_o  ()
+      .clk   ( clk_i                       ),
+      .we    ( pa_ram_we                   ),
+      .addr0 ( pa_port0_addr               ),
+      .addr1 ( 0                           ),
+      .d_i   ( wdata[AXI_M_ADDR_WIDTH-1:0] ),
+      .d0_o  ( pa_port0_data_o             ),
+      .d1_o  (                             )
     );
 
    assign out_addr[IGNORE_LSB-1:0]                = in_addr_saved[IGNORE_LSB-1:0];

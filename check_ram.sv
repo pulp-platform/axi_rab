@@ -15,7 +15,7 @@ module check_ram
    input  logic                                ram_we,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr,
-   input  logic [31:0]                         ram_wdata,
+   input  logic [ADDR_WIDTH-1:0]               ram_wdata,
    input  logic                                send_outputs,
    input  logic                                searching,
    input  logic [OFFSET_WIDTH-1:0]             offset_addr_d,

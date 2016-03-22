@@ -51,13 +51,13 @@ module axi_rab_cfg
     input  logic                                    s_axi_rready,
            
     // Slice configuration       
-    output logic [N_REGS-1:0][63:0]                 L1Cfg_DO
+    output logic [N_REGS-1:0][63:0]                 L1Cfg_DO,
         
     // Miss handling       
     input  logic [ADDR_WIDTH_VIRT-1:0]              MissAddr_DI,
     input  logic [MISS_ID_WIDTH-1:0]                MissId_DI,
     input  logic                                    Miss_SI,
-    output logic                                    MhFifoFull_SO
+    output logic                                    MhFifoFull_SO,
 
     // L2 TLB
     output logic [N_PORTS-1:0] [AXI_DATA_WIDTH-1:0] wdata_l2,
@@ -307,7 +307,7 @@ module axi_rab_cfg
               end
             else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 ) // FLAGS
               if ( wstrb_reg[0] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][0] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
+                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][0] <= wdata_reg[0] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
               end
           end
     end // always @ ( posedge Clk_CI or negedge Rst_RBI )

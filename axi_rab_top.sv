@@ -19,10 +19,10 @@
  * transactions
  * 
  * The five axi channels are each buffered on the input side using a FIFO,
- * described in axi4_XXch_buffer.
+ * described in axi4_XX_buffer.
  * 
  * The rab lookup result is merged into the axi transaction via the
- * axi4_XXch_sender instances, which manage inserting error responses
+ * axi4_XX_sender instances, which manage inserting error responses
  * for failed lookups
  * 
  * 
@@ -434,8 +434,8 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           l1_wtrans_drop_saved, l1_rtrans_drop_saved;
   logic [N_PORTS-1:0]    [AXI_M_ADDR_WIDTH-1:0] l2_out_addr;
   logic [N_PORTS-1:0]                           l2_rw_type,l2_rw_type_comb;   
-  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] l2_wtrans_addr;
-  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] l2_rtrans_addr;
+  logic [N_PORTS-1:0]    [AXI_M_ADDR_WIDTH-1:0] l2_wtrans_addr;
+  logic [N_PORTS-1:0]    [AXI_M_ADDR_WIDTH-1:0] l2_rtrans_addr;
   logic [N_PORTS-1:0]                           l2_trans_sent;
   logic [N_PORTS-1:0]                           l2_wtrans_sent;
   logic [N_PORTS-1:0]                           l2_rtrans_sent;
@@ -533,7 +533,7 @@ module axi_rab_top
   
   axi4_aw_sender
     #(
-      .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH )
+      .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
       .AXI_ID_WIDTH   ( AXI_ID_WIDTH     ),
       .AXI_USER_WIDTH ( AXI_USER_WIDTH   ),
       .ENABLE_L2TLB   ( ENABLE_L2TLB[i]  )
@@ -580,7 +580,7 @@ module axi_rab_top
   
     axi4_aw_sender
     #(
-      .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH )
+      .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
       .AXI_ID_WIDTH   ( AXI_ID_WIDTH     ),
       .AXI_USER_WIDTH ( AXI_USER_WIDTH   ),
       .ENABLE_L2TLB   ( ENABLE_L2TLB[i]  )
@@ -732,10 +732,10 @@ module axi_rab_top
   
   axi4_w_sender
     #(
-      .AXI_DATA_WIDTH       ( AXI_DATA_WIDTH       ),
-      .AXI_USER_WIDTH       ( AXI_USER_WIDTH       ),
-      .ENABLE_L2TLB         ( ENABLE_L2TLB[i]      ), 
-      .L2TLB_W_BUFFER_DEPTH ( L2TLB_W_BUFFER_DEPTH ),
+      .AXI_DATA_WIDTH ( AXI_DATA_WIDTH       ),
+      .AXI_USER_WIDTH ( AXI_USER_WIDTH       ),
+      .ENABLE_L2TLB   ( ENABLE_L2TLB[i]      ), 
+      .L2BUFFER_DEPTH ( L2TLB_W_BUFFER_DEPTH )
       )
     u_w_sender_m0
     (
@@ -764,10 +764,10 @@ module axi_rab_top
   
   axi4_w_sender
     #(
-      .AXI_DATA_WIDTH       ( AXI_DATA_WIDTH       ),
-      .AXI_USER_WIDTH       ( AXI_USER_WIDTH       ),
-      .ENABLE_L2TLB         ( ENABLE_L2TLB[i]      ), 
-      .L2TLB_W_BUFFER_DEPTH ( L2TLB_W_BUFFER_DEPTH ),
+      .AXI_DATA_WIDTH ( AXI_DATA_WIDTH       ),
+      .AXI_USER_WIDTH ( AXI_USER_WIDTH       ),
+      .ENABLE_L2TLB   ( ENABLE_L2TLB[i]      ), 
+      .L2BUFFER_DEPTH ( L2TLB_W_BUFFER_DEPTH )
       )
     u_w_sender_m1
     (
@@ -1700,6 +1700,8 @@ module axi_rab_top
       
     end else begin // if (ENABLE_L2TLB[i] == 1) 
    
+      assign miss_l2[i]          = 1'b0;
+
       assign l2_busy[i]          = 1'b0;
       assign l2_wtrans_accept[i] = 1'b0;
       assign l2_rtrans_accept[i] = 1'b0;
