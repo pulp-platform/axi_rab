@@ -48,7 +48,7 @@ module tlb_l2
    logic                                                   pa_ram_we, read_pa;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_addr; // PA RAM addr
-   logic [31:0]                                            pa_port0_data_o;
+   logic [AXI_M_ADDR_WIDTH-1:0]                            pa_port0_data_o;
    logic [AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0]                 pa_port0_data_reg, pa_port0_data_saved;
    logic                                                   prot_top;
    logic                                                   first_hit_top, hit_top;
