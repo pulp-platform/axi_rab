@@ -296,28 +296,42 @@ module axi_rab_cfg
           begin
             // Mask unused bits -> Synthesizer should optimize away unused registers
             if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin // VIRT_ADDR
-              for ( idx_byte = 0; idx_byte < ADDR_WIDTH_VIRT/8; idx_byte++ )
-                if ( wstrb_reg[idx_byte] )
+              for ( idx_byte = 0; idx_byte < 8; idx_byte++ )
+                if ( (idx_byte < ADDR_WIDTH_VIRT/8) && wstrb_reg[idx_byte] )
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
+                else
+                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
               end
             else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin // PHYS_ADDR
-              for ( idx_byte = 0; idx_byte < ADDR_WIDTH_PHYS/8; idx_byte++ )
-                if ( wstrb_reg[idx_byte] )
+              for ( idx_byte = 0; idx_byte < 8; idx_byte++ )
+                if ( (idx_byte < ADDR_WIDTH_PHYS/8) && wstrb_reg[idx_byte] )
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
+                else
+                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
               end
             else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 ) // FLAGS
-              if ( wstrb_reg[0] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][0] <= wdata_reg[0] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
+              for ( idx_byte = 0; idx_byte < 8; idx_byte++ )
+                if ( (idx_byte < 1) && wstrb_reg[idx_byte] )
+                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
+                else
+                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
               end
           end
     end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
-  assign rdata_reg = L1Cfg_DP[araddr_reg[ADDR_MSB:ADDR_LSB]];
-
   generate
-     for( j=0; j<N_REGS; j++ )
-        assign L1Cfg_DO[j] = L1Cfg_DP[j];
+    // Mask unused bits -> Synthesizer should optimize away unused registers
+    for( j=0; j<N_REGS; j++ ) begin
+      if ( j[1] == 1'b0 ) // VIRT_ADDR
+        assign L1Cfg_DO[j] = { {{64-ADDR_WIDTH_VIRT}{1'b0}},{ADDR_WIDTH_VIRT{1'b1}} } & L1Cfg_DP[j];
+      else if ( j[1:0] == 2'b10 ) // PHYS_ADDR
+        assign L1Cfg_DO[j] = { {{64-ADDR_WIDTH_PHYS}{1'b0}},{ADDR_WIDTH_PHYS{1'b1}} } & L1Cfg_DP[j];
+      else // if ( j[1:0] == 2'b11 ) // FLAGS
+        assign L1Cfg_DO[j] = { {{64-N_FLAGS}{1'b0}},{N_FLAGS{1'b1}} } & L1Cfg_DP[j];
+    end
   endgenerate
+
+  assign rdata_reg = L1Cfg_DO[araddr_reg[ADDR_MSB:ADDR_LSB]];
 
   assign s_axi_awready = awready;
   assign s_axi_wready  = wready;
