@@ -367,15 +367,15 @@ module rab_core
             )
         u_slice_top
           (
-           .int_cfg_regs  (int_cfg_regs_slices[z][4*N_SLICES[z]-1:0]),
-           .int_rw        (int_rw[z]),
-           .int_addr_min  (int_addr_min[z]),
-           .int_addr_max  (int_addr_max[z]),
-           .out_addr      (out_addr[z]),
-           .multiple_hit  (multiple_hit[z]),      
-           .prot          (prot[z]),
-           .hit           (hit[z]),
-           .master_select (master_select[z])
+           .int_cfg_regs  ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
+           .int_rw        ( int_rw[z]                                 ),
+           .int_addr_min  ( int_addr_min[z]                           ),
+           .int_addr_max  ( int_addr_max[z]                           ),
+           .out_addr      ( out_addr[z]                               ),
+           .multiple_hit  ( multiple_hit[z]                           ),      
+           .prot          ( prot[z][N_SLICES[z]-1:0]                  ),
+           .hit           (  hit[z][N_SLICES[z]-1:0]                  ),
+           .master_select ( master_select[z]                          )
            );
         // hit[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
         // prot[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
