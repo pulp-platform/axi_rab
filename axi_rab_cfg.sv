@@ -473,26 +473,26 @@ module axi_rab_cfg
      
   xilinx_fifo_rab_mh_addr xilinx_fifo_addr_i
     (
-     .clk  (Clk_CI     ), 
-     .rst  (~Rst_RBI ), 
-     .din  (AddrFifoDin_D  ),
-     .wr_en(AddrFifoWen_S & ~AddrFifoFull_S),
-     .rd_en(AddrFifoRen_S  ),
-     .dout (AddrFifoDout_D ),
-     .full (AddrFifoFull_S ),
-     .empty(AddrFifoEmpty_S)
-     );
+      .clk   ( Clk_CI                          ), 
+      .srst  ( ~Rst_RBI                        ), 
+      .din   ( AddrFifoDin_D                   ),
+      .wr_en ( AddrFifoWen_S & ~AddrFifoFull_S ),
+      .rd_en ( AddrFifoRen_S                   ),
+      .dout  ( AddrFifoDout_D                  ),
+      .full  ( AddrFifoFull_S                  ),
+      .empty ( AddrFifoEmpty_S                 )
+    );
   
   xilinx_fifo_rab_mh_id xilinx_fifo_id_i
     (
-     .clk  (Clk_CI    ), 
-     .rst  (~Rst_RBI), 
-     .din  (IdFifoDin_D   ),
-     .wr_en(IdFifoWen_S & ~IdFifoFull_S),
-     .rd_en(IdFifoRen_S   ),
-     .dout (IdFifoDout_D  ),
-     .full (IdFifoFull_S  ),
-     .empty(IdFifoEmpty_S )
-     );
+      .clk   ( Clk_CI                      ), 
+      .srst  ( ~Rst_RBI                    ), 
+      .din   ( IdFifoDin_D                 ),
+      .wr_en ( IdFifoWen_S & ~IdFifoFull_S ),
+      .rd_en ( IdFifoRen_S                 ),
+      .dout  ( IdFifoDout_D                ),
+      .full  ( IdFifoFull_S                ),
+      .empty ( IdFifoEmpty_S               )
+    );
    
 endmodule
