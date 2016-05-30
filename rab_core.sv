@@ -399,6 +399,7 @@ module rab_core
       begin
         fsm
           #(
+            .AXI_ADDR_WIDTH (AXI_M_ADDR_WIDTH)
             )
           u_fsm
           (

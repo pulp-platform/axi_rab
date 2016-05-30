@@ -391,6 +391,8 @@ module axi_rab_cfg
   logic [ADDR_WIDTH_VIRT-1:0] AddrFifoDout_D;
   logic                       AddrFifoFull_S;
   logic                       AddrFifoEmpty_S;
+  logic                       AddrFifoEmpty_SB;
+  logic                       AddrFifoFull_SB;
   
   logic [MISS_ID_WIDTH-1:0] IdFifoDin_D;
   logic                     IdFifoWen_S;
@@ -398,8 +400,16 @@ module axi_rab_cfg
   logic [MISS_ID_WIDTH-1:0] IdFifoDout_D;
   logic                     IdFifoFull_S;
   logic                     IdFifoEmpty_S;
+  logic                     IdFifoEmpty_SB;
+  logic                     IdFifoFull_SB;
 
   logic [AXI_DATA_WIDTH-1:0] wdata_reg_vec;
+
+  assign AddrFifoEmpty_S = ~AddrFifoEmpty_SB;
+  assign IdFifoEmpty_S   = ~IdFifoEmpty_SB;
+
+  assign AddrFifoFull_S = ~AddrFifoFull_SB;
+  assign IdFifoFull_S   = ~IdFifoFull_SB;
   
   assign MhFifoFull_SO = (AddrFifoWen_S & AddrFifoFull_S) | (IdFifoWen_S & IdFifoFull_S);
   
@@ -471,28 +481,64 @@ module axi_rab_cfg
          end // if ( rvalid == 1'b1 )
     end // always_comb begin
      
-  xilinx_fifo_rab_mh_addr xilinx_fifo_addr_i
+  // xilinx_fifo_rab_mh_addr xilinx_fifo_addr_i
+  //   (
+  //     .clk   ( Clk_CI                          ), 
+  //     .srst  ( ~Rst_RBI                        ), 
+  //     .din   ( AddrFifoDin_D                   ),
+  //     .wr_en ( AddrFifoWen_S & ~AddrFifoFull_S ),
+  //     .rd_en ( AddrFifoRen_S                   ),
+  //     .dout  ( AddrFifoDout_D                  ),
+  //     .full  ( AddrFifoFull_S                  ),
+  //     .empty ( AddrFifoEmpty_S                 )
+  //   );
+  // 
+  // xilinx_fifo_rab_mh_id xilinx_fifo_id_i
+  //   (
+  //     .clk   ( Clk_CI                      ), 
+  //     .srst  ( ~Rst_RBI                    ), 
+  //     .din   ( IdFifoDin_D                 ),
+  //     .wr_en ( IdFifoWen_S & ~IdFifoFull_S ),
+  //     .rd_en ( IdFifoRen_S                 ),
+  //     .dout  ( IdFifoDout_D                ),
+  //     .full  ( IdFifoFull_S                ),
+  //     .empty ( IdFifoEmpty_S               )
+  //   );
+
+  generic_fifo
+    #(
+      .DATA_WIDTH (ADDR_WIDTH_VIRT),
+      .DATA_DEPTH (16)
+      )
+    fifo_addr_i
     (
-      .clk   ( Clk_CI                          ), 
-      .srst  ( ~Rst_RBI                        ), 
-      .din   ( AddrFifoDin_D                   ),
-      .wr_en ( AddrFifoWen_S & ~AddrFifoFull_S ),
-      .rd_en ( AddrFifoRen_S                   ),
-      .dout  ( AddrFifoDout_D                  ),
-      .full  ( AddrFifoFull_S                  ),
-      .empty ( AddrFifoEmpty_S                 )
+      .clk         ( Clk_CI                          ),
+      .rst_n       ( Rst_RBI                         ),
+      .data_i      ( AddrFifoDin_D                   ),
+      .valid_i     ( AddrFifoWen_S & AddrFifoFull_SB ),
+      .grant_o     ( AddrFifoFull_SB                 ),
+      .data_o      ( AddrFifoDout_D                  ),
+      .valid_o     ( AddrFifoEmpty_SB                ),
+      .grant_i     ( AddrFifoRen_S                   ),
+      .test_mode_i ( 1'b0                            )
     );
-  
-  xilinx_fifo_rab_mh_id xilinx_fifo_id_i
+
+  generic_fifo
+    #(
+      .DATA_WIDTH (MISS_ID_WIDTH),
+      .DATA_DEPTH (16)
+      )
+    fifo_id_i
     (
-      .clk   ( Clk_CI                      ), 
-      .srst  ( ~Rst_RBI                    ), 
-      .din   ( IdFifoDin_D                 ),
-      .wr_en ( IdFifoWen_S & ~IdFifoFull_S ),
-      .rd_en ( IdFifoRen_S                 ),
-      .dout  ( IdFifoDout_D                ),
-      .full  ( IdFifoFull_S                ),
-      .empty ( IdFifoEmpty_S               )
+      .clk         ( Clk_CI                      ),
+      .rst_n       ( Rst_RBI                     ),
+      .data_i      ( IdFifoDin_D                 ),
+      .valid_i     ( IdFifoWen_S & IdFifoFull_SB ),
+      .grant_o     ( IdFifoFull_SB               ),
+      .data_o      ( IdFifoDout_D                ),
+      .valid_o     ( IdFifoEmpty_SB              ),
+      .grant_i     ( IdFifoRen_S                 ),
+      .test_mode_i ( 1'b0                        )
     );
    
 endmodule

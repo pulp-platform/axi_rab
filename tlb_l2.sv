@@ -372,7 +372,7 @@ module tlb_l2
       .clk   ( clk_i                       ),
       .we    ( pa_ram_we                   ),
       .addr0 ( pa_port0_addr               ),
-      .addr1 ( 0                           ),
+      .addr1 ( '0                          ),
       .d_i   ( wdata[AXI_M_ADDR_WIDTH-1:0] ),
       .d0_o  ( pa_port0_data_o             ),
       .d1_o  (                             )

@@ -1374,13 +1374,15 @@ module axi_rab_top
 
  rab_core
    #(
-     .AXI_DATA_WIDTH     ( AXI_DATA_WIDTH      ),
-     .AXI_LITE_DATA_WIDTH( AXI_LITE_DATA_WIDTH ),
-     .AXI_ID_WIDTH       ( AXI_ID_WIDTH        ),
-     .AXI_USER_WIDTH     ( AXI_USER_WIDTH      ),
-     .AXI_LITE_ADDR_WIDTH( AXI_LITE_ADDR_WIDTH ),
-     .N_PORTS            ( N_PORTS             )
-     ) 
+     .N_PORTS             ( N_PORTS             ), 
+     .AXI_DATA_WIDTH      ( AXI_DATA_WIDTH      ),
+     .AXI_S_ADDR_WIDTH    ( AXI_S_ADDR_WIDTH    ),
+     .AXI_M_ADDR_WIDTH    ( AXI_M_ADDR_WIDTH    ),
+     .AXI_LITE_DATA_WIDTH ( AXI_LITE_DATA_WIDTH ),
+     .AXI_LITE_ADDR_WIDTH ( AXI_LITE_ADDR_WIDTH ),
+     .AXI_ID_WIDTH        ( AXI_ID_WIDTH        ),
+     .AXI_USER_WIDTH      ( AXI_USER_WIDTH      )
+    )
  u_rab_core
    (
     .Clk_CI              (Clk_CI),
@@ -1460,6 +1462,10 @@ module axi_rab_top
     if (ENABLE_L2TLB[i] == 1) begin  
       tlb_l2
         #(
+          .AXI_S_ADDR_WIDTH       ( AXI_S_ADDR_WIDTH                                           ),   
+          .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                                           ),   
+          .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                                        ),   
+          .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                                        ),
           .SET                    ( L2TLB_NUM_SETS                                             ),
           .NUM_OFFSET             ( L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL                 ), 
           .PARALLEL_NUM           ( L2TLB_PARALLEL                                             ),
