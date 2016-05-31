@@ -172,10 +172,11 @@ if (ENABLE_L2TLB == 1) begin
   end // always @ (trans_infifo,fifo_dataout,second_trans)
   
   // In case of double_trans, do not get assert trans_done after first transaction.  
-  assign trans_done = trans_is_l1_accept | trans_is_l1_miss ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) | ~buffer_not_full :
-                      trans_is_l2_accept & single_trans     ? m_axi4_wvalid && m_axi4_wready && m_axi4_wlast :
-                      trans_is_drop & single_trans          ? l2_axi4_wlast                                  : // why wait till last? Simply drop the data. But the data needs to be flushed. TODO.
-                      1'b0;
+  assign  trans_done      = trans_is_l1_accept                    ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) :
+                            trans_is_l1_miss                      ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) | ~buffer_not_full :
+                            trans_is_l2_accept & single_trans     ?  m_axi4_wvalid && m_axi4_wready && m_axi4_wlast  :
+                            trans_is_drop      & single_trans     ?  l2_axi4_wlast                                   : // why wait till last? Simply drop the data. But the data needs to be flushed. TODO.
+                            1'b0;                    
 
   // Will have to send two trans if L1 and L2 results come simultaneously
   assign double_trans = trans_infifo & ( fifo_dataout[0]|fifo_dataout[1]) & (fifo_dataout[2]|fifo_dataout[3]);
