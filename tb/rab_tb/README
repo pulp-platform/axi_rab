@@ -1,0 +1,42 @@
+README for compiling and running the RAB tests.
+
+First, do the following
+- Use only 1 port for RAB defines in ulpsoc_defines.sv
+- Give correct path to your RTL in compile_tb.sh
+
+###################################
+To only compile, run the script "compile_tb.sh". Make sure that the correct paths are given in the script.
+To compile and run the test, run "run_tb.sh". You can change the test name and the AXI traffic using the TEST_NAME and SRC_ID parameters in the script.
+TEST_NAME controls the AXI-Lite config and SRC_ID controls the AXI traffic pattern.
+Load "do_modelsim_rab_tb.do" to restart and load important signals(from waves.do) in the wave window.
+Run the test using "run -a". Happy debugging !!!
+
+###################################
+- How to generate a new test ?
+Open test.sv
+You will find various tests in different "if" conditions. Add a new condition for your test.
+You can program the RAB using the function "slice_cfg"
+You can program  L2 TLB using the function "l2_cfg"
+Check the test named 'l2' for reference.
+Both the functions l2_cfg and slice_cfg are defined in the same file if you want to have a look.
+####################################
+
+####################################
+- How to change the AXI traffic pattern?
+The AXI traffic pattern is controlled by the parameter SRC_ID in rab_tb.sv
+There are a total of 16 patterns in TGEN. These files are called TRAFFIC_0_<n>.cmd (n=00..15)
+You can edit these files to create the desired AXI traffic pattern.
+Have a look at TRAFFIC_0_00.cmd, TRAFFIC_0_05.cmd, TRAFFIC_0_06.cmd for reference.
+TRAFFIC_0_08.cmd has random AXI patterns
+TRAFFIC_0_13_gen.cmd can be used to generate multiple TRAFFIC_0_13.cmd files with different random seeds. You can use this to run different randomised AXI traffic. A script(commented) is provided in run_tb.sh.
+####################################
+
+###### Makefile #######
+Makefile can be used to compile, run tests.
+It can also be used to cleran the directory.
+
+############## TB Limitations ########
+- The AXI traffic generator sends AW and W at the same clock cycle. So we cannot simulate a cse where W channel signals arrive after AW signals (We can simulate it, if we buffer the W channel signals. This is not done currently).
+- A Read and Write transaction where one is followed immediately by other cannot be handled by the TB. Give few cycles between reads and writes. A read can follow another read immediately. Also, a write can follow another write immediately.
+
+
