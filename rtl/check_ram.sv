@@ -96,7 +96,6 @@ module check_ram
                master   = port0_hit ? port0_data_o[3] :
                           port1_hit ? port1_data_o[3] :
                           1'b0;
-               
             end
 
         HIT : begin

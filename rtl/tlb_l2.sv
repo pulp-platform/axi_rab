@@ -302,14 +302,14 @@ module tlb_l2
    end
    
    always_comb begin
-      out_SN = out_SP;
-      send_outputs         = 1'b0;
-      hit_l2_next          = 1'b0;
-      miss_l2_next         = 1'b0;
-      prot_l2_next         = 1'b0;
-      multiple_hit_l2_next = 1'b0;
-      pa_port0_raddr       = 0;
-      l2_master_select_next= 1'b0;
+      out_SN                = out_SP;
+      l2_master_select_next = l2_master_select;
+      send_outputs          = 1'b0;
+      hit_l2_next           = 1'b0;
+      miss_l2_next          = 1'b0;
+      prot_l2_next          = 1'b0;
+      multiple_hit_l2_next  = 1'b0;
+      pa_port0_raddr        = 0;
       unique case (out_SP)
         OUT_IDLE :
           if (multi_hit_top || prot_top || (search_done && ~hit_top)) begin // No Hit
