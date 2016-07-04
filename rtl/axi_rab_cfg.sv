@@ -296,21 +296,21 @@ module axi_rab_cfg
           begin
             // Mask unused bits -> Synthesizer should optimize away unused registers
             if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin // VIRT_ADDR
-              for ( idx_byte = 0; idx_byte < 8; idx_byte++ )
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
                 if ( (idx_byte < ADDR_WIDTH_VIRT/8) && wstrb_reg[idx_byte] )
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
                 else
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
               end
             else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin // PHYS_ADDR
-              for ( idx_byte = 0; idx_byte < 8; idx_byte++ )
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
                 if ( (idx_byte < ADDR_WIDTH_PHYS/8) && wstrb_reg[idx_byte] )
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
                 else
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
               end
             else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 ) // FLAGS
-              for ( idx_byte = 0; idx_byte < 8; idx_byte++ )
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
                 if ( (idx_byte < 1) && wstrb_reg[idx_byte] )
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
                 else
@@ -331,7 +331,13 @@ module axi_rab_cfg
     end
   endgenerate
 
-  assign rdata_reg = L1Cfg_DO[araddr_reg[ADDR_MSB:ADDR_LSB]];
+  always_comb
+    begin
+      if ( araddr_reg[ADDR_LSB-1] == 1'b1 ) // read upper 32 bit, for debugging over 32-bit interface
+        rdata_reg = { {32'h00000000},{L1Cfg_DO[araddr_reg[ADDR_MSB:ADDR_LSB]][63:32]} };
+      else
+        rdata_reg = L1Cfg_DO[araddr_reg[ADDR_MSB:ADDR_LSB]];
+    end
 
   assign s_axi_awready = awready;
   assign s_axi_wready  = wready;
@@ -481,30 +487,6 @@ module axi_rab_cfg
          end // if ( rvalid == 1'b1 )
     end // always_comb begin
      
-  // xilinx_fifo_rab_mh_addr xilinx_fifo_addr_i
-  //   (
-  //     .clk   ( Clk_CI                          ), 
-  //     .srst  ( ~Rst_RBI                        ), 
-  //     .din   ( AddrFifoDin_D                   ),
-  //     .wr_en ( AddrFifoWen_S & ~AddrFifoFull_S ),
-  //     .rd_en ( AddrFifoRen_S                   ),
-  //     .dout  ( AddrFifoDout_D                  ),
-  //     .full  ( AddrFifoFull_S                  ),
-  //     .empty ( AddrFifoEmpty_S                 )
-  //   );
-  // 
-  // xilinx_fifo_rab_mh_id xilinx_fifo_id_i
-  //   (
-  //     .clk   ( Clk_CI                      ), 
-  //     .srst  ( ~Rst_RBI                    ), 
-  //     .din   ( IdFifoDin_D                 ),
-  //     .wr_en ( IdFifoWen_S & ~IdFifoFull_S ),
-  //     .rd_en ( IdFifoRen_S                 ),
-  //     .dout  ( IdFifoDout_D                ),
-  //     .full  ( IdFifoFull_S                ),
-  //     .empty ( IdFifoEmpty_S               )
-  //   );
-
   generic_fifo
     #(
       .DATA_WIDTH (ADDR_WIDTH_VIRT),
