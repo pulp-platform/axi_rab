@@ -56,7 +56,8 @@ module axi_rab_top
     parameter AXI_USER_WIDTH      = 6
     )
    (
-    // AXI ports. For every slave port there are two master ports. The master
+    // AXI ports {{{
+    // For every slave port there are two master ports. The master
     // port to use can be set using the master_select flag of the protection
     // bits of a slice
     
@@ -237,6 +238,9 @@ module axi_rab_top
     output logic                                           int_mhr_full
     );
 
+    // }}}
+
+  // Signals {{{
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
   // ██╔════╝██║██╔════╝ ████╗  ██║██╔══██╗██║     ██╔════╝
   // ███████╗██║██║  ███╗██╔██╗ ██║███████║██║     ███████╗
@@ -461,7 +465,11 @@ module axi_rab_top
   typedef enum logic[1:0] {WREADY_IDLE, WREADY_WAIT_FOR_M0, WREADY_WAIT_FOR_M1} wready_state_t;   
   wready_state_t [N_PORTS-1:0] [1:0] wready_state, wready_next_state;  
   logic [N_PORTS-1:0] clr_m0_wvalid, clr_m1_wvalid, send_wready;
+
+  // }}}
      
+  // Local parameters {{{
+
   // Enable L2 for select ports
   localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
 
@@ -471,7 +479,10 @@ module axi_rab_top
   localparam integer L2TLB_NUM_ENTRIES_PER_SET = 32; // total number including both ports and all rams.
   localparam integer L2TLB_PARALLEL = 4; // Number of parallel VA RAMs in L2 TLB.
   localparam integer L2TLB_W_BUFFER_DEPTH = (16/L2TLB_PARALLEL)+3;
+
+  // }}}
   
+  // Buf & Send {{{
   // ██████╗ ██╗   ██╗███████╗       ██╗       ███████╗███████╗███╗   ██╗██████╗ 
   // ██╔══██╗██║   ██║██╔════╝       ██║       ██╔════╝██╔════╝████╗  ██║██╔══██╗
   // ██████╔╝██║   ██║█████╗      ████████╗    ███████╗█████╗  ██╔██╗ ██║██║  ██║
@@ -481,6 +492,7 @@ module axi_rab_top
   // 
   generate for (i = 0; i < N_PORTS; i++) begin
      
+  // Write Address channel (aw) {{{
   /*
    * write address channel (aw)
    * 
@@ -695,7 +707,9 @@ module axi_rab_top
             l2_wtrans_sent[i]       = l2_m0_wtrans_sent[i];
          end  
     end // always_comb begin   
-   
+   // }}}
+
+  // Write Data channel (dw) {{{
   /*
    * write data channel(dw)
    * 
@@ -910,7 +924,10 @@ module axi_rab_top
        
   assign l2_m0_wtrans_drop[i] = l2_wtrans_drop[i] | (l2_wtrans_accept[i] && (l2_master_select[i] == 1'b1));
   assign l2_m1_wtrans_drop[i] = l2_wtrans_drop[i] | (l2_wtrans_accept[i] && (l2_master_select[i] == 1'b0));      
+
+  // }}}
   
+  // Write Response channel (rw) {{{
   /*
    * write response channel(rw)
    * 
@@ -1021,7 +1038,10 @@ module axi_rab_top
           int_bvalid[i] = int_m0_bvalid[i];
         end
     end
+
+  // }}}
      
+  // Read Address channel (ar) {{{
   /*
    * read address channel (ar)
    *
@@ -1221,7 +1241,10 @@ module axi_rab_top
             l2_rtrans_sent[i]       = l2_m0_rtrans_sent[i];
          end  
     end // always_comb begin   
+
+  // }}}
        
+  // Read Response channel (rr) {{{
   /*
    * read response channel (rr)
    *
@@ -1348,8 +1371,11 @@ module axi_rab_top
     end   
   end
 
-  endgenerate // BUF & SEND
+  // }}}
 
+  endgenerate // BUF & SEND }}}
+
+// RAB Core {{{
 // ██████╗  █████╗ ██████╗      ██████╗ ██████╗ ██████╗ ███████╗
 // ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔═══██╗██╔══██╗██╔════╝
 // ██████╔╝███████║██████╔╝    ██║     ██║   ██║██████╔╝█████╗  
@@ -1439,8 +1465,9 @@ module axi_rab_top
     .waddr_tlb_l2        (waddr_tlb_l2),
     .wren_tlb_l2         (wren_tlb_l2)      
     );
+// }}}
 
-
+// L2 TLB {{{
 // ██╗     ██████╗     ████████╗██╗     ██████╗ 
 // ██║     ╚════██╗    ╚══██╔══╝██║     ██╔══██╗
 // ██║      █████╔╝       ██║   ██║     ██████╔╝
@@ -1732,4 +1759,8 @@ module axi_rab_top
   end // for (i = 0; i < N_PORTS; i++)
   endgenerate
 
+// }}}
+
 endmodule
+
+// vim: foldmethod=marker
