@@ -43,6 +43,7 @@
 `include "ulpsoc_defines.sv"
 
 `define log2(VALUE) ( (VALUE) < ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+`include "BramPort.sv"
 
 module axi_rab_top   
   #(
@@ -229,6 +230,9 @@ module axi_rab_top
     output logic                                     [1:0] s_axi4lite_rresp,
     output logic                                           s_axi4lite_rvalid,
     input  logic                                           s_axi4lite_rready,
+
+    BramPort.Slave  [N_PORTS-1:0]                          AwBram,
+    BramPort.Slave  [N_PORTS-1:0]                          ArBram,
 
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
@@ -482,7 +486,7 @@ module axi_rab_top
 
   // }}}
   
-  // Buf & Send {{{
+  // Buf, Log and Send {{{
   // ██████╗ ██╗   ██╗███████╗       ██╗       ███████╗███████╗███╗   ██╗██████╗ 
   // ██╔══██╗██║   ██║██╔════╝       ██║       ██╔════╝██╔════╝████╗  ██║██╔══██╗
   // ██████╔╝██║   ██║█████╗      ████████╗    ███████╗█████╗  ██╔██╗ ██║██║  ██║
@@ -541,6 +545,21 @@ module axi_rab_top
       .m_axi4_awregion (int_awregion [i]),
       .m_axi4_awqos    (int_awqos [i]),
       .m_axi4_awuser   (int_awuser [i])
+    );
+
+  // TODO: is one AW logger per port really required?
+  axi4_bram_logger
+    u_aw_logger
+    (
+      .Clk_CI         (Clk_CI),
+      .Rst_RBI        (Rst_RBI),
+      .AxiValid_SI    (s_axi4_awvalid[i]),
+      .AxiId_DI       (s_axi4_awid[i]),
+      .AxiAddr_DI     (s_axi4_awaddr[i]),
+      .AxiLen_DI      (s_axi4_awlen[i]),
+      .Clear_SI       (1'b0), // TODO: connect this
+      .Full_SO        (), // TODO: connect this
+      .Bram           (AwBram[i])
     );
   
   axi4_aw_sender
@@ -1086,6 +1105,20 @@ module axi_rab_top
       .m_axi4_aruser  (int_aruser [i])
     );
   
+  axi4_bram_logger
+    u_ar_logger
+    (
+      .Clk_CI         (Clk_CI),
+      .Rst_RBI        (Rst_RBI),
+      .AxiValid_SI    (s_axi4_arvalid[i]),
+      .AxiId_DI       (s_axi4_arid[i]),
+      .AxiAddr_DI     (s_axi4_araddr[i]),
+      .AxiLen_DI      (s_axi4_arlen[i]),
+      .Clear_SI       (1'b0), // TODO: connect this
+      .Full_SO        (), // TODO: connect this
+      .Bram           (ArBram[i])
+    );
+
     axi4_ar_sender
       #(
         .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
