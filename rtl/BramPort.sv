@@ -15,7 +15,7 @@ interface BramPort
   logic  [ADDR_WIDTH-1:0]          Addr_S;
   logic  [DATA_WIDTH-1:0]          Rd_D;
   logic  [DATA_WIDTH-1:0]          Wr_D;
-  logic  [`log2(DATA_WIDTH/4)-1:0] WrEn_S;
+  logic  [log2(DATA_WIDTH/4)-1:0]  WrEn_S;
 
   modport Slave (
     input  Clk_C, Rst_R, En_S, Addr_S, Wr_D, WrEn_S,
