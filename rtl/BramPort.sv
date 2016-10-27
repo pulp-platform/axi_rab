@@ -6,7 +6,7 @@
 interface BramPort
   #(
     parameter DATA_WIDTH  = 32,
-    parameter ADDR_WIDTH  = 18
+    parameter ADDR_WIDTH  = 32
   );
 
   logic                            Clk_C;
