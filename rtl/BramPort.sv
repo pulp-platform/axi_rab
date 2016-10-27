@@ -31,4 +31,4 @@ endinterface
 
 `endif // BRAM_PORT_SV
 
-// vim: ts=2 sw=2 sts=2 et
+// vim: ts=2 sw=2 sts=2 et tw=100
