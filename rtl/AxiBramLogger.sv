@@ -84,7 +84,7 @@ module AxiBramLogger
       .Wr_D(LogData_D),
       .WrEn_S(LogEn_S)
     );
-  BramPort #(.DATA_WIDTH(32), .ADDR_WIDTH(32)) BramDwc_P();
+  BramPort #(.DATA_WIDTH(LOGGING_DATA_BITW), .ADDR_WIDTH(32)) BramDwc_P();
   // }}}
 
   // Instantiation of True Dual-Port BRAM Array {{{
