@@ -239,7 +239,9 @@ module axi_rab_top
     output logic                             [N_PORTS-1:0] int_miss,
     output logic                             [N_PORTS-1:0] int_multi,
     output logic                             [N_PORTS-1:0] int_prot,
-    output logic                                           int_mhr_full
+    output logic                                           int_mhr_full,
+    output logic                             [N_PORTS-1:0] int_ar_log_full,
+    output logic                             [N_PORTS-1:0] int_aw_log_full
     );
 
     // }}}
@@ -558,7 +560,7 @@ module axi_rab_top
       .AxiAddr_DI     (s_axi4_awaddr[i]),
       .AxiLen_DI      (s_axi4_awlen[i]),
       .Clear_SI       (1'b0), // TODO: connect this
-      .Full_SO        (), // TODO: connect this
+      .Full_SO        (int_aw_log_full[i]),
       .Bram_PS        (AwBram_PS[i])
     );
   
@@ -1115,7 +1117,7 @@ module axi_rab_top
       .AxiAddr_DI     (s_axi4_araddr[i]),
       .AxiLen_DI      (s_axi4_arlen[i]),
       .Clear_SI       (1'b0), // TODO: connect this
-      .Full_SO        (), // TODO: connect this
+      .Full_SO        (int_ar_log_full[i]),
       .Bram_PS        (ArBram_PS[i])
     );
 
