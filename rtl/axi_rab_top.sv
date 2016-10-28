@@ -548,7 +548,7 @@ module axi_rab_top
     );
 
   // TODO: is one AW logger per port really required?
-  axi4_bram_logger
+  AxiBramLogger
     u_aw_logger
     (
       .Clk_CI         (Clk_CI),
@@ -559,7 +559,7 @@ module axi_rab_top
       .AxiLen_DI      (s_axi4_awlen[i]),
       .Clear_SI       (1'b0), // TODO: connect this
       .Full_SO        (), // TODO: connect this
-      .Bram           (AwBram[i])
+      .Bram_PS        (AwBram[i])
     );
   
   axi4_aw_sender
@@ -1105,7 +1105,7 @@ module axi_rab_top
       .m_axi4_aruser  (int_aruser [i])
     );
   
-  axi4_bram_logger
+  AxiBramLogger
     u_ar_logger
     (
       .Clk_CI         (Clk_CI),
@@ -1116,7 +1116,7 @@ module axi_rab_top
       .AxiLen_DI      (s_axi4_arlen[i]),
       .Clear_SI       (1'b0), // TODO: connect this
       .Full_SO        (), // TODO: connect this
-      .Bram           (ArBram[i])
+      .Bram_PS        (ArBram[i])
     );
 
     axi4_ar_sender
