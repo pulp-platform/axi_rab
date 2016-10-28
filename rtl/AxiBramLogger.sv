@@ -1,9 +1,11 @@
 /**
  * AXI BRAM Logger
  *
+ * NOTE: `Clear_SI` does NOT clear the content of the RAMs!  It just resets the address and
+ * timestamp counters.
+ *
  * TODO:
  * - module description
- * - clearing functionality
  */
 
 `ifndef AXI_BRAM_LOGGER_SV
@@ -122,10 +124,10 @@ module AxiBramLogger
 
   end
 
-  // Log if AXI signals are valid and BRAMs are not full.
+  // Log if AXI signals are valid, BRAMs are not full, and clear signal is not asserted.
   always_comb begin
     LogEn_S = '{default: '0};
-    if (AxiValid_SI && ~Full_SP) begin
+    if (AxiValid_SI && ~Full_SP && ~Clear_SI) begin
       LogEn_S = '{default: '1};
     end
   end
@@ -150,7 +152,7 @@ module AxiBramLogger
     LogCnt_SN = LogCnt_SP;
     if (LogEn_S) begin
       LogCnt_SN = LogCnt_SP + 1;
-      if (LogCnt_SP == LOGGING_CNT_MAX) begin
+      if (LogCnt_SP == LOGGING_CNT_MAX || Clear_SI) begin
         LogCnt_SN = 0;
       end
     end
@@ -161,7 +163,7 @@ module AxiBramLogger
   always_comb
   begin
     Timestamp_SN = Timestamp_SP + 1;
-    if (Timestamp_SP == $high(Timestamp_SP)) begin
+    if (Timestamp_SP == $high(Timestamp_SP) || Clear_SI) begin
       Timestamp_SN = 0;
     end
   end
