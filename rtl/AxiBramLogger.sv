@@ -71,7 +71,7 @@ module AxiBramLogger
 
   assign Rst_R = ~Rst_RBI; // TODO: is the polarity of this reset suitable for the BRAM?
 
-  // Internal BRAM Master Interfaces {{{
+  // Internal BRAM Interfaces {{{
   BramPort #(
       .DATA_WIDTH(LOGGING_DATA_BITW),
       .ADDR_WIDTH(LOGGING_ADDR_BITW)
