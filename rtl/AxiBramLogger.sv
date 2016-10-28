@@ -118,10 +118,11 @@ module AxiBramLogger
   always_comb
   begin
     Full_SN = Full_SP;
-    if (LogCnt_SP == LOGGING_CNT_MAX) begin
+    if (Clear_SI) begin
+      Full_SN = 0;
+    end else if (LogCnt_SP == LOGGING_CNT_MAX) begin
       Full_SN = 1;
     end
-
   end
 
   // Log if AXI signals are valid, BRAMs are not full, and clear signal is not asserted.
