@@ -47,7 +47,7 @@ module AxiBramLogger
     output logic                        Full_SO,
 
     // Interface to Internal BRAM
-    BramPort.Slave                                  Bram_PS
+    BramPort.Slave                      Bram_PS
   );
   // }}}
 
