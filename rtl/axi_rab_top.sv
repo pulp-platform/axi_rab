@@ -231,8 +231,8 @@ module axi_rab_top
     output logic                                           s_axi4lite_rvalid,
     input  logic                                           s_axi4lite_rready,
 
-    BramPort.Slave  [N_PORTS-1:0]                          AwBram,
-    BramPort.Slave  [N_PORTS-1:0]                          ArBram,
+    BramPort.Slave                                          AwBram [N_PORTS-1:0],
+    BramPort.Slave                                          ArBram [N_PORTS-1:0],
 
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
