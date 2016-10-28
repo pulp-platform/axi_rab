@@ -234,6 +234,9 @@ module axi_rab_top
     BramPort.Slave                                          AwBram_PS [N_PORTS-1:0],
     BramPort.Slave                                          ArBram_PS [N_PORTS-1:0],
 
+    input  logic                              [N_PORTS-1:0] ArLogClr_SI,
+    input  logic                              [N_PORTS-1:0] AwLogClr_SI,
+
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
     output logic                             [N_PORTS-1:0] int_miss,
@@ -559,7 +562,7 @@ module axi_rab_top
       .AxiId_DI       (s_axi4_awid[i]),
       .AxiAddr_DI     (s_axi4_awaddr[i]),
       .AxiLen_DI      (s_axi4_awlen[i]),
-      .Clear_SI       (1'b0), // TODO: connect this
+      .Clear_SI       (AwLogClr_SI[i]),
       .Full_SO        (int_aw_log_full[i]),
       .Bram_PS        (AwBram_PS[i])
     );
@@ -1116,7 +1119,7 @@ module axi_rab_top
       .AxiId_DI       (s_axi4_arid[i]),
       .AxiAddr_DI     (s_axi4_araddr[i]),
       .AxiLen_DI      (s_axi4_arlen[i]),
-      .Clear_SI       (1'b0), // TODO: connect this
+      .Clear_SI       (ArLogClr_SI[i]),
       .Full_SO        (int_ar_log_full[i]),
       .Bram_PS        (ArBram_PS[i])
     );
