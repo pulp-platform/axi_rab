@@ -103,8 +103,8 @@ module TdpBramArray
 
       // Address Resolution {{{
       logic [16-1:0] AddrA_S, AddrB_S;
-      assign AddrA_S = WordIdxA_S << 2;
-      assign AddrB_S = WordIdxB_S << 2;
+      assign AddrA_S = (WordIdxA_S << 2) + A_PS.Addr_S[1:0];
+      assign AddrB_S = (WordIdxB_S << 2) + B_PS.Addr_S[1:0];
       // }}}
 
       // RAMB36E1 Declaration {{{
