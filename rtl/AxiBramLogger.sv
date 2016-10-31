@@ -82,15 +82,14 @@ module AxiBramLogger
   BramPort #(
       .DATA_WIDTH(LOGGING_DATA_BITW),
       .ADDR_WIDTH(LOGGING_ADDR_BITW)
-    ) BramLog_P (
-      .Clk_C(Clk_CI),
-      .Rst_R(Rst_R),
-      .En_S(1'b1),
-      .Addr_S(LogAddr_S),
-      .Rd_D(),
-      .Wr_D(LogData_D),
-      .WrEn_S(LogEn_S)
-    );
+    ) BramLog_P ();
+  assign BramLog_P.Clk_C  = Clk_CI;
+  assign BramLog_P.Rst_R  = Rst_R;
+  assign BramLog_P.En_S   = 1'b1;
+  assign BramLog_P.Addr_S = LogAddr_S;
+  assign BramLog_P.Wr_D   = LogData_D;
+  assign BramLog_P.WrEn_S = LogEn_S;
+
   BramPort #(
       .DATA_WIDTH(LOGGING_DATA_BITW),
       .ADDR_WIDTH(32)
