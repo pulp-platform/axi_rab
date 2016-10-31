@@ -49,9 +49,10 @@ module TdpBramArray
   logic                     [30-1:0]                  WordAddrA_S,    WordAddrB_S;
   logic                     [30-1:0]                  SerIdxA_S,      SerIdxB_S;
   logic                     [WORD_IDX_WIDTH-1:0]      WordIdxA_S,     WordIdxB_S;
+  logic                     [16-1:0]                  AddrA_S,        AddrB_S;
   // }}}
 
-  // Resolve (Linear) Address to Serial (BRAM) and Word Index {{{
+  // Resolve (Linear) Address to Serial (BRAM), Word Index and Address of RAMs {{{
   assign WordAddrA_S = A_PS.Addr_S >> 2;
   assign WordAddrB_S = B_PS.Addr_S >> 2;
 
@@ -69,6 +70,10 @@ module TdpBramArray
     assert (SerIdxB_S < NUM_SER_BRAMS) else $error("Serial index on port B out of bounds!");
     assert (WordIdxB_S < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
   end
+
+  assign AddrA_S = (WordIdxA_S << 2) + A_PS.Addr_S[1:0];
+  assign AddrB_S = (WordIdxB_S << 2) + B_PS.Addr_S[1:0];
+
   // }}}
 
   // BRAM Instantiation, Signal Resolution, and Port Assignment {{{
@@ -97,11 +102,6 @@ module TdpBramArray
       end
       // }}}
 
-      // Address Resolution {{{
-      logic [16-1:0] AddrA_S, AddrB_S;
-      assign AddrA_S = (WordIdxA_S << 2) + A_PS.Addr_S[1:0];
-      assign AddrB_S = (WordIdxB_S << 2) + B_PS.Addr_S[1:0];
-      // }}}
 
       // RAMB36E1 Declaration {{{
       // RAMB36E1: 36K-bit Configurable Synchronous Block RAM
