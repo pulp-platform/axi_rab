@@ -82,9 +82,9 @@ module TdpBramArray
 
       // Instance-Specific Constants {{{
       localparam integer WORD_BIT_HIGH  = ARR_BIT_WIDTH   - BRAM_BIT_WIDTH*p  - 1;
-      localparam integer WORD_BIT_LOW   = WORD_BIT_HIGH   - BRAM_BIT_WIDTH-1;
+      localparam integer WORD_BIT_LOW   = WORD_BIT_HIGH   - (BRAM_BIT_WIDTH-1);
       localparam integer WORD_BYTE_HIGH = ARR_BYTE_WIDTH  - BRAM_BYTE_WIDTH*p - 1;
-      localparam integer WORD_BYTE_LOW  = WORD_BYTE_HIGH  - BRAM_BYTE_WIDTH-1;
+      localparam integer WORD_BYTE_LOW  = WORD_BYTE_HIGH  - (BRAM_BYTE_WIDTH-1);
       // }}}
 
       // Write-Enable Resolution {{{
