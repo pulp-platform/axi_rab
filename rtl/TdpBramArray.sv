@@ -102,7 +102,6 @@ module TdpBramArray
       end
       // }}}
 
-
       // RAMB36E1 Declaration {{{
       // RAMB36E1: 36K-bit Configurable Synchronous Block RAM
       //           Virtex-7
