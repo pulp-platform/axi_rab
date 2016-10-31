@@ -554,6 +554,15 @@ module axi_rab_top
 
   // TODO: is one AW logger per port really required?
   AxiBramLogger
+    #(
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
+      .AXI_ID_BITW        (AXI_ID_WIDTH),
+      .AXI_LEN_BITW       (8),
+      .TIMESTAMP_BITW     (32),
+      .LOGGING_DATA_BITW  (96),
+      .NUM_PAR_BRAMS      (3),
+      .NUM_SER_BRAMS      (12)
+    )
     u_aw_logger
     (
       .Clk_CI         (Clk_CI),
@@ -1112,6 +1121,15 @@ module axi_rab_top
     );
   
   AxiBramLogger
+    #(
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
+      .AXI_ID_BITW        (AXI_ID_WIDTH),
+      .AXI_LEN_BITW       (8),
+      .TIMESTAMP_BITW     (32),
+      .LOGGING_DATA_BITW  (96),
+      .NUM_PAR_BRAMS      (3),
+      .NUM_SER_BRAMS      (12)
+    )
     u_ar_logger
     (
       .Clk_CI         (Clk_CI),
