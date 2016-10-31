@@ -132,9 +132,9 @@ module AxiBramLogger
 
   // Log if AXI signals are valid, BRAMs are not full, and clear signal is not asserted.
   always_comb begin
-    LogEn_S = '{default: '0};
+    LogEn_S = '0;
     if (AxiValid_SI && AxiReady_SI && ~Full_SP && ~Clear_SI) begin
-      LogEn_S = '{default: '1};
+      LogEn_S = '1;
     end
   end
 
