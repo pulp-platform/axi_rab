@@ -168,7 +168,7 @@ module AxiBramLogger
   always_comb
   begin
     Timestamp_SN = Timestamp_SP + 1;
-    if (Timestamp_SP == $high(Timestamp_SP) || Clear_SI) begin
+    if (Timestamp_SP == {TIMESTAMP_BITW{1'b1}} || Clear_SI) begin
       Timestamp_SN = 0;
     end
   end
