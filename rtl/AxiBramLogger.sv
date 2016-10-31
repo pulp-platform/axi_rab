@@ -175,9 +175,11 @@ module AxiBramLogger
   begin
     if (~Rst_RBI) begin
       Full_SP       <= 0;
+      LogCnt_SP     <= 0;
       Timestamp_SP  <= 0;
     end else begin
       Full_SP       <= Full_SN;
+      LogCnt_SP     <= LogCnt_SN;
       Timestamp_SP  <= Timestamp_SN;
     end
   end
