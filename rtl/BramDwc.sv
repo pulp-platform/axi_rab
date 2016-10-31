@@ -65,10 +65,10 @@ module BramDwc
   assign Ext_PS.Rd_D  = Bram_PM.Rd_D[BramBitHigh:BramBitLow];
 
   always_comb begin
-    Bram_PM.WrEn_S = '{default: '0};
+    Bram_PM.WrEn_S = '0;
     Bram_PM.WrEn_S[BramByteHigh:BramByteLow] = Ext_PS.WrEn_S;
 
-    Bram_PM.Wr_D = '{default: '0};
+    Bram_PM.Wr_D = '0;
     Bram_PM.Wr_D[BramBitHigh:BramBitLow] = Wr_D;
   end
   // }}}
