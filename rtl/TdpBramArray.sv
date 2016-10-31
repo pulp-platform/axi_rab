@@ -47,7 +47,6 @@ module TdpBramArray
   logic [NUM_SER_BRAMS-1:0] [ARR_BIT_WIDTH-1:0]       ARd_D, BRd_D;
 
   logic                     [30-1:0]                  WordAddrA_S,    WordAddrB_S;
-  logic                     [30-1:0]                  ParWordIdxA_S,  ParWordIdxB_S;
   logic                     [30-1:0]                  SerIdxA_S,      SerIdxB_S;
   logic                     [WORD_IDX_WIDTH-1:0]      WordIdxA_S,     WordIdxB_S;
   // }}}
@@ -56,14 +55,11 @@ module TdpBramArray
   assign WordAddrA_S = A_PS.Addr_S >> 2;
   assign WordAddrB_S = B_PS.Addr_S >> 2;
 
-  assign ParWordIdxA_S = WordAddrA_S / NUM_PAR_BRAMS;
-  assign ParWordIdxB_S = WordAddrB_S / NUM_PAR_BRAMS;
+  assign SerIdxA_S = WordAddrA_S / NUM_BRAM_WORDS;
+  assign SerIdxB_S = WordAddrB_S / NUM_BRAM_WORDS;
 
-  assign SerIdxA_S = ParWordIdxA_S / NUM_BRAM_WORDS;
-  assign SerIdxB_S = ParWordIdxB_S / NUM_BRAM_WORDS;
-
-  assign WordIdxA_S = ParWordIdxA_S % NUM_BRAM_WORDS;
-  assign WordIdxB_S = ParWordIdxB_S % NUM_BRAM_WORDS;
+  assign WordIdxA_S = WordAddrA_S % NUM_BRAM_WORDS;
+  assign WordIdxB_S = WordAddrB_S % NUM_BRAM_WORDS;
 
   always @ (posedge A_PS.Clk_C) begin
     assert (SerIdxA_S < NUM_SER_BRAMS) else $error("Serial index on port A out of bounds!");
