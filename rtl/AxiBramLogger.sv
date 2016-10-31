@@ -38,6 +38,7 @@ module AxiBramLogger
 
     // AXI Input
     input  logic                        AxiValid_SI,
+    input  logic                        AxiReady_SI,
     input  logic  [AXI_ID_BITW-1:0]     AxiId_DI,
     input  logic  [AXI_ADDR_BITW-1:0]   AxiAddr_DI,
     input  logic  [AXI_LEN_BITW-1:0]    AxiLen_DI,
@@ -128,7 +129,7 @@ module AxiBramLogger
   // Log if AXI signals are valid, BRAMs are not full, and clear signal is not asserted.
   always_comb begin
     LogEn_S = '{default: '0};
-    if (AxiValid_SI && ~Full_SP && ~Clear_SI) begin
+    if (AxiValid_SI && AxiReady_SI && ~Full_SP && ~Clear_SI) begin
       LogEn_S = '{default: '1};
     end
   end
