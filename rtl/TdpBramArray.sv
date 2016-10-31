@@ -91,8 +91,8 @@ module TdpBramArray
       // Write-Enable Resolution {{{
       logic [BRAM_BYTE_WIDTH-1:0] WrEnA_S, WrEnB_S;
       always_comb begin
-        WrEnA_S = 0;
-        WrEnB_S = 0;
+        WrEnA_S = '0;
+        WrEnB_S = '0;
         if (SerIdxA_S == s) begin
           WrEnA_S = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
