@@ -76,7 +76,7 @@ module AxiBramLogger
   reg   [TIMESTAMP_BITW-1:0]      Timestamp_SP, Timestamp_SN;
   // }}}
 
-  assign Rst_R = ~Rst_RBI; // TODO: is the polarity of this reset suitable for the BRAM?
+  assign Rst_R = ~Rst_RBI;
 
   // Internal BRAM Interfaces {{{
   BramPort #(
