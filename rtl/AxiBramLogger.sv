@@ -216,9 +216,11 @@ module AxiBramLogger
   always_comb
   begin
     LogCnt_SN = LogCnt_SP;
-    if (LogEn_S) begin
+    if (Clear_SI) begin
+      LogCnt_SN = 0;
+    end else if (LogEn_S) begin
       LogCnt_SN = LogCnt_SP + 1;
-      if (LogCnt_SP == LOGGING_CNT_MAX || Clear_SI) begin
+      if (LogCnt_SP == LOGGING_CNT_MAX) begin
         LogCnt_SN = 0;
       end
     end
