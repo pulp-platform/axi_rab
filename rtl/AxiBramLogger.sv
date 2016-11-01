@@ -85,7 +85,7 @@ module AxiBramLogger
     ) BramLog_P ();
   assign BramLog_P.Clk_C  = Clk_CI;
   assign BramLog_P.Rst_R  = Rst_R;
-  assign BramLog_P.En_S   = 1'b1;
+  assign BramLog_P.En_S   = LogEn_S;
   assign BramLog_P.Addr_S = LogAddr_S;
   assign BramLog_P.Wr_D   = LogData_D;
   assign BramLog_P.WrEn_S = LogEn_S;
