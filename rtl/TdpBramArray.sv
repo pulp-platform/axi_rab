@@ -49,7 +49,6 @@ module TdpBramArray
   logic                     [30-1:0]                  WordAddrA_S,    WordAddrB_S;
   logic                     [30-1:0]                  SerIdxA_S,      SerIdxB_S;
   logic                     [WORD_IDX_WIDTH-1:0]      WordIdxA_S,     WordIdxB_S;
-  logic                     [16-1:0]                  AddrA_S,        AddrB_S;
   // }}}
 
   // Resolve (Linear) Address to Serial (BRAM), Word Index and Address of RAMs {{{
@@ -74,9 +73,6 @@ module TdpBramArray
     assert (SerIdxB_S < NUM_SER_BRAMS) else $error("Serial index on port B out of bounds!");
     assert (WordIdxB_S < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
   end
-
-  assign AddrA_S = (WordIdxA_S << 2) + A_PS.Addr_S[1:0];
-  assign AddrB_S = (WordIdxB_S << 2) + B_PS.Addr_S[1:0];
 
   // }}}
 
@@ -287,7 +283,7 @@ module TdpBramArray
         .RSTA(A_PS.Rst_R),                            //  1-bit inp: reset (active high)
         .ENA(A_PS.En_S),                              //  1-bit inp: enable
         .REGCEA(1'b0),                                //  1-bit inp: output register enable
-        .ADDRA(AddrA_S),                              // 10-bit inp: address
+        .ADDRA(WordIdxA_S),                           // 10-bit inp: word-wise address
         .DOA(ARd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data output
         .DIA(A_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data input
         .WEA(WrEnA_S),                                //  4-bit inp: byte-wise write enable
@@ -298,7 +294,7 @@ module TdpBramArray
         .RSTB(B_PS.Rst_R),                            //  1-bit inp: reset (active high)
         .ENB(B_PS.En_S),                              //  1-bit inp: enable
         .REGCEB(1'b0),                                //  1-bit inp: output register enable
-        .ADDRB(AddrB_S),                              // 10-bit inp: address
+        .ADDRB(WordIdxB_S),                           // 10-bit inp: word-wise address
         .DOB(BRd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data output
         .DIB(B_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data input
         .WEB(WrEnB_S)                                 //  4-bit inp: byte-wise write enable
