@@ -86,7 +86,10 @@ module AxiBramLogger
   assign BramLog_P.Clk_C  = Clk_CI;
   assign BramLog_P.Rst_R  = Rst_R;
   assign BramLog_P.En_S   = LogEn_S;
-  assign BramLog_P.Addr_S = LogAddr_S;
+  always_comb begin
+    BramLog_P.Addr_S = '0;
+    BramLog_P.Addr_S[LOGGING_ADDR_BITW-1:0] = LogAddr_S;
+  end
   assign BramLog_P.Wr_D   = LogData_D;
   assign BramLog_P.WrEn_S = LogEn_S;
 
