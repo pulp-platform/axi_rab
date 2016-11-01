@@ -140,6 +140,14 @@ module AxiBramLogger
     end
   end
 
+  // Raise "Full" output if BRAMs are nearly full (i.e., 1024 entries earlier).
+  always_comb begin
+    Full_SO = 0;
+    if (LogCnt_SP >= (LOGGING_CNT_MAX-1024)) begin
+      Full_SO = 1;
+    end
+  end
+
   // }}}
 
   // Log Data Formatting {{{
@@ -189,8 +197,6 @@ module AxiBramLogger
     end
   end
   // }}}
-
-  assign Full_SO = Full_SP;
 
 endmodule
 
