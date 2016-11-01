@@ -67,12 +67,13 @@ module AxiBramLogger
   // Signal Declarations {{{
   logic                           Rst_R;
 
-  logic [LOGGING_ADDR_BITW-1:0]   LogAddr_S;
-  reg   [LOGGING_ADDR_BITW-3:0]   LogCnt_SP, LogCnt_SN;
-  logic [LOGGING_DATA_BITW-1:0]   LogData_D;
-  logic [LOGGING_DATA_BYTEW-1:0]  LogEn_S;
+  enum reg [1:0]  {READY, CLEARING, FULL}
+                                  State_SP,     State_SN;
 
-  reg                             Full_SP, Full_SN;
+  reg   [LOGGING_ADDR_BITW-3:0]   WrCntA_SP,    WrCntA_SN;
+  logic [LOGGING_DATA_BITW-1:0]   WrA_D;
+  logic [LOGGING_DATA_BYTEW-1:0]  WrEnA_S;
+
   reg   [TIMESTAMP_BITW-1:0]      Timestamp_SP, Timestamp_SN;
   // }}}
 
@@ -85,13 +86,13 @@ module AxiBramLogger
     ) BramLog_P ();
   assign BramLog_P.Clk_C  = Clk_CI;
   assign BramLog_P.Rst_R  = Rst_R;
-  assign BramLog_P.En_S   = LogEn_S;
+  assign BramLog_P.En_S   = WrEnA_S;
   always_comb begin
     BramLog_P.Addr_S = '0;
-    BramLog_P.Addr_S[LOGGING_ADDR_BITW-1:0] = LogAddr_S;
+    BramLog_P.Addr_S[LOGGING_ADDR_BITW-1:0] = (WrCntA_SP << 2);
   end
-  assign BramLog_P.Wr_D   = LogData_D;
-  assign BramLog_P.WrEn_S = LogEn_S;
+  assign BramLog_P.Wr_D   = WrA_D;
+  assign BramLog_P.WrEn_S = WrEnA_S;
 
   BramPort #(
       .DATA_WIDTH(LOGGING_DATA_BITW),
@@ -170,59 +171,65 @@ module AxiBramLogger
   //assign Bram_PS.Rd_D     = '0;
   // }}}
 
-  // Control Logic {{{
+  // Control FSM {{{
 
-  // Determine if BRAMs are full.
-  always_comb
-  begin
-    Full_SN = Full_SP;
-    if (Clear_SI) begin
-      Full_SN = 0;
-    end else if (LogCnt_SP == LOGGING_CNT_MAX) begin
-      Full_SN = 1;
-    end
-  end
-
-  // Log if AXI signals are valid, BRAMs are not full, and clear signal is not asserted.
   always_comb begin
-    LogEn_S = '0;
-    if (AxiValid_SI && AxiReady_SI && ~Full_SP && ~Clear_SI) begin
-      LogEn_S = '1;
-    end
-  end
+    // Default Assignments
+    Full_SO   = 0;
+    WrCntA_SN = WrCntA_SP;
+    WrEnA_S   = '0;
+    State_SN  = State_SP;
 
-  // Raise "Full" output if BRAMs are nearly full (i.e., 1024 entries earlier).
-  always_comb begin
-    Full_SO = 0;
-    if (LogCnt_SP >= (LOGGING_CNT_MAX-1024)) begin
-      Full_SO = 1;
-    end
+    case (State_SP)
+
+      READY: begin
+        if (AxiValid_SI && AxiReady_SI && ~Clear_SI) begin
+          WrCntA_SN = WrCntA_SP + 1;
+          WrEnA_S   = '1;
+        end
+        // Raise "Full" output if BRAMs are nearly full (i.e., 1024 entries earlier).
+        if (WrCntA_SP >= (LOGGING_CNT_MAX-1024)) begin
+          Full_SO = 1;
+        end
+        if (WrCntA_SP == LOGGING_CNT_MAX) begin
+          State_SN = FULL;
+        end
+        if (Clear_SI && WrCntA_SP != 0) begin
+          WrCntA_SN = 0;
+          State_SN  = CLEARING;
+        end
+      end
+
+      CLEARING: begin
+        WrCntA_SN = WrCntA_SP + 1;
+        WrEnA_S   = '1;
+        if (WrCntA_SP == LOGGING_CNT_MAX) begin
+          WrCntA_SN = 0;
+          State_SN  = READY;
+        end
+      end
+
+      FULL: begin
+        Full_SO = 1;
+        if (Clear_SI) begin
+          WrCntA_SN = 0;
+          State_SN  = CLEARING;
+        end
+      end
+
+    endcase
   end
 
   // }}}
 
   // Log Data Formatting {{{
   always_comb begin
-    LogData_D = '0;
-    LogData_D[TIMESTAMP_BITW-1: 0]          = Timestamp_SP;
-    LogData_D[64-1            :32]          = AxiAddr_DI;
-    LogData_D[AXI_ID_HIGH     :AXI_ID_LOW]  = AxiId_DI;
-    LogData_D[AXI_LEN_HIGH    :AXI_LEN_LOW] = AxiLen_DI;
-  end
-  // }}}
-
-  // Logging Address Counter {{{
-  assign LogAddr_S = LogCnt_SP << 2;
-  always_comb
-  begin
-    LogCnt_SN = LogCnt_SP;
-    if (Clear_SI) begin
-      LogCnt_SN = 0;
-    end else if (LogEn_S) begin
-      LogCnt_SN = LogCnt_SP + 1;
-      if (LogCnt_SP == LOGGING_CNT_MAX) begin
-        LogCnt_SN = 0;
-      end
+    WrA_D = '0;
+    if (State_SP != CLEARING) begin
+      WrA_D[TIMESTAMP_BITW-1: 0]          = Timestamp_SP;
+      WrA_D[64-1            :32]          = AxiAddr_DI;
+      WrA_D[AXI_ID_HIGH     :AXI_ID_LOW]  = AxiId_DI;
+      WrA_D[AXI_LEN_HIGH    :AXI_LEN_LOW] = AxiLen_DI;
     end
   end
   // }}}
@@ -231,7 +238,7 @@ module AxiBramLogger
   always_comb
   begin
     Timestamp_SN = Timestamp_SP + 1;
-    if (Timestamp_SP == {TIMESTAMP_BITW{1'b1}} || Clear_SI) begin
+    if (Timestamp_SP == {TIMESTAMP_BITW{1'b1}} || State_SP == CLEARING || Clear_SI) begin
       Timestamp_SN = 0;
     end
   end
@@ -240,13 +247,13 @@ module AxiBramLogger
   // Flip-Flops {{{
   always_ff @ (posedge Clk_CI)
   begin
-    Full_SP       <= 0;
-    LogCnt_SP     <= 0;
+    State_SP      <= READY;
     Timestamp_SP  <= 0;
+    WrCntA_SP     <= 0;
     if (Rst_RBI) begin
-      Full_SP       <= Full_SN;
-      LogCnt_SP     <= LogCnt_SN;
+      State_SP      <= State_SN;
       Timestamp_SP  <= Timestamp_SN;
+      WrCntA_SP     <= WrCntA_SN;
     end
   end
   // }}}
