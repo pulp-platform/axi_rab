@@ -231,11 +231,11 @@ module axi_rab_top
     output logic                                           s_axi4lite_rvalid,
     input  logic                                           s_axi4lite_rready,
 
-    BramPort.Slave                                          AwBram_PS [N_PORTS-1:0],
-    BramPort.Slave                                          ArBram_PS [N_PORTS-1:0],
+    BramPort.Slave                                         ArBram_PS,
+    BramPort.Slave                                         AwBram_PS,
 
-    input  logic                              [N_PORTS-1:0] ArLogClr_SI,
-    input  logic                              [N_PORTS-1:0] AwLogClr_SI,
+    input  logic                                           ArLogClr_SI,
+    input  logic                                           AwLogClr_SI,
 
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
@@ -243,8 +243,8 @@ module axi_rab_top
     output logic                             [N_PORTS-1:0] int_multi,
     output logic                             [N_PORTS-1:0] int_prot,
     output logic                                           int_mhr_full,
-    output logic                             [N_PORTS-1:0] int_ar_log_full,
-    output logic                             [N_PORTS-1:0] int_aw_log_full
+    output logic                                           int_ar_log_full,
+    output logic                                           int_aw_log_full
     );
 
     // }}}
@@ -491,7 +491,7 @@ module axi_rab_top
 
   // }}}
   
-  // Buf, Log and Send {{{
+  // Buf and Send {{{
   // ██████╗ ██╗   ██╗███████╗       ██╗       ███████╗███████╗███╗   ██╗██████╗ 
   // ██╔══██╗██║   ██║██╔════╝       ██║       ██╔════╝██╔════╝████╗  ██║██╔══██╗
   // ██████╔╝██║   ██║█████╗      ████████╗    ███████╗█████╗  ██╔██╗ ██║██║  ██║
@@ -552,31 +552,6 @@ module axi_rab_top
       .m_axi4_awuser   (int_awuser [i])
     );
 
-  // TODO: is one AW logger per port really required?
-  AxiBramLogger
-    #(
-      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
-      .AXI_ID_BITW        (AXI_ID_WIDTH),
-      .AXI_LEN_BITW       (8),
-      .TIMESTAMP_BITW     (32),
-      .LOGGING_DATA_BITW  (96),
-      .NUM_PAR_BRAMS      (3),
-      .NUM_SER_BRAMS      (12)
-    )
-    u_aw_logger
-    (
-      .Clk_CI         (Clk_CI),
-      .Rst_RBI        (Rst_RBI),
-      .AxiValid_SI    (s_axi4_awvalid[i]),
-      .AxiReady_SI    (s_axi4_awready[i]),
-      .AxiId_DI       (s_axi4_awid[i]),
-      .AxiAddr_DI     (s_axi4_awaddr[i]),
-      .AxiLen_DI      (s_axi4_awlen[i]),
-      .Clear_SI       (AwLogClr_SI[i]),
-      .Full_SO        (int_aw_log_full[i]),
-      .Bram_PS        (AwBram_PS[i])
-    );
-  
   axi4_aw_sender
     #(
       .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -1120,30 +1095,6 @@ module axi_rab_top
       .m_axi4_aruser  (int_aruser [i])
     );
   
-  AxiBramLogger
-    #(
-      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
-      .AXI_ID_BITW        (AXI_ID_WIDTH),
-      .AXI_LEN_BITW       (8),
-      .TIMESTAMP_BITW     (32),
-      .LOGGING_DATA_BITW  (96),
-      .NUM_PAR_BRAMS      (3),
-      .NUM_SER_BRAMS      (12)
-    )
-    u_ar_logger
-    (
-      .Clk_CI         (Clk_CI),
-      .Rst_RBI        (Rst_RBI),
-      .AxiValid_SI    (s_axi4_arvalid[i]),
-      .AxiReady_SI    (s_axi4_arready[i]),
-      .AxiId_DI       (s_axi4_arid[i]),
-      .AxiAddr_DI     (s_axi4_araddr[i]),
-      .AxiLen_DI      (s_axi4_arlen[i]),
-      .Clear_SI       (ArLogClr_SI[i]),
-      .Full_SO        (int_ar_log_full[i]),
-      .Bram_PS        (ArBram_PS[i])
-    );
-
     axi4_ar_sender
       #(
         .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -1432,6 +1383,58 @@ module axi_rab_top
   // }}}
 
   endgenerate // BUF & SEND }}}
+
+  // Log {{{
+
+  AxiBramLogger
+    #(
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
+      .AXI_ID_BITW        (AXI_ID_WIDTH),
+      .AXI_LEN_BITW       (8),
+      .TIMESTAMP_BITW     (32),
+      .LOGGING_DATA_BITW  (96),
+      .NUM_PAR_BRAMS      (3),
+      .NUM_SER_BRAMS      (12)
+    )
+    u_aw_logger
+    (
+      .Clk_CI         (Clk_CI),
+      .Rst_RBI        (Rst_RBI),
+      .AxiValid_SI    (s_axi4_awvalid[1]),
+      .AxiReady_SI    (s_axi4_awready[1]),
+      .AxiId_DI       (s_axi4_awid[1]),
+      .AxiAddr_DI     (s_axi4_awaddr[1]),
+      .AxiLen_DI      (s_axi4_awlen[1]),
+      .Clear_SI       (AwLogClr_SI),
+      .Full_SO        (int_aw_log_full),
+      .Bram_PS        (AwBram_PS)
+    );
+
+  AxiBramLogger
+    #(
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
+      .AXI_ID_BITW        (AXI_ID_WIDTH),
+      .AXI_LEN_BITW       (8),
+      .TIMESTAMP_BITW     (32),
+      .LOGGING_DATA_BITW  (96),
+      .NUM_PAR_BRAMS      (3),
+      .NUM_SER_BRAMS      (12)
+    )
+    u_ar_logger
+    (
+      .Clk_CI         (Clk_CI),
+      .Rst_RBI        (Rst_RBI),
+      .AxiValid_SI    (s_axi4_arvalid[1]),
+      .AxiReady_SI    (s_axi4_arready[1]),
+      .AxiId_DI       (s_axi4_arid[1]),
+      .AxiAddr_DI     (s_axi4_araddr[1]),
+      .AxiLen_DI      (s_axi4_arlen[1]),
+      .Clear_SI       (ArLogClr_SI),
+      .Full_SO        (int_ar_log_full),
+      .Bram_PS        (ArBram_PS)
+    );
+
+  // }}}
 
 // RAB Core {{{
 // ██████╗  █████╗ ██████╗      ██████╗ ██████╗ ██████╗ ███████╗
