@@ -86,10 +86,10 @@ module TdpBramArray
     for (p = 0; p < NUM_PAR_BRAMS; p++) begin
 
       // Instance-Specific Constants {{{
-      localparam integer WORD_BIT_HIGH  = ARR_BIT_WIDTH   - BRAM_BIT_WIDTH*p  - 1;
-      localparam integer WORD_BIT_LOW   = WORD_BIT_HIGH   - (BRAM_BIT_WIDTH-1);
-      localparam integer WORD_BYTE_HIGH = ARR_BYTE_WIDTH  - BRAM_BYTE_WIDTH*p - 1;
-      localparam integer WORD_BYTE_LOW  = WORD_BYTE_HIGH  - (BRAM_BYTE_WIDTH-1);
+      localparam integer WORD_BIT_LOW   = BRAM_BIT_WIDTH*p;
+      localparam integer WORD_BIT_HIGH  = WORD_BIT_LOW + (BRAM_BIT_WIDTH-1);
+      localparam integer WORD_BYTE_LOW  = BRAM_BYTE_WIDTH*p;
+      localparam integer WORD_BYTE_HIGH = WORD_BYTE_LOW + (BRAM_BYTE_WIDTH-1);
       // }}}
 
       // Write-Enable Resolution {{{
