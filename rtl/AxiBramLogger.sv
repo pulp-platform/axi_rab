@@ -58,7 +58,7 @@ module AxiBramLogger
   localparam integer LOGGING_DATA_BYTEW = LOGGING_DATA_BITW / 8;
   localparam integer LOGGING_ADDR_BITW  = log2(1024*NUM_SER_BRAMS) + 2; // +2 for words
   localparam integer LOGGING_CNT_MAX    = 1024*NUM_SER_BRAMS - 1;
-  localparam integer AXI_ID_LOW         = 0;
+  localparam integer AXI_ID_LOW         = 64;
   localparam integer AXI_ID_HIGH        = AXI_ID_LOW  + AXI_ID_BITW   - 1;
   localparam integer AXI_LEN_LOW        = AXI_ID_HIGH + 1;
   localparam integer AXI_LEN_HIGH       = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
@@ -145,10 +145,10 @@ module AxiBramLogger
   // Log Data Formatting {{{
   always_comb begin
     LogData_D = '0;
-    LogData_D[96-1        :64]          = Timestamp_SP;
-    LogData_D[64-1        :32]          = AxiAddr_DI;
-    LogData_D[AXI_ID_HIGH :AXI_ID_LOW ] = AxiId_DI;
-    LogData_D[AXI_LEN_HIGH:AXI_LEN_LOW] = AxiLen_DI;
+    LogData_D[TIMESTAMP_BITW-1: 0]          = Timestamp_SP;
+    LogData_D[64-1            :32]          = AxiAddr_DI;
+    LogData_D[AXI_ID_HIGH     :AXI_ID_LOW]  = AxiId_DI;
+    LogData_D[AXI_LEN_HIGH    :AXI_LEN_LOW] = AxiLen_DI;
   end
   // }}}
 
