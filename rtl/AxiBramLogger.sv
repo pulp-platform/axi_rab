@@ -1,9 +1,6 @@
 /**
  * AXI BRAM Logger
  *
- * NOTE: `Clear_SI` does NOT clear the content of the RAMs!  It just resets the address and
- * timestamp counters.
- *
  * TODO:
  * - module description
  */
