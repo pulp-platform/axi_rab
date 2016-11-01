@@ -93,7 +93,8 @@ module TdpBramArray
       // }}}
 
       // Write-Enable Resolution {{{
-      logic [BRAM_BYTE_WIDTH-1:0] WrEnA_S, WrEnB_S;
+      logic [BRAM_BYTE_WIDTH-1:0]   WrEnA_S;
+      logic [2*BRAM_BYTE_WIDTH-1:0] WrEnB_S;
       always_comb begin
         WrEnA_S = '0;
         WrEnB_S = '0;
@@ -101,7 +102,7 @@ module TdpBramArray
           WrEnA_S = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
         if (SerIdxB_S == s) begin
-          WrEnB_S = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
+          WrEnB_S[3:0] = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
       end
       // }}}
@@ -336,7 +337,8 @@ module TdpBramArray
         .RSTREGB(B_PS.Rst_R),                           //  1-bit inp: register reset (active high)
         .ENBWREN(B_PS.En_S),                            //  1-bit inp: enable
         .REGCEB(B_PS.En_S),                             //  1-bit inp: register enable
-        .WEBWE(WrEnB_S),                                //  4-bit inp: byte-wise write enable
+        .WEBWE(WrEnB_S),                                //  8-bit inp: [3:0] byte-wise write enable
+                                                        //             [7:4] unconnected in TDP mode
         .ADDRBWRADDR(AddrB_S),                          // 16-bit inp: address
         .DIBDI(B_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data
         .DIPBDIP(4'b0000),                              //  4-bit inp: parity
