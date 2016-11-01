@@ -53,8 +53,12 @@ module TdpBramArray
   // }}}
 
   // Resolve (Linear) Address to Serial (BRAM), Word Index and Address of RAMs {{{
-  assign WordAddrA_S = A_PS.Addr_S >> 2;
-  assign WordAddrB_S = B_PS.Addr_S >> 2;
+  always_comb begin
+    WordAddrA_S       = '0;
+    WordAddrB_S       = '0;
+    WordAddrA_S[13:0] = A_PS.Addr_S[15:2];
+    WordAddrB_S[13:0] = B_PS.Addr_S[15:2];
+  end
 
   assign SerIdxA_S = WordAddrA_S / NUM_BRAM_WORDS;
   assign SerIdxB_S = WordAddrB_S / NUM_BRAM_WORDS;
