@@ -107,40 +107,28 @@ module TdpBramArray
       end
       // }}}
 
-      // RAMB36E1 Declaration {{{
-      // RAMB36E1: 36K-bit Configurable Synchronous Block RAM
-      //           Virtex-7
-      // Xilinx HDL Language Template, version 2015.1
-      RAMB36E1 #(
-        // Address Collision Mode: "PERFORMANCE" or "DELAYED_WRITE"
-        .RDADDR_COLLISION_HWCONFIG("DELAYED_WRITE"),
-        // Collision check: Values ("ALL", "WARNING_ONLY", "GENERATE_X_ONLY" or "NONE")
-        .SIM_COLLISION_CHECK("ALL"),
-        // DOA_REG, DOB_REG: Optional output register (0 or 1)
-        .DOA_REG(0),
-        .DOB_REG(0),
-        // Enable ECC decoder
-        .EN_ECC_READ("FALSE"),
-        // Enable ECC encoder
-        .EN_ECC_WRITE("FALSE"),
-        // INITP_00 to INITP_0F: Initial contents of the parity memory array
-        .INITP_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_01(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_02(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_03(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_04(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_05(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_06(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_07(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_08(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_09(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_0A(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_0B(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_0C(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_0D(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_0E(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        .INITP_0F(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        // INIT_00 to INIT_7F: Initial contents of the data memory array
+      // BRAM_TDP_MACRO Declaration {{{
+      // BRAM_TDP_MACRO: True Dual Port RAM
+      //                 Virtex-7
+      // Xilinx HDL Language Template, version 2016.1
+      BRAM_TDP_MACRO #(
+        .BRAM_SIZE("36Kb"), // Target BRAM: "18Kb" or "36Kb"
+        .DEVICE("7SERIES"), // Target device: "7SERIES"
+        .DOA_REG(0),        // Optional port A output register (0 or 1)
+        .DOB_REG(0),        // Optional port B output register (0 or 1)
+        .INIT_A(36'h0000000),  // Initial values on port A output port
+        .INIT_B(36'h00000000), // Initial values on port B output port
+        .INIT_FILE ("NONE"),
+        .READ_WIDTH_A (32),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
+        .READ_WIDTH_B (32),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
+        .SIM_COLLISION_CHECK ("ALL"), // Collision check enable "ALL", "WARNING_ONLY",
+                                      //   "GENERATE_X_ONLY" or "NONE"
+        .SRVAL_A(36'h00000000), // Set/Reset value for port A output
+        .SRVAL_B(36'h00000000), // Set/Reset value for port B output
+        .WRITE_MODE_A("WRITE_FIRST"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
+        .WRITE_MODE_B("WRITE_FIRST"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
+        .WRITE_WIDTH_A(32), // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
+        .WRITE_WIDTH_B(32), // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
         .INIT_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_01(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_02(256'h0000000000000000000000000000000000000000000000000000000000000000),
@@ -205,6 +193,7 @@ module TdpBramArray
         .INIT_3D(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_3E(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_3F(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        // The next set of INIT_xx are valid when configured as 36Kb
         .INIT_40(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_41(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_42(256'h0000000000000000000000000000000000000000000000000000000000000000),
@@ -269,81 +258,50 @@ module TdpBramArray
         .INIT_7D(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_7E(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_7F(256'h0000000000000000000000000000000000000000000000000000000000000000),
-        // INIT_A, INIT_B: Initial values on output ports
-        .INIT_A(36'h000000000),
-        .INIT_B(36'h000000000),
-        // Initialization File: RAM initialization file
-        .INIT_FILE("NONE"),
-        // RAM Mode: "SDP" or "TDP"
-        .RAM_MODE("TDP"),
-        // RAM_EXTENSION_A, RAM_EXTENSION_B: Selects cascade mode ("UPPER", "LOWER", or "NONE")
-        .RAM_EXTENSION_A("NONE"),
-        .RAM_EXTENSION_B("NONE"),
-        // READ_WIDTH_A/B, WRITE_WIDTH_A/B: Read/write width per port
-        .READ_WIDTH_A(36),  // 0, 1, 2, 4, 9, 18, 36
-        .READ_WIDTH_B(36),  // 0, 1, 2, 4, 9, 18, 36
-        .WRITE_WIDTH_A(36), // 0, 1, 2, 4, 9, 18, 36
-        .WRITE_WIDTH_B(36), // 0, 1, 2, 4, 9, 18, 36
-        // RSTREG_PRIORITY_A, RSTREG_PRIORITY_B: Reset or enable priority ("RSTREG" or "REGCE")
-        .RSTREG_PRIORITY_A("RSTREG"),
-        .RSTREG_PRIORITY_B("RSTREG"),
-        // SRVAL_A, SRVAL_B: Set/reset value for output
-        .SRVAL_A(36'h000000000),
-        .SRVAL_B(36'h000000000),
-        // Simulation Device: Must be set to "7SERIES" for simulation behavior
-        .SIM_DEVICE("7SERIES"),
-        // WriteMode: Value on output upon a write ("WRITE_FIRST", "READ_FIRST", or "NO_CHANGE")
-        .WRITE_MODE_A("WRITE_FIRST"),
-        .WRITE_MODE_B("WRITE_FIRST")
+        // The next set of INITP_xx are for the parity bits
+        .INITP_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_01(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_02(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_03(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_04(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_05(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_06(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_07(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        // The next set of INITP_xx are valid when configured as 36Kb
+        .INITP_08(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_09(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_0A(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_0B(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_0C(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_0D(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_0E(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        .INITP_0F(256'h0000000000000000000000000000000000000000000000000000000000000000)
       )
       // }}}
 
-      // RAMB36E1 Instantiation {{{
-      RAMB36E1_inst (
+      // BRAM_TDP_MACRO Instantation {{{
+      BRAM_TDP_MACRO_inst (
 
-        // Cascade Ports (to create 64kx1) {{{
-        .CASCADEINA(1'b0),    //  1-bit inp: A port cascade
-        .CASCADEOUTA(),       //  1-bit oup: A port cascade
-        .CASCADEINB(1'b0),    //  1-bit inp: B port cascade
-        .CASCADEOUTB(),       //  1-bit oup: B port cascade
+        // Port A {{{
+        .CLKA(A_PS.Clk_C),                            //  1-bit inp: clock
+        .RSTA(A_PS.Rst_R),                            //  1-bit inp: reset (active high)
+        .ENA(A_PS.En_S),                              //  1-bit inp: enable
+        .REGCEA(1'b0),                                //  1-bit inp: output register enable
+        .ADDRA(AddrA_S),                              // 10-bit inp: address
+        .DOA(ARd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data output
+        .DIA(A_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data input
+        .WEA(WrEnA_S),                                //  4-bit inp: byte-wise write enable
         // }}}
 
-        // ECC Ports {{{
-        .DBITERR(),           //  1-bit oup: double bit error status
-        .ECCPARITY(),         //  8-bit oup: generated error correction parity
-        .RDADDRECC(),         //  9-bit oup: ECC read address
-        .SBITERR(),           //  1-bit oup: single bit error status
-        .INJECTDBITERR(1'b0), //  1-bit inp: inject a double bit error
-        .INJECTSBITERR(1'b0), //  1-bit inp: inject a single bit error
-        // }}}
-
-        // BRAM Port A {{{
-        .CLKARDCLK(A_PS.Clk_C),                         //  1-bit inp: clock
-        .RSTRAMARSTRAM(A_PS.Rst_R),                     //  1-bit inp: reset (active high)
-        .RSTREGARSTREG(A_PS.Rst_R),                     //  1-bit inp: register reset (active high)
-        .ENARDEN(A_PS.En_S),                            //  1-bit inp: enable
-        .REGCEAREGCE(A_PS.En_S),                        //  1-bit inp: register enable
-        .WEA(WrEnA_S),                                  //  4-bit inp: byte-wise write enable
-        .ADDRARDADDR(AddrA_S),                          // 16-bit inp: address
-        .DIADI(A_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data
-        .DIPADIP(4'b0000),                              //  4-bit inp: parity
-        .DOADO(ARd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data
-        .DOPADOP(),                                     //  4-bit oup: parity
-        // }}}
-
-        // BRAM Port B {{{
-        .CLKBWRCLK(B_PS.Clk_C),                         //  1-bit inp: clock
-        .RSTRAMB(B_PS.Rst_R),                           //  1-bit inp: reset (active high)
-        .RSTREGB(B_PS.Rst_R),                           //  1-bit inp: register reset (active high)
-        .ENBWREN(B_PS.En_S),                            //  1-bit inp: enable
-        .REGCEB(B_PS.En_S),                             //  1-bit inp: register enable
-        .WEBWE(WrEnB_S),                                //  8-bit inp: [3:0] byte-wise write enable
-                                                        //             [7:4] unconnected in TDP mode
-        .ADDRBWRADDR(AddrB_S),                          // 16-bit inp: address
-        .DIBDI(B_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data
-        .DIPBDIP(4'b0000),                              //  4-bit inp: parity
-        .DOBDO(BRd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data
-        .DOPBDOP()                                      //  4-bit oup: parity
+        // Port B {{{
+        .CLKB(B_PS.Clk_C),                            //  1-bit inp: clock
+        .RSTB(B_PS.Rst_R),                            //  1-bit inp: reset (active high)
+        .ENB(B_PS.En_S),                              //  1-bit inp: enable
+        .REGCEB(1'b0),                                //  1-bit inp: output register enable
+        .ADDRB(AddrB_S),                              // 10-bit inp: address
+        .DOB(BRd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data output
+        .DIB(B_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data input
+        .WEB(WrEnB_S)                                 //  4-bit inp: byte-wise write enable
         // }}}
 
       );
