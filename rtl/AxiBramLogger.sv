@@ -104,8 +104,8 @@ module AxiBramLogger
       .NUM_PAR_BRAMS(NUM_PAR_BRAMS),
       .NUM_SER_BRAMS(NUM_SER_BRAMS)
     ) bramArr (
-      .A_PS(BramLog_P.Slave),
-      .B_PS(BramDwc_P.Slave)
+      .A_PS(BramLog_P),
+      .B_PS(BramDwc_P)
     );
   // }}}
 
