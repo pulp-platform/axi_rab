@@ -39,7 +39,6 @@ module TdpBramArray
   localparam integer ARR_BIT_WIDTH      = BRAM_BIT_WIDTH  * NUM_PAR_BRAMS;
   localparam integer ARR_BYTE_WIDTH     = BRAM_BYTE_WIDTH * NUM_PAR_BRAMS;
 
-  localparam integer PAR_BRAM_IDX_WIDTH = log2(NUM_PAR_BRAMS);
   localparam integer WORD_IDX_WIDTH     = log2(NUM_BRAM_WORDS);
   // }}}
 
