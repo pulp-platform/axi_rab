@@ -39,6 +39,8 @@ module TdpBramArray
   localparam integer ARR_BITW       = BRAM_BITW  * NUM_PAR_BRAMS;
   localparam integer ARR_BYTEW      = BRAM_BYTEW * NUM_PAR_BRAMS;
 
+  localparam integer ADDR_WORD_BITO = log2(ARR_BYTEW);
+
   localparam integer WORD_IDX_BITW  = log2(NUM_BRAM_WORDS);
   // }}}
 
@@ -51,12 +53,9 @@ module TdpBramArray
   // }}}
 
   // Resolve (Linear) Address to Serial (BRAM), Word Index and Address of RAMs {{{
-  always_comb begin
-    WordAddrA_S       = '0;
-    WordAddrB_S       = '0;
-    WordAddrA_S[13:0] = A_PS.Addr_S[15:2];
-    WordAddrB_S[13:0] = B_PS.Addr_S[15:2];
-  end
+
+  assign WordAddrA_S  = A_PS.Addr_S[ADDR_WORD_BITO+(WORD_ADDR_BITW-1):ADDR_WORD_BITO];
+  assign WordAddrB_S  = B_PS.Addr_S[ADDR_WORD_BITO+(WORD_ADDR_BITW-1):ADDR_WORD_BITO];
 
   assign SerIdxA_S = WordAddrA_S / NUM_BRAM_WORDS;
   assign SerIdxB_S = WordAddrB_S / NUM_BRAM_WORDS;
