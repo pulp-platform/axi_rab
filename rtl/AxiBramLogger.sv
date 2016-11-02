@@ -132,20 +132,23 @@ module AxiBramLogger
   // }}}
 
   // Data Width Conversion {{{
-  localparam integer          EXT_DATA_BITW   = 32;
-  localparam integer          EXT_DATA_BYTEW  = EXT_DATA_BITW/8;
-  localparam integer          ADDR_BITW       = 32;
-  localparam integer          PAR_IDX_BITW    = log2(NUM_PAR_BRAMS);
-  logic [ADDR_BITW-1:0]       WordAddr_S;
-  always_comb begin
-    WordAddr_S = '0;
-    WordAddr_S[17:0] = Bram_PS.Addr_S[19:2];
-  end
-  logic [ADDR_BITW-1:0]       ParWordIdx_S;
+  localparam integer          EXT_DATA_BITW       = 32;
+  localparam integer          EXT_DATA_BYTEW      = EXT_DATA_BITW/8;
+  localparam integer          EXT_ADDR_WORD_BITO  = log2(EXT_DATA_BYTEW);
+  localparam integer          EXT_ADDR_WORD_BITW  = log2(1024*NUM_SER_BRAMS*NUM_PAR_BRAMS);
+  localparam integer          PAR_WORD_IDX_BITW   = log2(1024*NUM_SER_BRAMS);
+  localparam integer          PAR_IDX_BITW        = log2(NUM_PAR_BRAMS);
+  logic [EXT_ADDR_WORD_BITW -1:0] WordAddr_S;
+  assign WordAddr_S = Bram_PS.Addr_S[(EXT_ADDR_WORD_BITW-1)+EXT_ADDR_WORD_BITO:EXT_ADDR_WORD_BITO];
+  logic [PAR_WORD_IDX_BITW  -1:0] ParWordIdx_S;
   assign ParWordIdx_S = WordAddr_S / NUM_PAR_BRAMS;
   logic [PAR_IDX_BITW-1:0]    ParIdx_S;
   assign ParIdx_S = WordAddr_S % NUM_PAR_BRAMS;
-  assign BramDwc_P.Addr_S = (ParWordIdx_S << LOGGING_ADDR_WORD_BITO);
+  always_comb begin
+    BramDwc_P.Addr_S = '0;
+    BramDwc_P.Addr_S[(PAR_WORD_IDX_BITW-1)+LOGGING_ADDR_WORD_BITO:LOGGING_ADDR_WORD_BITO]
+        = ParWordIdx_S;
+  end
   logic [NUM_PAR_BRAMS-1:0] [EXT_DATA_BITW-1:0] Rd_D;
   genvar p;
   for (p = 0; p < NUM_PAR_BRAMS; p++) begin
