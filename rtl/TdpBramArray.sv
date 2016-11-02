@@ -96,10 +96,10 @@ module TdpBramArray
         WrEnA_S = '0;
         WrEnB_S = '0;
         if (SerIdxA_S == s) begin
-          WrEnA_S       = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
+          WrEnA_S                 = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
         if (SerIdxB_S == s) begin
-          WrEnB_S[3:0]  = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
+          WrEnB_S[BRAM_BYTEW-1:0] = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
       end
       // }}}
