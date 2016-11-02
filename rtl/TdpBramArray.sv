@@ -43,10 +43,10 @@ module TdpBramArray
   // }}}
 
   // Signal Declarations {{{
-  logic [NUM_SER_BRAMS-1:0] [ARR_BITW-1:0]        ARd_D, BRd_D;
+  logic [NUM_SER_BRAMS-1:0] [ARR_BITW     -1:0]   ARd_D,          BRd_D;
 
-  logic                     [30-1:0]              WordAddrA_S,    WordAddrB_S;
-  logic                     [30-1:0]              SerIdxA_S,      SerIdxB_S;
+  logic                     [30           -1:0]   WordAddrA_S,    WordAddrB_S;
+  logic                     [30           -1:0]   SerIdxA_S,      SerIdxB_S;
   logic                     [WORD_IDX_BITW-1:0]   WordIdxA_S,     WordIdxB_S;
   // }}}
 
@@ -65,12 +65,12 @@ module TdpBramArray
   assign WordIdxB_S = WordAddrB_S % NUM_BRAM_WORDS;
 
   always @ (posedge A_PS.Clk_C) begin
-    assert (SerIdxA_S < NUM_SER_BRAMS) else $error("Serial index on port A out of bounds!");
-    assert (WordIdxA_S < NUM_BRAM_WORDS) else $error("Word index on port A out of bounds!");
+    assert (SerIdxA_S   < NUM_SER_BRAMS ) else $error("Serial index on port A out of bounds!");
+    assert (WordIdxA_S  < NUM_BRAM_WORDS) else $error("Word index on port A out of bounds!");
   end
   always @ (posedge B_PS.Clk_C) begin
-    assert (SerIdxB_S < NUM_SER_BRAMS) else $error("Serial index on port B out of bounds!");
-    assert (WordIdxB_S < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
+    assert (SerIdxB_S   < NUM_SER_BRAMS ) else $error("Serial index on port B out of bounds!");
+    assert (WordIdxB_S  < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
   end
 
   // }}}
@@ -94,15 +94,15 @@ module TdpBramArray
         WrEnA_S = '0;
         WrEnB_S = '0;
         if (SerIdxA_S == s) begin
-          WrEnA_S = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
+          WrEnA_S       = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
         if (SerIdxB_S == s) begin
-          WrEnB_S[3:0] = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
+          WrEnB_S[3:0]  = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
       end
       // }}}
 
-      // BRAM_TDP_MACRO Declaration {{{
+      // BRAM_TDP_MACRO Parameters and Initial Values {{{
       // BRAM_TDP_MACRO: True Dual Port RAM
       //                 Virtex-7
       // Xilinx HDL Language Template, version 2016.1
@@ -124,6 +124,7 @@ module TdpBramArray
         .WRITE_MODE_B("WRITE_FIRST"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
         .WRITE_WIDTH_A(32), // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
         .WRITE_WIDTH_B(32), // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
+        // Initialization of Data Bits in Lower 16 Kibit {{{
         .INIT_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_01(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_02(256'h0000000000000000000000000000000000000000000000000000000000000000),
@@ -188,6 +189,9 @@ module TdpBramArray
         .INIT_3D(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_3E(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_3F(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        // }}}
+
+        // Initialization of Data Bits in Higher 16 Kibit {{{
         // The next set of INIT_xx are valid when configured as 36Kb
         .INIT_40(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_41(256'h0000000000000000000000000000000000000000000000000000000000000000),
@@ -253,6 +257,9 @@ module TdpBramArray
         .INIT_7D(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_7E(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_7F(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        // }}}
+
+        // Initialization of Parity Bits in Lower 16 Kibit {{{
         // The next set of INITP_xx are for the parity bits
         .INITP_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INITP_01(256'h0000000000000000000000000000000000000000000000000000000000000000),
@@ -262,6 +269,9 @@ module TdpBramArray
         .INITP_05(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INITP_06(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INITP_07(256'h0000000000000000000000000000000000000000000000000000000000000000),
+        // }}}
+
+        // Initialization of Parity Bits in Higher 16 Kibit {{{
         // The next set of INITP_xx are valid when configured as 36Kb
         .INITP_08(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INITP_09(256'h0000000000000000000000000000000000000000000000000000000000000000),
@@ -271,6 +281,8 @@ module TdpBramArray
         .INITP_0D(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INITP_0E(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INITP_0F(256'h0000000000000000000000000000000000000000000000000000000000000000)
+        // }}}
+
       )
       // }}}
 
@@ -278,25 +290,25 @@ module TdpBramArray
       BRAM_TDP_MACRO_inst (
 
         // Port A {{{
-        .CLKA(A_PS.Clk_C),                            //  1-bit inp: clock
-        .RSTA(A_PS.Rst_R),                            //  1-bit inp: reset (active high)
-        .ENA(A_PS.En_S),                              //  1-bit inp: enable
-        .REGCEA(1'b0),                                //  1-bit inp: output register enable
-        .ADDRA(WordIdxA_S),                           // 10-bit inp: word-wise address
-        .DOA(ARd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data output
-        .DIA(A_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data input
-        .WEA(WrEnA_S),                                //  4-bit inp: byte-wise write enable
+        .CLKA   (A_PS.Clk_C                             ),  //  1-bit inp: clock
+        .RSTA   (A_PS.Rst_R                             ),  //  1-bit inp: reset (active high)
+        .ENA    (A_PS.En_S                              ),  //  1-bit inp: enable
+        .REGCEA (1'b0                                   ),  //  1-bit inp: output register enable
+        .ADDRA  (WordIdxA_S                             ),  // 10-bit inp: word-wise address
+        .DOA    (ARd_D[s] [WORD_BIT_HIGH:WORD_BIT_LOW]  ),  // 32-bit oup: data output
+        .DIA    (A_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]  ),  // 32-bit inp: data input
+        .WEA    (WrEnA_S                                ),  //  4-bit inp: byte-wise write enable
         // }}}
 
         // Port B {{{
-        .CLKB(B_PS.Clk_C),                            //  1-bit inp: clock
-        .RSTB(B_PS.Rst_R),                            //  1-bit inp: reset (active high)
-        .ENB(B_PS.En_S),                              //  1-bit inp: enable
-        .REGCEB(1'b0),                                //  1-bit inp: output register enable
-        .ADDRB(WordIdxB_S),                           // 10-bit inp: word-wise address
-        .DOB(BRd_D[s][WORD_BIT_HIGH:WORD_BIT_LOW]),   // 32-bit oup: data output
-        .DIB(B_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]),  // 32-bit inp: data input
-        .WEB(WrEnB_S)                                 //  4-bit inp: byte-wise write enable
+        .CLKB   (B_PS.Clk_C                             ),  //  1-bit inp: clock
+        .RSTB   (B_PS.Rst_R                             ),  //  1-bit inp: reset (active high)
+        .ENB    (B_PS.En_S                              ),  //  1-bit inp: enable
+        .REGCEB (1'b0                                   ),  //  1-bit inp: output register enable
+        .ADDRB  (WordIdxB_S                             ),  // 10-bit inp: word-wise address
+        .DOB    (BRd_D[s] [WORD_BIT_HIGH:WORD_BIT_LOW]  ),  // 32-bit oup: data output
+        .DIB    (B_PS.Wr_D[WORD_BIT_HIGH:WORD_BIT_LOW]  ),  // 32-bit inp: data input
+        .WEB    (WrEnB_S                                )   //  4-bit inp: byte-wise write enable
         // }}}
 
       );
