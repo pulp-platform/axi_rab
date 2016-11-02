@@ -18,16 +18,22 @@ module AxiBramLogger
 
   // Parameters {{{
   #(
-    parameter AXI_ADDR_BITW     = 32,
-    parameter AXI_ID_BITW       = 8,
-    parameter AXI_LEN_BITW      = 8,
 
-    parameter TIMESTAMP_BITW    = 32,
+    // Width (in bits) of the logged AXI ID.  Value must be in [1, 24].
+    parameter AXI_ID_BITW     =     8,
 
-    parameter LOGGING_DATA_BITW = 96,
-    parameter NUM_PAR_BRAMS     = 3,    // must equal ceil(LOGGING_DATA_BITW/32)
+    // Width (in bits) of the timestamp stored with each log entry.  Value must be in [1, 32].
+    parameter TIMESTAMP_BITW  =    32,
 
-    parameter NUM_SER_BRAMS     = 12
+    // Number of entries in the log.  Value must be >= 1024, should be a multiple of 1024, and is
+    // upper-bound by the available memory.
+    parameter NUM_LOG_ENTRIES = 16384,
+
+    // The following "parameters" must not be changed from their given value.  They are solely
+    // declared here because they define the width of some of the ports.
+    parameter AXI_ADDR_BITW   =    32,
+    parameter AXI_LEN_BITW    =     8
+
   )
   // }}}
 
@@ -55,6 +61,7 @@ module AxiBramLogger
   // }}}
 
   // Module-Wide Constants {{{
+  localparam integer LOGGING_DATA_BITW  = 96;
   localparam integer LOGGING_DATA_BYTEW = LOGGING_DATA_BITW / 8;
   localparam integer LOGGING_CNT_BITW   = log2(1024*NUM_SER_BRAMS); // word-wise counter
   localparam integer LOGGING_CNT_MAX    = 1024*NUM_SER_BRAMS - 1;
@@ -62,6 +69,10 @@ module AxiBramLogger
   localparam integer AXI_ID_HIGH        = AXI_ID_LOW  + AXI_ID_BITW   - 1;
   localparam integer AXI_LEN_LOW        = AXI_ID_HIGH + 1;
   localparam integer AXI_LEN_HIGH       = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
+
+  // Properties of the BRAM array storing the data
+  localparam integer NUM_PAR_BRAMS  = ceil_div(LOGGING_DATA_BITW, 32);
+  localparam integer NUM_SER_BRAMS  = ceil_div(NUM_LOG_ENTRIES, 1024);
 
   localparam integer LOGGING_ADDR_WORD_BITO = log2(LOGGING_DATA_BYTEW);
   localparam integer LOGGING_ADDR_BITW      = LOGGING_CNT_BITW + LOGGING_ADDR_WORD_BITO;
