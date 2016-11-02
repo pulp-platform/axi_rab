@@ -65,10 +65,10 @@ module AxiBramLogger
   localparam integer LOGGING_DATA_BYTEW = LOGGING_DATA_BITW / 8;
   localparam integer LOGGING_CNT_BITW   = log2(1024*NUM_SER_BRAMS); // word-wise counter
   localparam integer LOGGING_CNT_MAX    = 1024*NUM_SER_BRAMS - 1;
-  localparam integer AXI_ID_LOW         = 64;
-  localparam integer AXI_ID_HIGH        = AXI_ID_LOW  + AXI_ID_BITW   - 1;
-  localparam integer AXI_LEN_LOW        = AXI_ID_HIGH + 1;
+  localparam integer AXI_LEN_LOW        = 64;
   localparam integer AXI_LEN_HIGH       = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
+  localparam integer AXI_ID_LOW         = AXI_LEN_HIGH + 1;
+  localparam integer AXI_ID_HIGH        = AXI_ID_LOW  + AXI_ID_BITW   - 1;
 
   // Properties of the BRAM array storing the data
   localparam integer NUM_PAR_BRAMS  = ceil_div(LOGGING_DATA_BITW, 32);
@@ -238,8 +238,8 @@ module AxiBramLogger
     if (State_SP != CLEARING) begin
       WrA_D[TIMESTAMP_BITW-1: 0]          = Timestamp_SP;
       WrA_D[64-1            :32]          = AxiAddr_DI;
-      WrA_D[AXI_ID_HIGH     :AXI_ID_LOW]  = AxiId_DI;
       WrA_D[AXI_LEN_HIGH    :AXI_LEN_LOW] = AxiLen_DI;
+      WrA_D[AXI_ID_HIGH     :AXI_ID_LOW]  = AxiId_DI;
     end
   end
   // }}}
