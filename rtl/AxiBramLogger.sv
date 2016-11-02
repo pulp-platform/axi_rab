@@ -39,9 +39,9 @@ module AxiBramLogger
     // AXI Input
     input  logic                        AxiValid_SI,
     input  logic                        AxiReady_SI,
-    input  logic  [AXI_ID_BITW-1:0]     AxiId_DI,
+    input  logic  [AXI_ID_BITW  -1:0]   AxiId_DI,
     input  logic  [AXI_ADDR_BITW-1:0]   AxiAddr_DI,
-    input  logic  [AXI_LEN_BITW-1:0]    AxiLen_DI,
+    input  logic  [AXI_LEN_BITW -1:0]   AxiLen_DI,
 
     // Control Input
     input  logic                        Clear_SI,
