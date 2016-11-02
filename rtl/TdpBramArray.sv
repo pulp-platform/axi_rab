@@ -107,23 +107,33 @@ module TdpBramArray
       //                 Virtex-7
       // Xilinx HDL Language Template, version 2016.1
       BRAM_TDP_MACRO #(
-        .BRAM_SIZE("36Kb"), // Target BRAM: "18Kb" or "36Kb"
-        .DEVICE("7SERIES"), // Target device: "7SERIES"
-        .DOA_REG(0),        // Optional port A output register (0 or 1)
-        .DOB_REG(0),        // Optional port B output register (0 or 1)
-        .INIT_A(36'h000000000), // Initial values on port A output port
-        .INIT_B(36'h000000000), // Initial values on port B output port
-        .INIT_FILE ("NONE"),
-        .READ_WIDTH_A (32),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
-        .READ_WIDTH_B (32),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
-        .SIM_COLLISION_CHECK ("ALL"), // Collision check enable "ALL", "WARNING_ONLY",
-                                      //   "GENERATE_X_ONLY" or "NONE"
-        .SRVAL_A(36'h00000000), // Set/Reset value for port A output
-        .SRVAL_B(36'h00000000), // Set/Reset value for port B output
-        .WRITE_MODE_A("WRITE_FIRST"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
-        .WRITE_MODE_B("WRITE_FIRST"), // "WRITE_FIRST", "READ_FIRST", or "NO_CHANGE"
-        .WRITE_WIDTH_A(32), // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
-        .WRITE_WIDTH_B(32), // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
+        // Target BRAM: {"18Kb", "36Kb"}
+        .BRAM_SIZE("36Kb"),
+        // Target Device: {"7SERIES"}
+        .DEVICE("7SERIES"),
+        // Optional Port A/B Output Registers: {0, 1}
+        .DOA_REG(0),
+        .DOB_REG(0),
+        // Initial Value of Port A/B Output
+        .INIT_A(36'h000000000),
+        .INIT_B(36'h000000000),
+        // RAM Initialization File
+        .INIT_FILE("NONE"),
+        // Width of Port A/B Output: 1..36 (19..36 only if BRAM_SIZE="36Kb")
+        .READ_WIDTH_A(32),
+        .READ_WIDTH_B(32),
+        // Enable Collision Check in Simulation: {"ALL", "WARNING_ONLY", "GENERATE_X_ONLY", "NONE"}
+        .SIM_COLLISION_CHECK ("ALL"),
+        // Set/Reset Value of Port A/B Output
+        .SRVAL_A(36'h00000000),
+        .SRVAL_B(36'h00000000),
+        // Write Mode of Port A/B {"WRITE_FIRST", "READ_FIRST", "NO_CHANGE"}
+        .WRITE_MODE_A("WRITE_FIRST"),
+        .WRITE_MODE_B("WRITE_FIRST"),
+        // Width of Port A/B Input: 1..36 (19..36 only if BRAM_SIZE="36Kb")
+        .WRITE_WIDTH_A(32),
+        .WRITE_WIDTH_B(32),
+
         // Initialization of Data Bits in Lower 16 Kibit {{{
         .INIT_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
         .INIT_01(256'h0000000000000000000000000000000000000000000000000000000000000000),
