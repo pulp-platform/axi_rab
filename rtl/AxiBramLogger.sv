@@ -248,10 +248,10 @@ module AxiBramLogger
   always_comb begin
     WrA_D = '0;
     if (State_SP != CLEARING) begin
-      WrA_D[TIMESTAMP_BITW-1: 0]          = Timestamp_SP;
-      WrA_D[64-1            :32]          = AxiAddr_DI;
-      WrA_D[AXI_LEN_HIGH    :AXI_LEN_LOW] = AxiLen_DI;
-      WrA_D[AXI_ID_HIGH     :AXI_ID_LOW]  = AxiId_DI;
+      WrA_D[TIMESTAMP_BITW-1  : 0]          = Timestamp_SP;
+      WrA_D[AXI_ADDR_BITW-1+32:32]          = AxiAddr_DI;
+      WrA_D[AXI_LEN_HIGH      :AXI_LEN_LOW] = AxiLen_DI;
+      WrA_D[AXI_ID_HIGH       :AXI_ID_LOW]  = AxiId_DI;
     end
   end
   // }}}
