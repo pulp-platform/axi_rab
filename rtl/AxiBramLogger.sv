@@ -53,12 +53,15 @@ module AxiBramLogger
 
   // Module-Wide Constants {{{
   localparam integer LOGGING_DATA_BYTEW = LOGGING_DATA_BITW / 8;
-  localparam integer LOGGING_ADDR_BITW  = log2(1024*NUM_SER_BRAMS) + 2; // +2 for words
+  localparam integer LOGGING_CNT_BITW   = log2(1024*NUM_SER_BRAMS); // word-wise counter
   localparam integer LOGGING_CNT_MAX    = 1024*NUM_SER_BRAMS - 1;
   localparam integer AXI_ID_LOW         = 64;
   localparam integer AXI_ID_HIGH        = AXI_ID_LOW  + AXI_ID_BITW   - 1;
   localparam integer AXI_LEN_LOW        = AXI_ID_HIGH + 1;
   localparam integer AXI_LEN_HIGH       = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
+
+  localparam integer LOGGING_ADDR_WORD_BITO = log2(LOGGING_DATA_BYTEW);
+  localparam integer LOGGING_ADDR_BITW      = LOGGING_CNT_BITW + LOGGING_ADDR_WORD_BITO;
   // }}}
 
   // Signal Declarations {{{
@@ -67,7 +70,7 @@ module AxiBramLogger
   enum reg [1:0]  {READY, CLEARING, FULL}
                                   State_SP,     State_SN;
 
-  reg   [LOGGING_ADDR_BITW  -3:0] WrCntA_SP,    WrCntA_SN;
+  reg   [LOGGING_CNT_BITW   -1:0] WrCntA_SP,    WrCntA_SN;
   logic [LOGGING_DATA_BITW  -1:0] WrA_D;
   logic [LOGGING_DATA_BYTEW -1:0] WrEnA_S;
 
@@ -86,7 +89,7 @@ module AxiBramLogger
   assign BramLog_P.En_S   = WrEnA_S;
   always_comb begin
     BramLog_P.Addr_S = '0;
-    BramLog_P.Addr_S[LOGGING_ADDR_BITW-1:0] = (WrCntA_SP << 2);
+    BramLog_P.Addr_S[LOGGING_ADDR_BITW-1:0] = (WrCntA_SP << LOGGING_ADDR_WORD_BITO);
   end
   assign BramLog_P.Wr_D   = WrA_D;
   assign BramLog_P.WrEn_S = WrEnA_S;
@@ -125,7 +128,7 @@ module AxiBramLogger
   logic [PAR_IDX_BITW-1:0]    ParIdx_S;
   assign ParIdx_S = WordAddr_S % NUM_PAR_BRAMS;
   logic [ADDR_BITW-1:0]       BramAddr_S;
-  assign BramAddr_S = (ParWordIdx_S << 2) + Bram_PS.Addr_S[1:0];
+  assign BramAddr_S = (ParWordIdx_S << LOGGING_ADDR_WORD_BITO);
   logic [NUM_PAR_BRAMS-1:0] [EXT_DATA_BITW-1:0] Rd_D;
   assign BramDwc_P.Addr_S = BramAddr_S;
   genvar p;
