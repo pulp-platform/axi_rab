@@ -96,7 +96,7 @@ module AxiBramLogger
 
   BramPort #(
       .DATA_WIDTH(LOGGING_DATA_BITW),
-      .ADDR_WIDTH(32)
+      .ADDR_WIDTH(LOGGING_ADDR_BITW)
     ) BramDwc_P ();
   assign BramDwc_P.Clk_C   = Bram_PS.Clk_C;
   assign BramDwc_P.Rst_R   = Bram_PS.Rst_R;
