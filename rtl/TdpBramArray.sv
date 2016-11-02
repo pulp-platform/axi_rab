@@ -32,27 +32,40 @@ module TdpBramArray
   // }}}
 
   // Module-Wide Constants {{{
+
+  // Properties of the employed BRAM cells
   localparam integer BRAM_BITW      = 32;
   localparam integer BRAM_BYTEW     = BRAM_BITW / 8;
   localparam integer NUM_BRAM_WORDS = 1024;
 
+  // Properties of the resulting memory array
   localparam integer ARR_BITW       = BRAM_BITW       * NUM_PAR_BRAMS;
   localparam integer ARR_BYTEW      = BRAM_BYTEW      * NUM_PAR_BRAMS;
   localparam integer NUM_ARR_WORDS  = NUM_BRAM_WORDS  * NUM_SER_BRAMS;
 
+  // Offset (in bits) of words in the external addresses
   localparam integer ADDR_WORD_BITO = log2(ARR_BYTEW);
 
   localparam integer WORD_ADDR_BITW = log2(NUM_ARR_WORDS);
   localparam integer SER_IDX_BITW   = log2(NUM_SER_BRAMS);
   localparam integer WORD_IDX_BITW  = log2(NUM_BRAM_WORDS);
+
   // }}}
 
   // Signal Declarations {{{
 
+  // Output signals after multiplexing of parallel BRAM cells
   logic [NUM_SER_BRAMS-1:0] [ARR_BITW       -1:0]   ARd_D,          BRd_D;
+
+  // Word part of external address
   logic                     [WORD_ADDR_BITW -1:0]   WordAddrA_S,    WordAddrB_S;
+
+  // Serial index of BRAM cell in array
   logic                     [SER_IDX_BITW   -1:0]   SerIdxA_S,      SerIdxB_S;
+
+  // Word index in BRAM cell
   logic                     [WORD_IDX_BITW  -1:0]   WordIdxA_S,     WordIdxB_S;
+
   // }}}
 
   // Resolve (Linear) Address to Serial (BRAM), Word Index and Address of RAMs {{{
@@ -60,11 +73,11 @@ module TdpBramArray
   assign WordAddrA_S  = A_PS.Addr_S[ADDR_WORD_BITO+(WORD_ADDR_BITW-1):ADDR_WORD_BITO];
   assign WordAddrB_S  = B_PS.Addr_S[ADDR_WORD_BITO+(WORD_ADDR_BITW-1):ADDR_WORD_BITO];
 
-  assign SerIdxA_S = WordAddrA_S / NUM_BRAM_WORDS;
-  assign SerIdxB_S = WordAddrB_S / NUM_BRAM_WORDS;
+  assign SerIdxA_S    = WordAddrA_S / NUM_BRAM_WORDS;
+  assign SerIdxB_S    = WordAddrB_S / NUM_BRAM_WORDS;
 
-  assign WordIdxA_S = WordAddrA_S % NUM_BRAM_WORDS;
-  assign WordIdxB_S = WordAddrB_S % NUM_BRAM_WORDS;
+  assign WordIdxA_S   = WordAddrA_S % NUM_BRAM_WORDS;
+  assign WordIdxB_S   = WordAddrB_S % NUM_BRAM_WORDS;
 
   always @ (posedge A_PS.Clk_C) begin
     assert (SerIdxA_S   < NUM_SER_BRAMS ) else $error("Serial index on port A out of bounds!");
