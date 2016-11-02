@@ -8,6 +8,9 @@
 `ifndef AXI_BRAM_LOGGER_SV
 `define AXI_BRAM_LOGGER_SV
 
+`include "ceil_div.sv"
+`include "log2.sv"
+
 `include "BramPort.sv"
 `include "TdpBramArray.sv"
 
