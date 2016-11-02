@@ -111,8 +111,8 @@ module TdpBramArray
         .DEVICE("7SERIES"), // Target device: "7SERIES"
         .DOA_REG(0),        // Optional port A output register (0 or 1)
         .DOB_REG(0),        // Optional port B output register (0 or 1)
-        .INIT_A(36'h0000000),  // Initial values on port A output port
-        .INIT_B(36'h00000000), // Initial values on port B output port
+        .INIT_A(36'h000000000), // Initial values on port A output port
+        .INIT_B(36'h000000000), // Initial values on port B output port
         .INIT_FILE ("NONE"),
         .READ_WIDTH_A (32),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
         .READ_WIDTH_B (32),   // Valid values are 1-36 (19-36 only valid when BRAM_SIZE="36Kb")
