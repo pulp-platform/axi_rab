@@ -111,12 +111,10 @@ module AxiBramLogger
   // }}}
 
   // Data Width Conversion {{{
-  localparam integer          BRAM_DATA_BITW  = 96;
   localparam integer          EXT_DATA_BITW   = 32;
   localparam integer          EXT_DATA_BYTEW  = EXT_DATA_BITW/8;
   localparam integer          ADDR_BITW       = 32;
   localparam integer          PAR_IDX_BITW    = log2(NUM_PAR_BRAMS);
-  localparam integer          BRAM_DATA_BYTEW = BRAM_DATA_BITW / 8;
   logic [ADDR_BITW-1:0]       WordAddr_S;
   always_comb begin
     WordAddr_S = '0;
