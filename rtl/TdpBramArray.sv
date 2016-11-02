@@ -120,8 +120,8 @@ module TdpBramArray
         // RAM Initialization File
         .INIT_FILE("NONE"),
         // Width of Port A/B Output: 1..36 (19..36 only if BRAM_SIZE="36Kb")
-        .READ_WIDTH_A(32),
-        .READ_WIDTH_B(32),
+        .READ_WIDTH_A(BRAM_BITW),
+        .READ_WIDTH_B(BRAM_BITW),
         // Enable Collision Check in Simulation: {"ALL", "WARNING_ONLY", "GENERATE_X_ONLY", "NONE"}
         .SIM_COLLISION_CHECK ("ALL"),
         // Set/Reset Value of Port A/B Output
@@ -131,8 +131,8 @@ module TdpBramArray
         .WRITE_MODE_A("WRITE_FIRST"),
         .WRITE_MODE_B("WRITE_FIRST"),
         // Width of Port A/B Input: 1..36 (19..36 only if BRAM_SIZE="36Kb")
-        .WRITE_WIDTH_A(32),
-        .WRITE_WIDTH_B(32),
+        .WRITE_WIDTH_A(BRAM_BITW),
+        .WRITE_WIDTH_B(BRAM_BITW),
 
         // Initialization of Data Bits in Lower 16 Kibit {{{
         .INIT_00(256'h0000000000000000000000000000000000000000000000000000000000000000),
