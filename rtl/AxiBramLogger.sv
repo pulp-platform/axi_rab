@@ -61,21 +61,25 @@ module AxiBramLogger
   // }}}
 
   // Module-Wide Constants {{{
-  localparam integer LOGGING_DATA_BITW  = 96;
-  localparam integer LOGGING_DATA_BYTEW = LOGGING_DATA_BITW / 8;
-  localparam integer LOGGING_CNT_BITW   = log2(1024*NUM_SER_BRAMS); // word-wise counter
-  localparam integer LOGGING_CNT_MAX    = 1024*NUM_SER_BRAMS - 1;
-  localparam integer AXI_LEN_LOW        = 64;
-  localparam integer AXI_LEN_HIGH       = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
-  localparam integer AXI_ID_LOW         = AXI_LEN_HIGH + 1;
-  localparam integer AXI_ID_HIGH        = AXI_ID_LOW  + AXI_ID_BITW   - 1;
+
+  // Properties of the data entries in the log
+  localparam integer LOGGING_DATA_BITW      = 96;
+  localparam integer LOGGING_DATA_BYTEW     = LOGGING_DATA_BITW / 8;
+  localparam integer AXI_LEN_LOW            = 64;
+  localparam integer AXI_LEN_HIGH           = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
+  localparam integer AXI_ID_LOW             = AXI_LEN_HIGH + 1;
+  localparam integer AXI_ID_HIGH            = AXI_ID_LOW  + AXI_ID_BITW   - 1;
 
   // Properties of the BRAM array storing the data
-  localparam integer NUM_PAR_BRAMS  = ceil_div(LOGGING_DATA_BITW, 32);
-  localparam integer NUM_SER_BRAMS  = ceil_div(NUM_LOG_ENTRIES, 1024);
+  localparam integer NUM_PAR_BRAMS          = ceil_div(LOGGING_DATA_BITW, 32);
+  localparam integer NUM_SER_BRAMS          = ceil_div(NUM_LOG_ENTRIES, 1024);
 
+  // Properties used when addressing the BRAM array
+  localparam integer LOGGING_CNT_BITW       = log2(1024*NUM_SER_BRAMS);
+  localparam integer LOGGING_CNT_MAX        = 1024*NUM_SER_BRAMS - 1;
   localparam integer LOGGING_ADDR_WORD_BITO = log2(LOGGING_DATA_BYTEW);
   localparam integer LOGGING_ADDR_BITW      = LOGGING_CNT_BITW + LOGGING_ADDR_WORD_BITO;
+
   // }}}
 
   // Signal Declarations {{{
