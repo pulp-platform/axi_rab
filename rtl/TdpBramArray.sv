@@ -32,22 +32,22 @@ module TdpBramArray
   // }}}
 
   // Module-Wide Constants {{{
-  localparam integer BRAM_BIT_WIDTH     = 32;
-  localparam integer BRAM_BYTE_WIDTH    = BRAM_BIT_WIDTH / 8;
-  localparam integer NUM_BRAM_WORDS     = 1024;
+  localparam integer BRAM_BITW      = 32;
+  localparam integer BRAM_BYTEW     = BRAM_BITW / 8;
+  localparam integer NUM_BRAM_WORDS = 1024;
 
-  localparam integer ARR_BIT_WIDTH      = BRAM_BIT_WIDTH  * NUM_PAR_BRAMS;
-  localparam integer ARR_BYTE_WIDTH     = BRAM_BYTE_WIDTH * NUM_PAR_BRAMS;
+  localparam integer ARR_BITW       = BRAM_BITW  * NUM_PAR_BRAMS;
+  localparam integer ARR_BYTEW      = BRAM_BYTEW * NUM_PAR_BRAMS;
 
-  localparam integer WORD_IDX_WIDTH     = log2(NUM_BRAM_WORDS);
+  localparam integer WORD_IDX_BITW  = log2(NUM_BRAM_WORDS);
   // }}}
 
   // Signal Declarations {{{
-  logic [NUM_SER_BRAMS-1:0] [ARR_BIT_WIDTH-1:0]       ARd_D, BRd_D;
+  logic [NUM_SER_BRAMS-1:0] [ARR_BITW-1:0]        ARd_D, BRd_D;
 
-  logic                     [30-1:0]                  WordAddrA_S,    WordAddrB_S;
-  logic                     [30-1:0]                  SerIdxA_S,      SerIdxB_S;
-  logic                     [WORD_IDX_WIDTH-1:0]      WordIdxA_S,     WordIdxB_S;
+  logic                     [30-1:0]              WordAddrA_S,    WordAddrB_S;
+  logic                     [30-1:0]              SerIdxA_S,      SerIdxB_S;
+  logic                     [WORD_IDX_BITW-1:0]   WordIdxA_S,     WordIdxB_S;
   // }}}
 
   // Resolve (Linear) Address to Serial (BRAM), Word Index and Address of RAMs {{{
@@ -81,15 +81,15 @@ module TdpBramArray
     for (p = 0; p < NUM_PAR_BRAMS; p++) begin
 
       // Instance-Specific Constants {{{
-      localparam integer WORD_BIT_LOW   = BRAM_BIT_WIDTH*p;
-      localparam integer WORD_BIT_HIGH  = WORD_BIT_LOW + (BRAM_BIT_WIDTH-1);
-      localparam integer WORD_BYTE_LOW  = BRAM_BYTE_WIDTH*p;
-      localparam integer WORD_BYTE_HIGH = WORD_BYTE_LOW + (BRAM_BYTE_WIDTH-1);
+      localparam integer WORD_BIT_LOW   = BRAM_BITW *p;
+      localparam integer WORD_BIT_HIGH  = WORD_BIT_LOW  + (BRAM_BITW -1);
+      localparam integer WORD_BYTE_LOW  = BRAM_BYTEW*p;
+      localparam integer WORD_BYTE_HIGH = WORD_BYTE_LOW + (BRAM_BYTEW-1);
       // }}}
 
       // Write-Enable Resolution {{{
-      logic [BRAM_BYTE_WIDTH-1:0]   WrEnA_S;
-      logic [2*BRAM_BYTE_WIDTH-1:0] WrEnB_S;
+      logic [  BRAM_BYTEW-1:0]  WrEnA_S;
+      logic [2*BRAM_BYTEW-1:0]  WrEnB_S;
       always_comb begin
         WrEnA_S = '0;
         WrEnB_S = '0;
