@@ -67,9 +67,9 @@ module AxiBramLogger
   enum reg [1:0]  {READY, CLEARING, FULL}
                                   State_SP,     State_SN;
 
-  reg   [LOGGING_ADDR_BITW-3:0]   WrCntA_SP,    WrCntA_SN;
-  logic [LOGGING_DATA_BITW-1:0]   WrA_D;
-  logic [LOGGING_DATA_BYTEW-1:0]  WrEnA_S;
+  reg   [LOGGING_ADDR_BITW  -3:0] WrCntA_SP,    WrCntA_SN;
+  logic [LOGGING_DATA_BITW  -1:0] WrA_D;
+  logic [LOGGING_DATA_BYTEW -1:0] WrEnA_S;
 
   reg   [TIMESTAMP_BITW-1:0]      Timestamp_SP, Timestamp_SN;
   // }}}
