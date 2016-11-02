@@ -127,10 +127,8 @@ module AxiBramLogger
   assign ParWordIdx_S = WordAddr_S / NUM_PAR_BRAMS;
   logic [PAR_IDX_BITW-1:0]    ParIdx_S;
   assign ParIdx_S = WordAddr_S % NUM_PAR_BRAMS;
-  logic [ADDR_BITW-1:0]       BramAddr_S;
-  assign BramAddr_S = (ParWordIdx_S << LOGGING_ADDR_WORD_BITO);
+  assign BramDwc_P.Addr_S = (ParWordIdx_S << LOGGING_ADDR_WORD_BITO);
   logic [NUM_PAR_BRAMS-1:0] [EXT_DATA_BITW-1:0] Rd_D;
-  assign BramDwc_P.Addr_S = BramAddr_S;
   genvar p;
   for (p = 0; p < NUM_PAR_BRAMS; p++) begin
     localparam integer BRAM_BYTE_LOW  = EXT_DATA_BYTEW*p;
