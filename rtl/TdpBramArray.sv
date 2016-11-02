@@ -20,7 +20,7 @@ module TdpBramArray
   // Parameters {{{
   #(
     parameter NUM_PAR_BRAMS = 3,
-    parameter NUM_SER_BRAMS = 12
+    parameter NUM_SER_BRAMS = 8
   )
   // }}}
 
