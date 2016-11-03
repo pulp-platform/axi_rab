@@ -1394,7 +1394,7 @@ module axi_rab_top
       .TIMESTAMP_BITW     (32),
       .LOGGING_DATA_BITW  (96),
       .NUM_PAR_BRAMS      (3),
-      .NUM_SER_BRAMS      (12)
+      .NUM_SER_BRAMS      (64)
     )
     u_aw_logger
     (
@@ -1418,7 +1418,7 @@ module axi_rab_top
       .TIMESTAMP_BITW     (32),
       .LOGGING_DATA_BITW  (96),
       .NUM_PAR_BRAMS      (3),
-      .NUM_SER_BRAMS      (12)
+      .NUM_SER_BRAMS      (64)
     )
     u_ar_logger
     (
