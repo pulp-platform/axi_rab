@@ -55,16 +55,17 @@ module TdpBramArray
   // Signal Declarations {{{
 
   // Output signals after multiplexing of parallel BRAM cells
-  logic [NUM_SER_BRAMS-1:0] [ARR_BITW       -1:0]   ARd_D,          BRd_D;
+  logic [NUM_SER_BRAMS-1:0] [ARR_BITW       -1:0]   ARd_D,              BRd_D;
 
   // Word part of external address
-  logic                     [WORD_ADDR_BITW -1:0]   WordAddrA_S,    WordAddrB_S;
+  logic                     [WORD_ADDR_BITW -1:0]   WordAddrA_S,        WordAddrB_S;
 
   // Serial index of BRAM cell in array
-  logic                     [SER_IDX_BITW   -1:0]   SerIdxA_S,      SerIdxB_S;
+  logic                     [SER_IDX_BITW   -1:0]   SerIdxA_S,          SerIdxB_S;
+  logic                                             SerIdxAOverflow_S,  SerIdxBOverflow_S;
 
   // Word index in BRAM cell
-  logic                     [WORD_IDX_BITW  -1:0]   WordIdxA_S,     WordIdxB_S;
+  logic                     [WORD_IDX_BITW  -1:0]   WordIdxA_S,         WordIdxB_S;
 
   // }}}
 
@@ -73,21 +74,35 @@ module TdpBramArray
   assign WordAddrA_S  = A_PS.Addr_S[ADDR_WORD_BITO+(WORD_ADDR_BITW-1):ADDR_WORD_BITO];
   assign WordAddrB_S  = B_PS.Addr_S[ADDR_WORD_BITO+(WORD_ADDR_BITW-1):ADDR_WORD_BITO];
 
-  assign SerIdxA_S    = WordAddrA_S / NUM_BRAM_WORDS;
-  assign SerIdxB_S    = WordAddrB_S / NUM_BRAM_WORDS;
+  always_comb begin
+    SerIdxAOverflow_S = 0;
+    SerIdxA_S         = WordAddrA_S / NUM_BRAM_WORDS;
+    if (SerIdxA_S >= NUM_SER_BRAMS) begin
+      SerIdxAOverflow_S = 1;
+      SerIdxA_S         = 0;
+    end
+  end
+  always_comb begin
+    SerIdxBOverflow_S = 0;
+    SerIdxB_S         = WordAddrB_S / NUM_BRAM_WORDS;
+    if (SerIdxB_S >= NUM_SER_BRAMS) begin
+      SerIdxBOverflow_S = 1;
+      SerIdxB_S         = 0;
+    end
+  end
 
-  assign WordIdxA_S   = WordAddrA_S % NUM_BRAM_WORDS;
-  assign WordIdxB_S   = WordAddrB_S % NUM_BRAM_WORDS;
+  assign WordIdxA_S = WordAddrA_S % NUM_BRAM_WORDS;
+  assign WordIdxB_S = WordAddrB_S % NUM_BRAM_WORDS;
 
   always @ (posedge A_PS.Clk_C) begin
     if (A_PS.Rst_R == 0) begin
-      assert (SerIdxA_S   < NUM_SER_BRAMS ) else $error("Serial index on port A out of bounds!");
-      assert (WordIdxA_S  < NUM_BRAM_WORDS) else $error("Word index on port A out of bounds!");
+      assert (~SerIdxAOverflow_S)           else $error("Serial index on port A out of bounds!");
+      assert (WordIdxA_S < NUM_BRAM_WORDS)  else $error("Word index on port A out of bounds!");
     end
   end
   always @ (posedge B_PS.Clk_C) begin
     if (B_PS.Rst_R == 0) begin
-      assert (SerIdxB_S   < NUM_SER_BRAMS ) else $error("Serial index on port B out of bounds!");
+      assert (~SerIdxBOverflow_S)           else $error("Serial index on port B out of bounds!");
       assert (WordIdxB_S  < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
     end
   end
@@ -111,10 +126,10 @@ module TdpBramArray
       always_comb begin
         WrEnA_S = '0;
         WrEnB_S = '0;
-        if (SerIdxA_S == s) begin
+        if (SerIdxA_S == s && ~SerIdxAOverflow_S) begin
           WrEnA_S = A_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
-        if (SerIdxB_S == s) begin
+        if (SerIdxB_S == s && ~SerIdxBOverflow_S) begin
           WrEnB_S = B_PS.WrEn_S[WORD_BYTE_HIGH:WORD_BYTE_LOW];
         end
       end
