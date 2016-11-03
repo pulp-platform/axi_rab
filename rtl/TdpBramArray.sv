@@ -80,12 +80,16 @@ module TdpBramArray
   assign WordIdxB_S   = WordAddrB_S % NUM_BRAM_WORDS;
 
   always @ (posedge A_PS.Clk_C) begin
-    assert (SerIdxA_S   < NUM_SER_BRAMS ) else $error("Serial index on port A out of bounds!");
-    assert (WordIdxA_S  < NUM_BRAM_WORDS) else $error("Word index on port A out of bounds!");
+    if (A_PS.Rst_R == 0) begin
+      assert (SerIdxA_S   < NUM_SER_BRAMS ) else $error("Serial index on port A out of bounds!");
+      assert (WordIdxA_S  < NUM_BRAM_WORDS) else $error("Word index on port A out of bounds!");
+    end
   end
   always @ (posedge B_PS.Clk_C) begin
-    assert (SerIdxB_S   < NUM_SER_BRAMS ) else $error("Serial index on port B out of bounds!");
-    assert (WordIdxB_S  < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
+    if (B_PS.Rst_R == 0) begin
+      assert (SerIdxB_S   < NUM_SER_BRAMS ) else $error("Serial index on port B out of bounds!");
+      assert (WordIdxB_S  < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
+    end
   end
 
   // }}}
