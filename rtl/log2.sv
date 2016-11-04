@@ -2,7 +2,7 @@
  * Ceiled Binary Logarithm of a Natural Number
  *
  * This constant function returns the binary logarithm (i.e., the logarithm to the base 2) of
- * a natural number, rounded towards plus infinity.
+ * a natural number (including 0), rounded towards plus infinity.
  *
  * Copyright (c) 2016 Integrated Systems Laboratory, ETH Zurich.  This is free software under the
  * terms of the GNU General Public License as published by the Free Software Foundation, either
@@ -17,6 +17,9 @@
 function integer log2;
   input longint val;
   begin
+
+    if (val < 0)
+      $fatal("Argument %0d is not a natural number!", val);
 
     val = val - 1;
     for (log2 = 0; val > 0; log2 = log2+1)
