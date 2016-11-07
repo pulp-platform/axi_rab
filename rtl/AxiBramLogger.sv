@@ -22,8 +22,8 @@ module AxiBramLogger
     // Width (in bits) of the logged AXI ID.  Value must be in [1, 24].
     parameter AXI_ID_BITW     =     8,
 
-    // Width (in bits) of the timestamp stored with each log entry.  Value must be in [1, 32].
-    parameter TIMESTAMP_BITW  =    32,
+    // Width (in bits) of the logged AXI address.  Value must be either 32 or 64.
+    parameter AXI_ADDR_BITW   =    32,
 
     // Number of entries in the log.  Value must be >= 1024, should be a multiple of 1024, and is
     // upper-bound by the available memory.
@@ -31,7 +31,6 @@ module AxiBramLogger
 
     // The following "parameters" must not be changed from their given value.  They are solely
     // declared here because they define the width of some of the ports.
-    parameter AXI_ADDR_BITW   =    32,
     parameter AXI_LEN_BITW    =     8
 
   )
@@ -63,12 +62,17 @@ module AxiBramLogger
   // Module-Wide Constants {{{
 
   // Properties of the data entries in the log
-  localparam integer LOGGING_DATA_BITW      = 96;
+  localparam integer TIMESTAMP_BITW         = 32;
+  localparam integer META_BITW              = 32;
+  localparam integer LOGGING_DATA_BITW      = ceil_div(TIMESTAMP_BITW+META_BITW+AXI_ADDR_BITW, 32)
+                                                    * 32;
   localparam integer LOGGING_DATA_BYTEW     = LOGGING_DATA_BITW / 8;
-  localparam integer AXI_LEN_LOW            = 64;
-  localparam integer AXI_LEN_HIGH           = AXI_LEN_LOW + AXI_LEN_BITW  - 1;
+  localparam integer AXI_LEN_LOW            = TIMESTAMP_BITW;
+  localparam integer AXI_LEN_HIGH           = AXI_LEN_LOW + AXI_LEN_BITW - 1;
   localparam integer AXI_ID_LOW             = AXI_LEN_HIGH + 1;
-  localparam integer AXI_ID_HIGH            = AXI_ID_LOW  + AXI_ID_BITW   - 1;
+  localparam integer AXI_ID_HIGH            = AXI_ID_LOW + AXI_ID_BITW - 1;
+  localparam integer AXI_ADDR_LOW           = TIMESTAMP_BITW + META_BITW;
+  localparam integer AXI_ADDR_HIGH          = AXI_ADDR_LOW + AXI_ADDR_BITW - 1;
 
   // Properties used when addressing the BRAM array
   localparam integer LOGGING_CNT_BITW       = log2(NUM_LOG_ENTRIES);
@@ -186,10 +190,10 @@ module AxiBramLogger
   always_comb begin
     WrA_D = '0;
     if (State_SP != CLEARING) begin
-      WrA_D[TIMESTAMP_BITW-1  : 0]          = Timestamp_SP;
-      WrA_D[AXI_ADDR_BITW-1+32:32]          = AxiAddr_DI;
-      WrA_D[AXI_LEN_HIGH      :AXI_LEN_LOW] = AxiLen_DI;
-      WrA_D[AXI_ID_HIGH       :AXI_ID_LOW]  = AxiId_DI;
+      WrA_D[TIMESTAMP_BITW-1  : 0]            = Timestamp_SP;
+      WrA_D[AXI_LEN_HIGH      :AXI_LEN_LOW]   = AxiLen_DI;
+      WrA_D[AXI_ID_HIGH       :AXI_ID_LOW]    = AxiId_DI;
+      WrA_D[AXI_ADDR_HIGH     :AXI_ADDR_LOW]  = AxiAddr_DI;
     end
   end
   // }}}
