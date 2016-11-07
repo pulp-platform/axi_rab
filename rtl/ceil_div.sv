@@ -20,13 +20,13 @@ function integer ceil_div;
   begin
 
     if (dividend < 0)
-      $fatal("Dividend %0d is not a natural number!", dividend);
+      $fatal(1, "Dividend %0d is not a natural number!", dividend);
 
     if (divisor < 0)
-      $fatal("Divisor %0d is not a natural number!", divisor);
+      $fatal(1, "Divisor %0d is not a natural number!", divisor);
 
     if (divisor == 0) begin
-      $fatal("Division by zero!");
+      $fatal(1, "Division by zero!");
     end
 
     remainder = dividend;
