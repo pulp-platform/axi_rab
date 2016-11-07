@@ -70,13 +70,9 @@ module AxiBramLogger
   localparam integer AXI_ID_LOW             = AXI_LEN_HIGH + 1;
   localparam integer AXI_ID_HIGH            = AXI_ID_LOW  + AXI_ID_BITW   - 1;
 
-  // Properties of the BRAM array storing the data
-  localparam integer NUM_PAR_BRAMS          = ceil_div(LOGGING_DATA_BITW, 32);
-  localparam integer NUM_SER_BRAMS          = ceil_div(NUM_LOG_ENTRIES, 1024);
-
   // Properties used when addressing the BRAM array
-  localparam integer LOGGING_CNT_BITW       = log2(1024*NUM_SER_BRAMS);
-  localparam integer LOGGING_CNT_MAX        = 1024*NUM_SER_BRAMS - 1;
+  localparam integer LOGGING_CNT_BITW       = log2(NUM_LOG_ENTRIES);
+  localparam integer LOGGING_CNT_MAX        = NUM_LOG_ENTRIES-1;
   localparam integer LOGGING_ADDR_WORD_BITO = log2(LOGGING_DATA_BYTEW);
   localparam integer LOGGING_ADDR_BITW      = LOGGING_CNT_BITW + LOGGING_ADDR_WORD_BITO;
 
@@ -120,8 +116,8 @@ module AxiBramLogger
 
   // Instantiation of True Dual-Port BRAM Array {{{
   TdpBramArray #(
-      .NUM_PAR_BRAMS(NUM_PAR_BRAMS),
-      .NUM_SER_BRAMS(NUM_SER_BRAMS)
+      .DATA_BITW(LOGGING_DATA_BITW),
+      .NUM_ENTRIES(NUM_LOG_ENTRIES)
     ) bramArr (
       .A_PS(BramLog_P),
       .B_PS(BramDwc_P)
