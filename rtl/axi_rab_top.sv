@@ -46,6 +46,8 @@
 `include "BramPort.sv"
 
 module axi_rab_top   
+
+  // Parameters {{{
   #(
     parameter N_PORTS             = 2,
     parameter AXI_DATA_WIDTH      = 64,
@@ -55,16 +57,20 @@ module axi_rab_top
     parameter AXI_LITE_ADDR_WIDTH = 32,
     parameter AXI_ID_WIDTH        = 10,
     parameter AXI_USER_WIDTH      = 6
-    )
-   (
-    // AXI ports {{{
+  )
+  // }}}
+
+  // Ports {{{
+  (
+
+    input logic                                            Clk_CI,
+    input logic                                            Rst_RBI,
+
     // For every slave port there are two master ports. The master
     // port to use can be set using the master_select flag of the protection
     // bits of a slice
     
-    input logic                                            Clk_CI,
-    input logic                                            Rst_RBI,    
-
+    // AXI4 Slave {{{
     input  logic    [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] s_axi4_awid,
     input  logic    [N_PORTS-1:0]   [AXI_S_ADDR_WIDTH-1:0] s_axi4_awaddr,
     input  logic    [N_PORTS-1:0]                          s_axi4_awvalid,
@@ -111,7 +117,9 @@ module axi_rab_top
     input  logic    [N_PORTS-1:0]                          s_axi4_rready,
     output logic    [N_PORTS-1:0]                          s_axi4_rlast,
     output logic    [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi4_ruser,
+    // }}}
 
+    // AXI4 Master 0 {{{
     output logic    [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m0_axi4_awid,
     output logic    [N_PORTS-1:0]   [AXI_M_ADDR_WIDTH-1:0] m0_axi4_awaddr,
     output logic    [N_PORTS-1:0]                          m0_axi4_awvalid,
@@ -158,8 +166,9 @@ module axi_rab_top
     output logic    [N_PORTS-1:0]                          m0_axi4_rready,
     input  logic    [N_PORTS-1:0]                          m0_axi4_rlast,
     input  logic    [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m0_axi4_ruser,
+    // }}}
 
-
+    // AXI4 Master 1 {{{
     output logic    [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m1_axi4_awid,
     output logic    [N_PORTS-1:0]   [AXI_M_ADDR_WIDTH-1:0] m1_axi4_awaddr,
     output logic    [N_PORTS-1:0]                          m1_axi4_awvalid,
@@ -206,7 +215,9 @@ module axi_rab_top
     output logic    [N_PORTS-1:0]                          m1_axi4_rready,
     input  logic    [N_PORTS-1:0]                          m1_axi4_rlast,
     input  logic    [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m1_axi4_ruser,    
+    // }}}
     
+    // AXI 4 Lite Slave (Configuration Interface) {{{
     // AXI4-Lite port to setup the rab slices
     // use this to program the configuration registers
     input  logic                 [AXI_LITE_ADDR_WIDTH-1:0] s_axi4lite_awaddr,
@@ -230,13 +241,19 @@ module axi_rab_top
     output logic                                     [1:0] s_axi4lite_rresp,
     output logic                                           s_axi4lite_rvalid,
     input  logic                                           s_axi4lite_rready,
+    // }}}
 
+    // BRAMs {{{
     BramPort.Slave                                         ArBram_PS,
     BramPort.Slave                                         AwBram_PS,
+    // }}}
 
+    // Logger Control {{{
     input  logic                                           ArLogClr_SI,
     input  logic                                           AwLogClr_SI,
+    // }}}
 
+    // Interrupt Outputs {{{
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
     output logic                             [N_PORTS-1:0] int_miss,
@@ -245,9 +262,11 @@ module axi_rab_top
     output logic                                           int_mhr_full,
     output logic                                           int_ar_log_full,
     output logic                                           int_aw_log_full
-    );
-
     // }}}
+
+  );
+
+  // }}}
 
   // Signals {{{
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
@@ -1816,4 +1835,4 @@ module axi_rab_top
 
 endmodule
 
-// vim: foldmethod=marker
+// vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker
