@@ -99,8 +99,8 @@ module AxiBramLogger
 
   // Internal BRAM Interfaces {{{
   BramPort #(
-      .DATA_WIDTH(LOGGING_DATA_BITW),
-      .ADDR_WIDTH(LOGGING_ADDR_BITW)
+      .DATA_BITW(LOGGING_DATA_BITW),
+      .ADDR_BITW(LOGGING_ADDR_BITW)
     ) BramLog_P ();
   assign BramLog_P.Clk_C  = Clk_CI;
   assign BramLog_P.Rst_R  = Rst_R;
@@ -113,8 +113,8 @@ module AxiBramLogger
   assign BramLog_P.WrEn_S = WrEnA_S;
 
   BramPort #(
-      .DATA_WIDTH(LOGGING_DATA_BITW),
-      .ADDR_WIDTH(LOGGING_ADDR_BITW)
+      .DATA_BITW(LOGGING_DATA_BITW),
+      .ADDR_BITW(LOGGING_ADDR_BITW)
     ) BramDwc_P ();
   assign BramDwc_P.Clk_C   = Bram_PS.Clk_C;
   assign BramDwc_P.Rst_R   = Bram_PS.Rst_R;
