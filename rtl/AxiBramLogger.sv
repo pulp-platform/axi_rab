@@ -116,9 +116,6 @@ module AxiBramLogger
       .DATA_BITW(LOGGING_DATA_BITW),
       .ADDR_BITW(LOGGING_ADDR_BITW)
     ) BramDwc_P ();
-  assign BramDwc_P.Clk_C   = Bram_PS.Clk_C;
-  assign BramDwc_P.Rst_R   = Bram_PS.Rst_R;
-  assign BramDwc_P.En_S    = Bram_PS.En_S;
   // }}}
 
   // Instantiation of True Dual-Port BRAM Array {{{
@@ -131,66 +128,11 @@ module AxiBramLogger
     );
   // }}}
 
-  // Data Width Conversion {{{
-  localparam integer  EXT_DATA_BITW       = 32;
-  localparam integer  EXT_DATA_BYTEW      = EXT_DATA_BITW/8;
-  localparam integer  EXT_ADDR_WORD_BITO  = log2(EXT_DATA_BYTEW);
-  localparam integer  EXT_ADDR_WORD_BITW  = log2(1024*NUM_SER_BRAMS*NUM_PAR_BRAMS);
-  localparam integer  PAR_WORD_IDX_BITW   = log2(1024*NUM_SER_BRAMS);
-  localparam integer  PAR_IDX_BITW        = log2(NUM_PAR_BRAMS);
-
-  logic [EXT_ADDR_WORD_BITW -1:0] WordAddr_S;
-  assign WordAddr_S = Bram_PS.Addr_S[(EXT_ADDR_WORD_BITW-1)+EXT_ADDR_WORD_BITO:EXT_ADDR_WORD_BITO];
-
-  logic [PAR_WORD_IDX_BITW  -1:0] ParWordIdx_S;
-  assign ParWordIdx_S = WordAddr_S / NUM_PAR_BRAMS;
-
-  logic [PAR_IDX_BITW       -1:0] ParIdx_S;
-  assign ParIdx_S = WordAddr_S % NUM_PAR_BRAMS;
-
-  always_comb begin
-    BramDwc_P.Addr_S = '0;
-    BramDwc_P.Addr_S[(PAR_WORD_IDX_BITW-1)+LOGGING_ADDR_WORD_BITO:LOGGING_ADDR_WORD_BITO]
-        = ParWordIdx_S;
-  end
-
-  logic [NUM_PAR_BRAMS-1:0] [EXT_DATA_BITW-1:0] Rd_D;
-  genvar p;
-  for (p = 0; p < NUM_PAR_BRAMS; p++) begin
-    localparam integer BRAM_BYTE_LOW  = EXT_DATA_BYTEW*p;
-    localparam integer BRAM_BYTE_HIGH = BRAM_BYTE_LOW + (EXT_DATA_BYTEW-1);
-    localparam integer BRAM_BIT_LOW   = EXT_DATA_BITW*p;
-    localparam integer BRAM_BIT_HIGH  = BRAM_BIT_LOW  + (EXT_DATA_BITW-1);
-    always_comb begin
-      if (ParIdx_S == p) begin
-        BramDwc_P.WrEn_S[BRAM_BYTE_HIGH:BRAM_BYTE_LOW] = Bram_PS.WrEn_S;
-      end else begin
-        BramDwc_P.WrEn_S[BRAM_BYTE_HIGH:BRAM_BYTE_LOW] = '0;
-      end
-    end
-    assign Rd_D[p] = BramDwc_P.Rd_D[BRAM_BIT_HIGH:BRAM_BIT_LOW];
-    assign BramDwc_P.Wr_D[BRAM_BIT_HIGH:BRAM_BIT_LOW] = Bram_PS.Wr_D;
-  end
-  assign Bram_PS.Rd_D = Rd_D[ParIdx_S];
-  // }}}
-
-  // Instantiation of BRAM Data Width Converter {{{
-  // TODO: Remove this section if you decide to keep the current data width conversion
-  // implementation.  In this case, also remove `BramDwc.sv`.
-  //BramDwc #(
-  //    .BRAM_DATA_BITW(LOGGING_DATA_BITW),
-  //    .EXT_DATA_BITW(32)
-  //  ) bramDwc (
-  //    .Bram_PM(BramDwc_P),
-  //    .Ext_PS(Bram_PS)
-  //  );
-  //assign BramDwc_P.Clk_C  = Bram_PS.Clk_C;
-  //assign BramDwc_P.Rst_R  = Bram_PS.Rst_R;
-  //assign BramDwc_P.En_S   = Bram_PS.En_S;
-  //assign BramDwc_P.Addr_S = '0;
-  //assign BramDwc_P.Wr_D   = '0;
-  //assign BramDwc_P.WrEn_S = '0;
-  //assign Bram_PS.Rd_D     = '0;
+  // Instantiation of Data Width Converter {{{
+  BramDwc bramDwc (
+      .FromMaster_PS(Bram_PS),
+      .ToSlave_PM   (BramDwc_P)
+    );
   // }}}
 
   // Control FSM {{{
