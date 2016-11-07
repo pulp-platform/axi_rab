@@ -19,7 +19,7 @@ function integer log2;
   begin
 
     if (val < 0)
-      $fatal("Argument %0d is not a natural number!", val);
+      $fatal(1, "Argument %0d is not a natural number!", val);
 
     val = val - 1;
     for (log2 = 0; val > 0; log2 = log2+1)
