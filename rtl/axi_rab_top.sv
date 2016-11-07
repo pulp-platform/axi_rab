@@ -1389,7 +1389,7 @@ module axi_rab_top
   AxiBramLogger
     #(
       .AXI_ID_BITW        (AXI_ID_WIDTH),
-      .TIMESTAMP_BITW     (32),
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
       .NUM_LOG_ENTRIES    (64*1024)
     )
     u_aw_logger
@@ -1409,7 +1409,7 @@ module axi_rab_top
   AxiBramLogger
     #(
       .AXI_ID_BITW        (AXI_ID_WIDTH),
-      .TIMESTAMP_BITW     (32),
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
       .NUM_LOG_ENTRIES    (64*1024)
     )
     u_ar_logger
