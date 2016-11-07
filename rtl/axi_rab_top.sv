@@ -252,6 +252,8 @@ module axi_rab_top
     input  logic                                           LogEn_SI,
     input  logic                                           ArLogClr_SI,
     input  logic                                           AwLogClr_SI,
+    output logic                                           ArLogReady_SO,
+    output logic                                           AwLogReady_SO,
     // }}}
 
     // Interrupt Outputs {{{
@@ -1425,6 +1427,7 @@ module axi_rab_top
       .Clear_SI         (AwLogClr_SI),
       .LogEn_SI         (LogEn_SI),
       .Full_SO          (int_aw_log_full),
+      .Ready_SO         (AwLogReady_SO),
       .Bram_PS          (AwBram_PS)
     );
 
@@ -1447,6 +1450,7 @@ module axi_rab_top
       .Clear_SI         (ArLogClr_SI),
       .LogEn_SI         (LogEn_SI),
       .Full_SO          (int_ar_log_full),
+      .Ready_SO         (ArLogReady_SO),
       .Bram_PS          (ArBram_PS)
     );
 
