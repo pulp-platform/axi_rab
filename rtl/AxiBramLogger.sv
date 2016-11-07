@@ -39,6 +39,7 @@ module AxiBramLogger
   // Ports {{{
   (
     input  logic                        Clk_CI,
+    input  logic                        TimestampClk_CI,
     input  logic                        Rst_RBI,
 
     // AXI Input
@@ -209,17 +210,25 @@ module AxiBramLogger
   // }}}
 
   // Flip-Flops {{{
+
   always_ff @ (posedge Clk_CI)
   begin
-    State_SP      <= READY;
-    Timestamp_SP  <= 0;
-    WrCntA_SP     <= 0;
+    State_SP    <= READY;
+    WrCntA_SP   <= 0;
     if (Rst_RBI) begin
-      State_SP      <= State_SN;
-      Timestamp_SP  <= Timestamp_SN;
-      WrCntA_SP     <= WrCntA_SN;
+      State_SP    <= State_SN;
+      WrCntA_SP   <= WrCntA_SN;
     end
   end
+
+  always_ff @ (posedge TimestampClk_CI)
+  begin
+    Timestamp_SP  <= 0;
+    if (Rst_RBI) begin
+      Timestamp_SP  <= Timestamp_SN;
+    end
+  end
+
   // }}}
 
 endmodule
