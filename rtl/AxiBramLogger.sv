@@ -55,6 +55,7 @@ module AxiBramLogger
 
     // Status Output
     output logic                        Full_SO,
+    output logic                        Ready_SO,
 
     // Interface to Internal BRAM
     BramPort.Slave                      Bram_PS
@@ -142,6 +143,7 @@ module AxiBramLogger
   always_comb begin
     // Default Assignments
     Full_SO   = 0;
+    Ready_SO  = 0;
     WrCntA_SN = WrCntA_SP;
     WrEnA_S   = '0;
     State_SN  = State_SP;
@@ -149,6 +151,7 @@ module AxiBramLogger
     case (State_SP)
 
       READY: begin
+        Ready_SO = 1;
         if (LogEn_SI && AxiValid_SI && AxiReady_SI && ~Clear_SI) begin
           WrCntA_SN = WrCntA_SP + 1;
           WrEnA_S   = '1;
