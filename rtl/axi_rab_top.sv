@@ -63,6 +63,7 @@ module axi_rab_top
   (
 
     input logic                                            Clk_CI,
+    input logic                                            ClusterClk_CI,
     input logic                                            Rst_RBI,
 
     // For every slave port there are two master ports. The master
@@ -1412,16 +1413,17 @@ module axi_rab_top
     )
     u_aw_logger
     (
-      .Clk_CI         (Clk_CI),
-      .Rst_RBI        (Rst_RBI),
-      .AxiValid_SI    (s_axi4_awvalid[1]),
-      .AxiReady_SI    (s_axi4_awready[1]),
-      .AxiId_DI       (s_axi4_awid[1]),
-      .AxiAddr_DI     (s_axi4_awaddr[1]),
-      .AxiLen_DI      (s_axi4_awlen[1]),
-      .Clear_SI       (AwLogClr_SI),
-      .Full_SO        (int_aw_log_full),
-      .Bram_PS        (AwBram_PS)
+      .Clk_CI           (Clk_CI),
+      .TimestampClk_CI  (ClusterClk_CI),
+      .Rst_RBI          (Rst_RBI),
+      .AxiValid_SI      (s_axi4_awvalid[1]),
+      .AxiReady_SI      (s_axi4_awready[1]),
+      .AxiId_DI         (s_axi4_awid[1]),
+      .AxiAddr_DI       (s_axi4_awaddr[1]),
+      .AxiLen_DI        (s_axi4_awlen[1]),
+      .Clear_SI         (AwLogClr_SI),
+      .Full_SO          (int_aw_log_full),
+      .Bram_PS          (AwBram_PS)
     );
 
   AxiBramLogger
@@ -1432,16 +1434,17 @@ module axi_rab_top
     )
     u_ar_logger
     (
-      .Clk_CI         (Clk_CI),
-      .Rst_RBI        (Rst_RBI),
-      .AxiValid_SI    (s_axi4_arvalid[1]),
-      .AxiReady_SI    (s_axi4_arready[1]),
-      .AxiId_DI       (s_axi4_arid[1]),
-      .AxiAddr_DI     (s_axi4_araddr[1]),
-      .AxiLen_DI      (s_axi4_arlen[1]),
-      .Clear_SI       (ArLogClr_SI),
-      .Full_SO        (int_ar_log_full),
-      .Bram_PS        (ArBram_PS)
+      .Clk_CI           (Clk_CI),
+      .TimestampClk_CI  (ClusterClk_CI),
+      .Rst_RBI          (Rst_RBI),
+      .AxiValid_SI      (s_axi4_arvalid[1]),
+      .AxiReady_SI      (s_axi4_arready[1]),
+      .AxiId_DI         (s_axi4_arid[1]),
+      .AxiAddr_DI       (s_axi4_araddr[1]),
+      .AxiLen_DI        (s_axi4_arlen[1]),
+      .Clear_SI         (ArLogClr_SI),
+      .Full_SO          (int_ar_log_full),
+      .Bram_PS          (ArBram_PS)
     );
 
   // }}}
