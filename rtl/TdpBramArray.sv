@@ -1,12 +1,36 @@
 /**
- * True Dual-Port BRAM Array
+ * True Dual-Port BRAM Array for Xilinx 7 Series Devices
  *
- * This module contains a two-dimensional array of True Dual-Port BRAM cells.  The array is
- * `NUM_PAR_BRAMS` wide and `NUM_SER_BRAMS` deep.  Each BRAM cell is 32 bit wide and 1024 entries
- * deep.  Thus, the data ports exposed by this module are `32*NUM_PAR_BRAMS` bit wide, and the total
- * number of addressable entries is `1024*NUM_SER_BRAMS`.  Both ports can be operated independently
- * and asynchronously; the behavior on access collisions is specified in the Xilinx Block Memory
- * Generator Product Guide (PG058).
+ * This module contains a two-dimensional array of Xilinx' 7 Series True Dual-Port BRAM cells.  The
+ * array is
+ *    NUM_PAR_BRAMS = ceil(DATA_BITW/32)
+ * BRAMs wide and
+ *    NUM_SER_BRAMS = ceil(NUM_ENTRIES/1024)
+ * BRAMs deep, as each BRAM is 32 bit wide and 1024 entries deep.
+ *
+ * This module is addressed byte-wise!  Be careful when addressing a BRAM array that has more than
+ * one BRAM in parallel (i.e., when `DATA_BITW > 32`): the
+ *    WORD_OFFSET = ceil(log2(DATA_BITW/8))
+ * least-significant bits of the address are used to address the bytes within a word.  The reason
+ * for byte-wise addressing is to enable instances with a width that is a power of two (and >= 32)
+ * to directly connect to a Xilinx AXI 4 BRAM Controller.  If you want to connect a BRAM that does
+ * not fulfill the direct connection criterion, use the Data Width Converter `BramDwc`.
+ *
+ * Even though addressing is byte-wise, accesses that are not aligned to words are not supported.
+ *
+ * Both ports can be operated independently and asynchronously; the behavior on access collisions is
+ * specified in the Xilinx Block Memory Generator Product Guide (PG058).
+ *
+ * Copyright (c) 2016 Integrated Systems Laboratory, ETH Zurich.  This is free software under the
+ * terms of the GNU General Public License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.  This software is distributed
+ * without any warranty; without even the implied warranty of merchantability or fitness for
+ * a particular purpose.  The HDL code in `BRAM_TDP_MACRO` is the property of Xilinx and not
+ * affected by this copyright notice.
+ *
+ * Current Maintainers:
+ * - Andreas Kurth  <andkurt@ee.ethz.ch>
+ * - Pirmin Vogel   <vogelpi@iis.ee.ethz.ch>
  */
 
 `ifndef TDP_BRAM_ARRAY_SV
@@ -21,7 +45,14 @@ module TdpBramArray
 
   // Parameters {{{
   #(
+
+    // Width (in bits) of the read/write data ports.  Should be a multiple of 32 (for optimal
+    // resource usage) and is upper-bound by the available memory resources.
     parameter DATA_BITW   =   96,
+
+    // Number of entries (each entry is `DATA_BITW` bits wide) in the BRAM array.  Should be
+    // a multiple of 1024 (for optimal resource usage) and is upper-bound by the available memory
+    // resources.
     parameter NUM_ENTRIES = 8192
   )
   // }}}
