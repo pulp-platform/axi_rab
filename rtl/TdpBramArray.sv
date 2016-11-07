@@ -13,14 +13,16 @@
 `define TDP_BRAM_ARRAY_SV
 
 `include "BramPort.sv"
+
+`include "ceil_div.sv"
 `include "log2.sv"
 
 module TdpBramArray
 
   // Parameters {{{
   #(
-    parameter NUM_PAR_BRAMS = 3,
-    parameter NUM_SER_BRAMS = 8
+    parameter DATA_BITW   =   96,
+    parameter NUM_ENTRIES = 8192
   )
   // }}}
 
@@ -39,6 +41,8 @@ module TdpBramArray
   localparam integer NUM_BRAM_WORDS = 1024;
 
   // Properties of the resulting memory array
+  localparam integer NUM_PAR_BRAMS  = ceil_div(DATA_BITW, BRAM_BITW);
+  localparam integer NUM_SER_BRAMS  = ceil_div(NUM_ENTRIES, NUM_BRAM_WORDS);
   localparam integer ARR_BITW       = BRAM_BITW       * NUM_PAR_BRAMS;
   localparam integer ARR_BYTEW      = BRAM_BYTEW      * NUM_PAR_BRAMS;
   localparam integer NUM_ARR_WORDS  = NUM_BRAM_WORDS  * NUM_SER_BRAMS;
