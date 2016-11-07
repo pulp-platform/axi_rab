@@ -51,6 +51,7 @@ module AxiBramLogger
 
     // Control Input
     input  logic                        Clear_SI,
+    input  logic                        LogEn_SI,
 
     // Status Output
     output logic                        Full_SO,
@@ -148,7 +149,7 @@ module AxiBramLogger
     case (State_SP)
 
       READY: begin
-        if (AxiValid_SI && AxiReady_SI && ~Clear_SI) begin
+        if (LogEn_SI && AxiValid_SI && AxiReady_SI && ~Clear_SI) begin
           WrCntA_SN = WrCntA_SP + 1;
           WrEnA_S   = '1;
         end
