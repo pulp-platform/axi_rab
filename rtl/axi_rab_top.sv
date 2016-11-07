@@ -249,6 +249,7 @@ module axi_rab_top
     // }}}
 
     // Logger Control {{{
+    input  logic                                           LogEn_SI,
     input  logic                                           ArLogClr_SI,
     input  logic                                           AwLogClr_SI,
     // }}}
@@ -1422,6 +1423,7 @@ module axi_rab_top
       .AxiAddr_DI       (s_axi4_awaddr[1]),
       .AxiLen_DI        (s_axi4_awlen[1]),
       .Clear_SI         (AwLogClr_SI),
+      .LogEn_SI         (LogEn_SI),
       .Full_SO          (int_aw_log_full),
       .Bram_PS          (AwBram_PS)
     );
@@ -1443,6 +1445,7 @@ module axi_rab_top
       .AxiAddr_DI       (s_axi4_araddr[1]),
       .AxiLen_DI        (s_axi4_arlen[1]),
       .Clear_SI         (ArLogClr_SI),
+      .LogEn_SI         (LogEn_SI),
       .Full_SO          (int_ar_log_full),
       .Bram_PS          (ArBram_PS)
     );
