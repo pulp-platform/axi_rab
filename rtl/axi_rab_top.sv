@@ -42,7 +42,6 @@
 
 `include "ulpsoc_defines.sv"
 `include "BramPort.sv"
-`include "log2.sv"
 
 module axi_rab_top   
 
@@ -1577,7 +1576,7 @@ module axi_rab_top
           .SET                    ( L2TLB_NUM_SETS                                             ),
           .NUM_OFFSET             ( L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL                 ), 
           .PARALLEL_NUM           ( L2TLB_PARALLEL                                             ),
-          .HIT_OFFSET_STORE_WIDTH ( log2( (L2TLB_NUM_ENTRIES_PER_SET /2/ L2TLB_PARALLEL) - 1) )
+          .HIT_OFFSET_STORE_WIDTH ( `LOG2( (L2TLB_NUM_ENTRIES_PER_SET /2/ L2TLB_PARALLEL) - 1) )
           ) 
       u_tlb_l2
         (
