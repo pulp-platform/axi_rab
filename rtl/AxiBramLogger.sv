@@ -202,7 +202,7 @@ module AxiBramLogger
   always_comb
   begin
     Timestamp_SN = Timestamp_SP + 1;
-    if (Timestamp_SP == {TIMESTAMP_BITW{1'b1}} || State_SP == CLEARING || Clear_SI) begin
+    if (Timestamp_SP == {TIMESTAMP_BITW{1'b1}}) begin
       Timestamp_SN = 0;
     end
   end
