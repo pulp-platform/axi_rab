@@ -96,13 +96,13 @@ module TdpBramArray
 
   always @ (posedge A_PS.Clk_C) begin
     if (A_PS.Rst_R == 0) begin
-      assert (~SerIdxAOverflow_S)           else $error("Serial index on port A out of bounds!");
+      assert (~SerIdxAOverflow_S)           else $warning("Serial index on port A out of bounds!");
       assert (WordIdxA_S < NUM_BRAM_WORDS)  else $error("Word index on port A out of bounds!");
     end
   end
   always @ (posedge B_PS.Clk_C) begin
     if (B_PS.Rst_R == 0) begin
-      assert (~SerIdxBOverflow_S)           else $error("Serial index on port B out of bounds!");
+      assert (~SerIdxBOverflow_S)           else $warning("Serial index on port B out of bounds!");
       assert (WordIdxB_S  < NUM_BRAM_WORDS) else $error("Word index on port B out of bounds!");
     end
   end
