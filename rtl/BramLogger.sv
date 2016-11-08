@@ -24,13 +24,13 @@
  *  Bram_PS           Slave interface to access the internal BRAM (e.g., over AXI via an AXI BRAM
  *                    Controller).
  *
- *  In the BRAM, events are stored consecutively in multiple words each.  The first word of a log
- *  entry is the 32-bit wide timestamp.  All other words are defined by the user via `LogData_DI`.
+ * In the BRAM, events are stored consecutively in multiple words each.  The first word of a log
+ * entry is the 32-bit wide timestamp.  All other words are defined by the user via `LogData_DI`.
  *
- *  For the memory consumption by the internal BRAM, refer to the documentation of the employed BRAM
- *  module.
+ * For the memory consumption by the internal BRAM, refer to the documentation of the employed BRAM
+ * module.
  *
- *  During clearing, the logging memory is traversed sequentially.  Thus, clearing takes
+ * During clearing, the logging memory is traversed sequentially.  Thus, clearing takes
  * `NUM_LOG_ENTRIES` clock cycles.
  *
  * Copyright (c) 2016 Integrated Systems Laboratory, ETH Zurich.  This is free software under the
