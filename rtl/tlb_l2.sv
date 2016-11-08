@@ -1,4 +1,5 @@
-`define log2(VALUE) ( (VALUE) < ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+import CfMath::log2;
+
 //`define TLB_MULTIHIT
 module tlb_l2
   #(
@@ -33,12 +34,12 @@ module tlb_l2
 
    localparam VA_RAM_DEPTH      = SET * NUM_OFFSET * 2;
    localparam PA_RAM_DEPTH      = VA_RAM_DEPTH * PARALLEL_NUM;
-   localparam VA_RAM_ADDR_WIDTH = `log2(VA_RAM_DEPTH)-1;
-   localparam PA_RAM_ADDR_WIDTH = `log2(PA_RAM_DEPTH)-1;
-   localparam SET_WIDTH         = `log2(SET)-1;
-   localparam OFFSET_WIDTH      = `log2(NUM_OFFSET)-1;
-   localparam LL_WIDTH          = `log2(PARALLEL_NUM)-1;
-   localparam IGNORE_LSB        = `log2(PAGE_SIZE -1);
+   localparam VA_RAM_ADDR_WIDTH = log2(VA_RAM_DEPTH);
+   localparam PA_RAM_ADDR_WIDTH = log2(PA_RAM_DEPTH);
+   localparam SET_WIDTH         = log2(SET);
+   localparam OFFSET_WIDTH      = log2(NUM_OFFSET);
+   localparam LL_WIDTH          = log2(PARALLEL_NUM);
+   localparam IGNORE_LSB        = log2(PAGE_SIZE);
       
    logic [PARALLEL_NUM-1:0]                                hit, prot, multi_hit;
    logic [PARALLEL_NUM-1:0]                                ram_we;
@@ -414,4 +415,4 @@ assign ram_waddr      = waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
 assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];             
 assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
 
-endmodule    
+endmodule

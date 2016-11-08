@@ -38,7 +38,7 @@
 
 `include "BramPort.sv"
 
-`include "cf_math.sv"
+import CfMath::ceil_div, CfMath::log2;
 
 module TdpBramArray
 

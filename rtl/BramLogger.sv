@@ -47,7 +47,7 @@
 `ifndef BRAM_LOGGER_SV
 `define BRAM_LOGGER_SV
 
-`include "cf_math.sv"
+import CfMath::ceil_div, CfMath::log2;
 
 `include "BramDwc.sv"
 `include "BramPort.sv"

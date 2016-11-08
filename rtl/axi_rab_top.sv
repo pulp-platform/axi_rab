@@ -43,6 +43,8 @@
 `include "ulpsoc_defines.sv"
 `include "BramPort.sv"
 
+import CfMath::log2;
+
 module axi_rab_top   
 
   // Parameters {{{
@@ -1576,7 +1578,7 @@ module axi_rab_top
           .SET                    ( L2TLB_NUM_SETS                                             ),
           .NUM_OFFSET             ( L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL                 ), 
           .PARALLEL_NUM           ( L2TLB_PARALLEL                                             ),
-          .HIT_OFFSET_STORE_WIDTH ( `LOG2( (L2TLB_NUM_ENTRIES_PER_SET /2/ L2TLB_PARALLEL) - 1) )
+          .HIT_OFFSET_STORE_WIDTH ( log2(L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL)           )
           ) 
       u_tlb_l2
         (

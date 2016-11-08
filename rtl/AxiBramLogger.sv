@@ -24,7 +24,7 @@
 `ifndef AXI_BRAM_LOGGER_SV
 `define AXI_BRAM_LOGGER_SV
 
-`include "cf_math.sv"
+import CfMath::ceil_div;
 
 `include "BramPort.sv"
 
