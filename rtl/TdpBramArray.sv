@@ -38,8 +38,7 @@
 
 `include "BramPort.sv"
 
-`include "ceil_div.sv"
-`include "log2.sv"
+`include "cf_math.sv"
 
 module TdpBramArray
 

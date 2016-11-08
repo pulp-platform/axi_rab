@@ -47,7 +47,7 @@
 `ifndef BRAM_LOGGER_SV
 `define BRAM_LOGGER_SV
 
-`include "ceil_div.sv"
+`include "cf_math.sv"
 
 `include "BramDwc.sv"
 `include "BramPort.sv"
