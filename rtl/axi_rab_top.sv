@@ -62,8 +62,8 @@ module axi_rab_top
   // Ports {{{
   (
 
-    input logic                                            Clk_CI,
-    input logic                                            ClusterClk_CI,
+    input logic                                            Clk_CI,  // This clock may be gated.
+    input logic                                            NonGatedClk_CI,
     input logic                                            Rst_RBI,
 
     // For every slave port there are two master ports. The master
@@ -1416,8 +1416,8 @@ module axi_rab_top
     )
     u_aw_logger
     (
-      .Clk_CI           (Clk_CI),
-      .TimestampClk_CI  (ClusterClk_CI),
+      .Clk_CI           (NonGatedClk_CI),
+      .TimestampClk_CI  (Clk_CI),
       .Rst_RBI          (Rst_RBI),
       .AxiValid_SI      (s_axi4_awvalid[1]),
       .AxiReady_SI      (s_axi4_awready[1]),
@@ -1439,8 +1439,8 @@ module axi_rab_top
     )
     u_ar_logger
     (
-      .Clk_CI           (Clk_CI),
-      .TimestampClk_CI  (ClusterClk_CI),
+      .Clk_CI           (NonGatedClk_CI),
+      .TimestampClk_CI  (Clk_CI),
       .Rst_RBI          (Rst_RBI),
       .AxiValid_SI      (s_axi4_arvalid[1]),
       .AxiReady_SI      (s_axi4_arready[1]),
