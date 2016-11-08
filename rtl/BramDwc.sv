@@ -21,11 +21,6 @@
  * - Pirmin Vogel   <vogelpi@iis.ee.ethz.ch>
  */
 
-`ifndef BRAM_DWC_SV
-`define BRAM_DWC_SV
-
-`include "BramPort.sv"
-
 import CfMath::ceil_div, CfMath::log2;
 
 module BramDwc
@@ -104,7 +99,5 @@ module BramDwc
   // }}}
 
 endmodule
-
-`endif // BRAM_DWC_SV
 
 // vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker tw=100

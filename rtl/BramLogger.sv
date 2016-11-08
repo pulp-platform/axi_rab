@@ -44,14 +44,7 @@
  * - Pirmin Vogel   <vogelpi@iis.ee.ethz.ch>
  */
 
-`ifndef BRAM_LOGGER_SV
-`define BRAM_LOGGER_SV
-
 import CfMath::ceil_div, CfMath::log2;
-
-`include "BramDwc.sv"
-`include "BramPort.sv"
-`include "TdpBramArray.sv"
 
 module BramLogger
 
@@ -263,7 +256,5 @@ module BramLogger
   // }}}
 
 endmodule
-
-`endif // BRAM_LOGGER_SV
 
 // vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker tw=100

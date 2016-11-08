@@ -29,9 +29,6 @@
  * - Pirmin Vogel   <vogelpi@iis.ee.ethz.ch>
  */
 
-`ifndef BRAM_PORT_SV
-`define BRAM_PORT_SV
-
 interface BramPort
   #(
     parameter DATA_BITW = 32,
@@ -57,7 +54,5 @@ interface BramPort
   );
 
 endinterface
-
-`endif // BRAM_PORT_SV
 
 // vim: ts=2 sw=2 sts=2 et tw=100

@@ -21,12 +21,7 @@
  * - Pirmin Vogel   <vogelpi@iis.ee.ethz.ch>
  */
 
-`ifndef AXI_BRAM_LOGGER_SV
-`define AXI_BRAM_LOGGER_SV
-
 import CfMath::ceil_div;
-
-`include "BramPort.sv"
 
 module AxiBramLogger
 
@@ -122,7 +117,5 @@ module AxiBramLogger
   // }}}
 
 endmodule
-
-`endif // AXI_BRAM_LOGGER_SV
 
 // vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker tw=100

@@ -41,7 +41,6 @@
  */
 
 `include "ulpsoc_defines.sv"
-`include "BramPort.sv"
 
 import CfMath::log2;
 
