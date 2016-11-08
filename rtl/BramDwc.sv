@@ -49,7 +49,7 @@ module BramDwc
   localparam integer  TO_ADDR_WORD_BITW   = $size(ToSlave_PM.Addr_S) - TO_ADDR_WORD_BITO;
 
   localparam integer  PAR_IDX_MAX_VAL     = ceil_div(TO_DATA_BITW, FROM_DATA_BITW) - 1;
-  localparam integer  PAR_IDX_BITW        = log2(PAR_IDX_MAX_VAL)+1;
+  localparam integer  PAR_IDX_BITW        = log2(PAR_IDX_MAX_VAL+1);
   // }}}
 
   // Initial Assertions {{{
