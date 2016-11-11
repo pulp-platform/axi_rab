@@ -5,10 +5,11 @@
  *
  * Port Description:
  *  FromMaster_PS   Slave BRAM Port interface through which master control signals go to the BRAM.
- *  ToSlave_PM      Master BRAM Port interface at which the BRAM is connected.
+ *  ToSlave_PM      Master BRAM Port interface at which the slave BRAM is connected.
  *
- * The master interface must be narrower than the slave interface.  The reverse situation would
- * require handshaking and buffering and is not supported by the simple BRAM Port interface.
+ * The data signal of the master interface must be narrower than that of the slave interface.  The
+ * reverse situation would require handshaking and buffering and is not supported by the simple BRAM
+ * Port interface.
  *
  * Parameter Description:
  *  ADDR_BITW       The width (in bits) of the address signals.  Both ports must have the same
