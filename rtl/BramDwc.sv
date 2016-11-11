@@ -74,6 +74,12 @@ module BramDwc
   initial begin
     assert (SLV_DATA_BITW >= MST_DATA_BITW)
       else $fatal(1, "Downconversion of the data bitwidth from master to slave is not possible!");
+    assert (MST_DATA_BITW == FromMaster_PS.DATA_BITW)
+      else $fatal(1, "Parameter for data width of master does not match connected interface!");
+    assert (SLV_DATA_BITW == ToSlave_PM.DATA_BITW)
+      else $fatal(1, "Parameter for data width of slave does not match connected interface!");
+    assert ((ADDR_BITW == FromMaster_PS.ADDR_BITW) && (ADDR_BITW == ToSlave_PM.ADDR_BITW))
+      else $fatal(1, "Parameter for address width does not match connected interfaces!");
   end
   // }}}
 
