@@ -154,7 +154,12 @@ module BramLogger
   // }}}
 
   // Instantiation of Data Width Converter {{{
-  BramDwc bramDwc (
+  BramDwc
+    #(
+      .ADDR_BITW      (32),
+      .MST_DATA_BITW  (32),
+      .SLV_DATA_BITW  (LOG_ENTRY_BITW)
+    ) bramDwc (
       .FromMaster_PS(Bram_PS),
       .ToSlave_PM   (BramDwc_P)
     );
