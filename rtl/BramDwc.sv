@@ -13,8 +13,8 @@
  * Parameter Description:
  *  ADDR_BITW       The width (in bits) of the address signals.  Both ports must have the same
  *                  address width.
- *  FROM_DATA_BITW  The width (in bits) of the data signal coming from the master controller.
- *  TO_DATA_BITW    The width (in bits) of the data signal of the slave BRAM.
+ *  MST_DATA_BITW   The width (in bits) of the data signal coming from the master controller.
+ *  SLV_DATA_BITW   The width (in bits) of the data signal of the slave BRAM.
  *
  *  The value of all parameters must match the connected interfaces.  DO NOT rely on the default
  *  values for these parameters, but explicitly set the parameters so that they are correct for your
@@ -43,9 +43,9 @@ module BramDwc
 
   // Parameters {{{
   #(
-    parameter integer ADDR_BITW       = 32,
-    parameter integer FROM_DATA_BITW  = 32,
-    parameter integer TO_DATA_BITW    = 96
+    parameter integer ADDR_BITW     = 32,
+    parameter integer MST_DATA_BITW = 32,
+    parameter integer SLV_DATA_BITW = 96
   )
   // }}}
 
@@ -57,21 +57,21 @@ module BramDwc
   // }}}
 
   // Module-Wide Constants {{{
-  localparam integer  FROM_DATA_BYTEW     = FROM_DATA_BITW/8;
-  localparam integer  FROM_ADDR_WORD_BITO = log2(FROM_DATA_BYTEW);
-  localparam integer  FROM_ADDR_WORD_BITW = ADDR_BITW - FROM_ADDR_WORD_BITO;
+  localparam integer  MST_DATA_BYTEW      = MST_DATA_BITW/8;
+  localparam integer  MST_ADDR_WORD_BITO  = log2(MST_DATA_BYTEW);
+  localparam integer  MST_ADDR_WORD_BITW  = ADDR_BITW - MST_ADDR_WORD_BITO;
 
-  localparam integer  TO_DATA_BYTEW       = TO_DATA_BITW/8;
-  localparam integer  TO_ADDR_WORD_BITO   = log2(TO_DATA_BYTEW);
-  localparam integer  TO_ADDR_WORD_BITW   = ADDR_BITW - TO_ADDR_WORD_BITO;
+  localparam integer  SLV_DATA_BYTEW      = SLV_DATA_BITW/8;
+  localparam integer  SLV_ADDR_WORD_BITO  = log2(SLV_DATA_BYTEW);
+  localparam integer  SLV_ADDR_WORD_BITW  = ADDR_BITW - SLV_ADDR_WORD_BITO;
 
-  localparam integer  PAR_IDX_MAX_VAL     = ceil_div(TO_DATA_BITW, FROM_DATA_BITW) - 1;
+  localparam integer  PAR_IDX_MAX_VAL     = ceil_div(SLV_DATA_BITW, MST_DATA_BITW) - 1;
   localparam integer  PAR_IDX_BITW        = log2(PAR_IDX_MAX_VAL+1);
   // }}}
 
   // Initial Assertions {{{
   initial begin
-    assert (TO_DATA_BITW >= FROM_DATA_BITW)
+    assert (SLV_DATA_BITW >= MST_DATA_BITW)
       else $fatal(1, "Downconversion of the data bitwidth from master to slave is not possible!");
   end
   // }}}
@@ -84,37 +84,37 @@ module BramDwc
 
   // Data Width Conversion {{{
 
-  logic [FROM_ADDR_WORD_BITW-1:0] FromWordAddr_S;
-  assign FromWordAddr_S
-      = FromMaster_PS.Addr_S[(FROM_ADDR_WORD_BITW-1)+FROM_ADDR_WORD_BITO:FROM_ADDR_WORD_BITO];
+  logic [MST_ADDR_WORD_BITW-1:0] MstWordAddr_S;
+  assign MstWordAddr_S
+      = FromMaster_PS.Addr_S[(MST_ADDR_WORD_BITW-1)+MST_ADDR_WORD_BITO:MST_ADDR_WORD_BITO];
 
-  logic [TO_ADDR_WORD_BITW-1:0] ToWordAddr_S;
-  assign ToWordAddr_S = FromWordAddr_S / (PAR_IDX_MAX_VAL+1);
+  logic [SLV_ADDR_WORD_BITW-1:0] ToWordAddr_S;
+  assign ToWordAddr_S = MstWordAddr_S / (PAR_IDX_MAX_VAL+1);
 
   always_comb begin
     ToSlave_PM.Addr_S = '0;
-    ToSlave_PM.Addr_S[(TO_ADDR_WORD_BITW-1)+TO_ADDR_WORD_BITO:TO_ADDR_WORD_BITO] = ToWordAddr_S;
+    ToSlave_PM.Addr_S[(SLV_ADDR_WORD_BITW-1)+SLV_ADDR_WORD_BITO:SLV_ADDR_WORD_BITO] = ToWordAddr_S;
   end
 
   logic [PAR_IDX_BITW-1:0] ParIdx_S;
-  assign ParIdx_S = FromWordAddr_S % (PAR_IDX_MAX_VAL+1);
+  assign ParIdx_S = MstWordAddr_S % (PAR_IDX_MAX_VAL+1);
 
-  logic [PAR_IDX_MAX_VAL:0] [FROM_DATA_BITW-1:0]  Rd_D;
+  logic [PAR_IDX_MAX_VAL:0] [MST_DATA_BITW-1:0]  Rd_D;
   genvar p;
   for (p = 0; p <= PAR_IDX_MAX_VAL; p++) begin
-    localparam integer TO_BYTE_LOW  = FROM_DATA_BYTEW*p;
-    localparam integer TO_BYTE_HIGH = TO_BYTE_LOW + (FROM_DATA_BYTEW-1);
-    localparam integer TO_BIT_LOW   = FROM_DATA_BITW*p;
-    localparam integer TO_BIT_HIGH  = TO_BIT_LOW + (FROM_DATA_BITW-1);
+    localparam integer SLV_BYTE_LOW   = MST_DATA_BYTEW*p;
+    localparam integer SLV_BYTE_HIGH  = SLV_BYTE_LOW + (MST_DATA_BYTEW-1);
+    localparam integer SLV_BIT_LOW    = MST_DATA_BITW*p;
+    localparam integer SLV_BIT_HIGH   = SLV_BIT_LOW + (MST_DATA_BITW-1);
     always_comb begin
       if (ParIdx_S == p) begin
-        ToSlave_PM.WrEn_S[TO_BYTE_HIGH:TO_BYTE_LOW] = FromMaster_PS.WrEn_S;
+        ToSlave_PM.WrEn_S[SLV_BYTE_HIGH:SLV_BYTE_LOW] = FromMaster_PS.WrEn_S;
       end else begin
-        ToSlave_PM.WrEn_S[TO_BYTE_HIGH:TO_BYTE_LOW] = '0;
+        ToSlave_PM.WrEn_S[SLV_BYTE_HIGH:SLV_BYTE_LOW] = '0;
       end
     end
-    assign Rd_D[p] = ToSlave_PM.Rd_D[TO_BIT_HIGH:TO_BIT_LOW];
-    assign ToSlave_PM.Wr_D[TO_BIT_HIGH:TO_BIT_LOW] = FromMaster_PS.Wr_D;
+    assign Rd_D[p] = ToSlave_PM.Rd_D[SLV_BIT_HIGH:SLV_BIT_LOW];
+    assign ToSlave_PM.Wr_D[SLV_BIT_HIGH:SLV_BIT_LOW] = FromMaster_PS.Wr_D;
   end
   assign FromMaster_PS.Rd_D = Rd_D[ParIdx_S];
 
