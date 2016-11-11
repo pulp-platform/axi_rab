@@ -10,6 +10,22 @@
  * The master interface must be narrower than the slave interface.  The reverse situation would
  * require handshaking and buffering and is not supported by the simple BRAM Port interface.
  *
+ * Parameter Description:
+ *  ADDR_BITW       The width (in bits) of the address signals.  Both ports must have the same
+ *                  address width.
+ *  FROM_DATA_BITW  The width (in bits) of the data signal coming from the master controller.
+ *  TO_DATA_BITW    The width (in bits) of the data signal of the slave BRAM.
+ *
+ *  The value of all parameters must match the connected interfaces.  DO NOT rely on the default
+ *  values for these parameters, but explicitly set the parameters so that they are correct for your
+ *  setup!  If one or more values do not match, the behavior of this module is undefined.
+ *
+ * Compatibility Information:
+ *  ModelSim    >= 10.0b
+ *  Vivado      >= 2016.1
+ *
+ *  Earlier versions of the tools are either untested or known to fail for this module.
+ *
  * Copyright (c) 2016 Integrated Systems Laboratory, ETH Zurich.  This is free software under the
  * terms of the GNU General Public License as published by the Free Software Foundation, either
  * version 3 of the License, or (at your option) any later version.  This software is distributed
@@ -25,23 +41,29 @@ import CfMath::ceil_div, CfMath::log2;
 
 module BramDwc
 
+  // Parameters {{{
+  #(
+    parameter integer ADDR_BITW       = 32,
+    parameter integer FROM_DATA_BITW  = 32,
+    parameter integer TO_DATA_BITW    = 96
+  )
+  // }}}
+
   // Ports {{{
   (
-    BramPort.Slave    FromMaster_PS,
-    BramPort.Master   ToSlave_PM
+    BramPort    FromMaster_PS,
+    BramPort    ToSlave_PM
   );
   // }}}
 
   // Module-Wide Constants {{{
-  localparam integer  FROM_DATA_BITW      = $size(FromMaster_PS.Wr_D);
   localparam integer  FROM_DATA_BYTEW     = FROM_DATA_BITW/8;
   localparam integer  FROM_ADDR_WORD_BITO = log2(FROM_DATA_BYTEW);
-  localparam integer  FROM_ADDR_WORD_BITW = $size(FromMaster_PS.Addr_S) - FROM_ADDR_WORD_BITO;
+  localparam integer  FROM_ADDR_WORD_BITW = ADDR_BITW - FROM_ADDR_WORD_BITO;
 
-  localparam integer  TO_DATA_BITW        = $size(ToSlave_PM.Wr_D);
   localparam integer  TO_DATA_BYTEW       = TO_DATA_BITW/8;
   localparam integer  TO_ADDR_WORD_BITO   = log2(TO_DATA_BYTEW);
-  localparam integer  TO_ADDR_WORD_BITW   = $size(ToSlave_PM.Addr_S) - TO_ADDR_WORD_BITO;
+  localparam integer  TO_ADDR_WORD_BITW   = ADDR_BITW - TO_ADDR_WORD_BITO;
 
   localparam integer  PAR_IDX_MAX_VAL     = ceil_div(TO_DATA_BITW, FROM_DATA_BITW) - 1;
   localparam integer  PAR_IDX_BITW        = log2(PAR_IDX_MAX_VAL+1);
