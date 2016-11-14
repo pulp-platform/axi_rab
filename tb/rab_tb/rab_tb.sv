@@ -1,4 +1,3 @@
-`include "pulp_interfaces.sv"
 `include "ulpsoc_defines.sv"
 
 //`define TLB_MULTIHIT
