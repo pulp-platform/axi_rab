@@ -70,11 +70,13 @@ vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram.sv              
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/check_ram.sv                          >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/tlb_l2.sv                             >> ${LOG}
 
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramPort.sv      >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/TdpBramArray.sv  >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramDwc.sv       >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramLogger.sv    >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/AxiBramLogger.sv >> ${LOG}
+
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/rab_core.sv      >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/TdpBramArray.sv  >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/BramDwc.sv       >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/BramLogger.sv    >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/AxiBramLogger.sv >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_rab_top.sv   >> ${LOG}
 
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ./axi_rab_wrap_tb.sv                            >> ${LOG}
