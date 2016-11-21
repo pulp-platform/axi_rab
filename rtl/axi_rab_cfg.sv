@@ -476,7 +476,7 @@ module axi_rab_cfg
                   AddrFifoRen_S <= 1'b1;
               end
             // read Id FIFO
-            else if ( araddr_reg[ADDR_MSB-1:0] == 'h4 )
+            else if ( araddr_reg[ADDR_MSB-1:0] == 'h8 )
               begin
                 s_axi_rdata[AXI_DATA_WIDTH-1]               = IdFifoEmpty_S;
                 s_axi_rdata[AXI_DATA_WIDTH-2:MISS_ID_WIDTH] = 'b0;
