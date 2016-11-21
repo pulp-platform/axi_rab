@@ -1,23 +1,23 @@
 // --=========================================================================--
-// 
-//  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗      ██████╗███████╗ ██████╗ 
-// ██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔════╝██╔════╝ 
+//
+//  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗      ██████╗███████╗ ██████╗
+// ██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔════╝██╔════╝
 // ███████║ ╚███╔╝ ██║    ██████╔╝███████║██████╔╝    ██║     █████╗  ██║  ███╗
 // ██╔══██║ ██╔██╗ ██║    ██╔══██╗██╔══██║██╔══██╗    ██║     ██╔══╝  ██║   ██║
 // ██║  ██║██╔╝ ██╗██║    ██║  ██║██║  ██║██████╔╝    ╚██████╗██║     ╚██████╔╝
-// ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚═════╝╚═╝      ╚═════╝ 
+// ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚═════╝╚═╝      ╚═════╝
 //
-// 
+//
 // Author: Pirmin Vogel - vogelpi@iis.ee.ethz.ch
-// 
+//
 // Purpose : AXI4-Lite configuration and miss handling interface for RAB
-// 
-// --=========================================================================--                                                                                                                  
+//
+// --=========================================================================--
 
 import CfMath::log2;
 
 module axi_rab_cfg
-  #( 
+  #(
     parameter N_PORTS         = 3,
     parameter N_REGS          = 196,
     parameter ADDR_WIDTH_PHYS = 40,
@@ -31,7 +31,7 @@ module axi_rab_cfg
     input  logic                                    Clk_CI,
     input  logic                                    Rst_RBI,
 
-    // AXI Lite interface   
+    // AXI Lite interface
     input  logic [AXI_ADDR_WIDTH-1:0]               s_axi_awaddr,
     input  logic                                    s_axi_awvalid,
     output logic                                    s_axi_awready,
@@ -49,11 +49,11 @@ module axi_rab_cfg
     output logic [1:0]                              s_axi_rresp,
     output logic                                    s_axi_rvalid,
     input  logic                                    s_axi_rready,
-           
-    // Slice configuration       
+
+    // Slice configuration
     output logic [N_REGS-1:0][63:0]                 L1Cfg_DO,
-        
-    // Miss handling       
+
+    // Miss handling
     input  logic [ADDR_WIDTH_VIRT-1:0]              MissAddr_DI,
     input  logic [MISS_ID_WIDTH-1:0]                MissId_DI,
     input  logic                                    Miss_SI,
@@ -67,7 +67,7 @@ module axi_rab_cfg
 
   localparam ADDR_LSB = 3;
   localparam ADDR_MSB = log2(N_REGS)+ADDR_LSB-1;
-  
+
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
 
   logic [AXI_DATA_WIDTH/8-1:0][7:0] L1Cfg_DP[N_REGS]; // [Byte][Bit]
@@ -75,11 +75,11 @@ module axi_rab_cfg
 
   //  █████╗ ██╗  ██╗██╗██╗  ██╗      ██╗     ██╗████████╗███████╗
   // ██╔══██╗╚██╗██╔╝██║██║  ██║      ██║     ██║╚══██╔══╝██╔════╝
-  // ███████║ ╚███╔╝ ██║███████║█████╗██║     ██║   ██║   █████╗  
-  // ██╔══██║ ██╔██╗ ██║╚════██║╚════╝██║     ██║   ██║   ██╔══╝  
+  // ███████║ ╚███╔╝ ██║███████║█████╗██║     ██║   ██║   █████╗
+  // ██╔══██║ ██╔██╗ ██║╚════██║╚════╝██║     ██║   ██║   ██╔══╝
   // ██║  ██║██╔╝ ██╗██║     ██║      ███████╗██║   ██║   ███████╗
   // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝      ╚══════╝╚═╝   ╚═╝   ╚══════╝
-  //    
+  //
   logic [AXI_ADDR_WIDTH-1:0]        awaddr_reg;
   logic                             awaddr_done_rise;
   logic                             awaddr_done_reg;
@@ -90,31 +90,31 @@ module axi_rab_cfg
   logic                             wdata_done_rise;
   logic                             wdata_done_reg;
   logic                             wdata_done_reg_dly;
-  
+
   logic                             wresp_done_reg;
   logic                             wresp_running_reg;
 
-  logic [AXI_ADDR_WIDTH-1:0]        araddr_reg;   
+  logic [AXI_ADDR_WIDTH-1:0]        araddr_reg;
   logic                             araddr_done_reg;
-  
+
   logic [AXI_DATA_WIDTH-1:0]        rdata_reg;
   logic                             rresp_done_reg;
   logic                             rresp_running_reg;
-  
+
   logic                             awready;
   logic                             wready;
   logic                             bvalid;
-  
+
   logic                             arready;
   logic                             rvalid;
-  
+
   logic                             wren;
   logic                             wren_l1;
- 
+
   assign wren = ( wdata_done_rise & awaddr_done_reg ) | ( awaddr_done_rise & wdata_done_reg );
   assign wdata_done_rise  = wdata_done_reg  & ~wdata_done_reg_dly;
   assign awaddr_done_rise = awaddr_done_reg & ~awaddr_done_reg_dly;
-  
+
   // reg_dly
   always @(posedge Clk_CI or negedge Rst_RBI)
     begin
@@ -129,7 +129,7 @@ module axi_rab_cfg
             awaddr_done_reg_dly <= awaddr_done_reg;
          end
     end
-  
+
   // AW Channel
   always @(posedge Clk_CI or negedge Rst_RBI)
     begin
@@ -274,17 +274,17 @@ module axi_rab_cfg
               end
          end
     end
-  
-  // ██╗     ██╗     ██████╗███████╗ ██████╗     ██████╗ ███████╗ ██████╗ 
-  // ██║    ███║    ██╔════╝██╔════╝██╔════╝     ██╔══██╗██╔════╝██╔════╝ 
+
+  // ██╗     ██╗     ██████╗███████╗ ██████╗     ██████╗ ███████╗ ██████╗
+  // ██║    ███║    ██╔════╝██╔════╝██╔════╝     ██╔══██╗██╔════╝██╔════╝
   // ██║    ╚██║    ██║     █████╗  ██║  ███╗    ██████╔╝█████╗  ██║  ███╗
   // ██║     ██║    ██║     ██╔══╝  ██║   ██║    ██╔══██╗██╔══╝  ██║   ██║
   // ███████╗██║    ╚██████╗██║     ╚██████╔╝    ██║  ██║███████╗╚██████╔╝
-  // ╚══════╝╚═╝     ╚═════╝╚═╝      ╚═════╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝ 
-  //                                                                          
+  // ╚══════╝╚═╝     ╚═════╝╚═╝      ╚═════╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝
+  //
   assign wren_l1 = wren && (awaddr_reg < L2SINGLE_AMAP_SIZE);
 
-  always @( posedge Clk_CI or negedge Rst_RBI )   
+  always @( posedge Clk_CI or negedge Rst_RBI )
     begin
       var integer idx_reg, idx_byte;
       if ( Rst_RBI == 1'b0 )
@@ -349,17 +349,17 @@ module axi_rab_cfg
   assign s_axi_rresp   = 2'b00;
   assign s_axi_rvalid  = rvalid;
 
-  // ██╗     ██████╗      ██████╗███████╗ ██████╗ 
-  // ██║     ╚════██╗    ██╔════╝██╔════╝██╔════╝ 
+  // ██╗     ██████╗      ██████╗███████╗ ██████╗
+  // ██║     ╚════██╗    ██╔════╝██╔════╝██╔════╝
   // ██║      █████╔╝    ██║     █████╗  ██║  ███╗
   // ██║     ██╔═══╝     ██║     ██╔══╝  ██║   ██║
   // ███████╗███████╗    ╚██████╗██║     ╚██████╔╝
-  // ╚══════╝╚══════╝     ╚═════╝╚═╝      ╚═════╝ 
-  //                                              
+  // ╚══════╝╚══════╝     ╚═════╝╚═╝      ╚═════╝
+  //
   generate
     for( j=0; j< N_PORTS; j++)
       begin
-        always @( posedge Clk_CI or negedge Rst_RBI )   
+        always @( posedge Clk_CI or negedge Rst_RBI )
           begin
             var integer idx_byte;
             if ( Rst_RBI == 1'b0 )
@@ -378,9 +378,9 @@ module axi_rab_cfg
             else
               wren_l2[j] <= 0;
           end // always @ ( posedge Clk_CI or negedge Rst_RBI )
-    
-      assign waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;      
-      
+
+      assign waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
+
       end // for (j=0; j< N_PORTS; j++)
    endgenerate
 
@@ -390,19 +390,19 @@ module axi_rab_cfg
   // ██║╚██╔╝██║██╔══██║    ██╔══╝  ██║██╔══╝  ██║   ██║╚════██║
   // ██║ ╚═╝ ██║██║  ██║    ██║     ██║██║     ╚██████╔╝███████║
   // ╚═╝     ╚═╝╚═╝  ╚═╝    ╚═╝     ╚═╝╚═╝      ╚═════╝ ╚══════╝
-  //                                                                    
+  //
   logic [ADDR_WIDTH_VIRT-1:0] AddrFifoDin_D;
   logic                       AddrFifoWen_S;
-  logic                       AddrFifoRen_S;               
+  logic                       AddrFifoRen_S;
   logic [ADDR_WIDTH_VIRT-1:0] AddrFifoDout_D;
   logic                       AddrFifoFull_S;
   logic                       AddrFifoEmpty_S;
   logic                       AddrFifoEmpty_SB;
   logic                       AddrFifoFull_SB;
-  
+
   logic [MISS_ID_WIDTH-1:0] IdFifoDin_D;
   logic                     IdFifoWen_S;
-  logic                     IdFifoRen_S;               
+  logic                     IdFifoRen_S;
   logic [MISS_ID_WIDTH-1:0] IdFifoDout_D;
   logic                     IdFifoFull_S;
   logic                     IdFifoEmpty_S;
@@ -416,14 +416,14 @@ module axi_rab_cfg
 
   assign AddrFifoFull_S = ~AddrFifoFull_SB;
   assign IdFifoFull_S   = ~IdFifoFull_SB;
-  
+
   assign MhFifoFull_SO = (AddrFifoWen_S & AddrFifoFull_S) | (IdFifoWen_S & IdFifoFull_S);
-  
+
   generate
      for ( j=0; j<AXI_DATA_WIDTH/8; j++ )
        assign wdata_reg_vec[(j+1)*8-1:j*8] = wdata_reg[j];
   endgenerate
-  
+
   // write Address FIFO
   always_comb
     begin
@@ -440,7 +440,7 @@ module axi_rab_cfg
             AddrFifoDin_D = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
          end
     end
-  
+
   // write ID FIFO
   always_comb
     begin
@@ -457,7 +457,7 @@ module axi_rab_cfg
             IdFifoDin_D = wdata_reg_vec[MISS_ID_WIDTH-1:0];
          end
     end
-  
+
   // AXI read data
   always_comb
     begin
@@ -482,11 +482,11 @@ module axi_rab_cfg
                 s_axi_rdata[AXI_DATA_WIDTH-2:MISS_ID_WIDTH] = 'b0;
                 s_axi_rdata[MISS_ID_WIDTH-1:0]              = IdFifoDout_D;
                 if ( IdFifoEmpty_S == 1'b0 )
-                  IdFifoRen_S <= 1'b1;                  
+                  IdFifoRen_S <= 1'b1;
               end
          end // if ( rvalid == 1'b1 )
     end // always_comb begin
-     
+
   generic_fifo
     #(
       .DATA_WIDTH (ADDR_WIDTH_VIRT),
@@ -522,5 +522,5 @@ module axi_rab_cfg
       .grant_i     ( IdFifoRen_S                 ),
       .test_mode_i ( 1'b0                        )
     );
-   
+
 endmodule
