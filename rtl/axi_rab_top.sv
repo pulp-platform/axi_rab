@@ -42,9 +42,11 @@
 
 `include "ulpsoc_defines.sv"
 
-`define log2(VALUE) ( (VALUE) < ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+import CfMath::log2;
 
 module axi_rab_top   
+
+  // Parameters {{{
   #(
     parameter N_PORTS             = 2,
     parameter AXI_DATA_WIDTH      = 64,
@@ -54,15 +56,21 @@ module axi_rab_top
     parameter AXI_LITE_ADDR_WIDTH = 32,
     parameter AXI_ID_WIDTH        = 10,
     parameter AXI_USER_WIDTH      = 6
-    )
-   (
-    // AXI ports. For every slave port there are two master ports. The master
+  )
+  // }}}
+
+  // Ports {{{
+  (
+
+    input logic                                            Clk_CI,  // This clock may be gated.
+    input logic                                            NonGatedClk_CI,
+    input logic                                            Rst_RBI,
+
+    // For every slave port there are two master ports. The master
     // port to use can be set using the master_select flag of the protection
     // bits of a slice
     
-    input logic                                            Clk_CI,
-    input logic                                            Rst_RBI,    
-
+    // AXI4 Slave {{{
     input  logic    [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] s_axi4_awid,
     input  logic    [N_PORTS-1:0]   [AXI_S_ADDR_WIDTH-1:0] s_axi4_awaddr,
     input  logic    [N_PORTS-1:0]                          s_axi4_awvalid,
@@ -109,7 +117,9 @@ module axi_rab_top
     input  logic    [N_PORTS-1:0]                          s_axi4_rready,
     output logic    [N_PORTS-1:0]                          s_axi4_rlast,
     output logic    [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi4_ruser,
+    // }}}
 
+    // AXI4 Master 0 {{{
     output logic    [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m0_axi4_awid,
     output logic    [N_PORTS-1:0]   [AXI_M_ADDR_WIDTH-1:0] m0_axi4_awaddr,
     output logic    [N_PORTS-1:0]                          m0_axi4_awvalid,
@@ -156,8 +166,9 @@ module axi_rab_top
     output logic    [N_PORTS-1:0]                          m0_axi4_rready,
     input  logic    [N_PORTS-1:0]                          m0_axi4_rlast,
     input  logic    [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m0_axi4_ruser,
+    // }}}
 
-
+    // AXI4 Master 1 {{{
     output logic    [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m1_axi4_awid,
     output logic    [N_PORTS-1:0]   [AXI_M_ADDR_WIDTH-1:0] m1_axi4_awaddr,
     output logic    [N_PORTS-1:0]                          m1_axi4_awvalid,
@@ -204,7 +215,9 @@ module axi_rab_top
     output logic    [N_PORTS-1:0]                          m1_axi4_rready,
     input  logic    [N_PORTS-1:0]                          m1_axi4_rlast,
     input  logic    [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m1_axi4_ruser,    
+    // }}}
     
+    // AXI 4 Lite Slave (Configuration Interface) {{{
     // AXI4-Lite port to setup the rab slices
     // use this to program the configuration registers
     input  logic                 [AXI_LITE_ADDR_WIDTH-1:0] s_axi4lite_awaddr,
@@ -228,15 +241,43 @@ module axi_rab_top
     output logic                                     [1:0] s_axi4lite_rresp,
     output logic                                           s_axi4lite_rvalid,
     input  logic                                           s_axi4lite_rready,
+    // }}}
 
+    // BRAMs {{{
+`ifdef RAB_AX_LOG_EN
+    BramPort.Slave                                         ArBram_PS,
+    BramPort.Slave                                         AwBram_PS,
+`endif
+    // }}}
+
+    // Logger Control {{{
+`ifdef RAB_AX_LOG_EN
+    input  logic                                           LogEn_SI,
+    input  logic                                           ArLogClr_SI,
+    input  logic                                           AwLogClr_SI,
+    output logic                                           ArLogRdy_SO,
+    output logic                                           AwLogRdy_SO,
+`endif
+    // }}}
+
+    // Interrupt Outputs {{{
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
+`ifdef RAB_AX_LOG_EN
+    output logic                                           int_ar_log_full,
+    output logic                                           int_aw_log_full,
+`endif
     output logic                             [N_PORTS-1:0] int_miss,
     output logic                             [N_PORTS-1:0] int_multi,
     output logic                             [N_PORTS-1:0] int_prot,
     output logic                                           int_mhr_full
-    );
+    // }}}
 
+  );
+
+  // }}}
+
+  // Signals {{{
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
   // ██╔════╝██║██╔════╝ ████╗  ██║██╔══██╗██║     ██╔════╝
   // ███████╗██║██║  ███╗██╔██╗ ██║███████║██║     ███████╗
@@ -461,7 +502,11 @@ module axi_rab_top
   typedef enum logic[1:0] {WREADY_IDLE, WREADY_WAIT_FOR_M0, WREADY_WAIT_FOR_M1} wready_state_t;   
   wready_state_t [N_PORTS-1:0] [1:0] wready_state, wready_next_state;  
   logic [N_PORTS-1:0] clr_m0_wvalid, clr_m1_wvalid, send_wready;
+
+  // }}}
      
+  // Local parameters {{{
+
   // Enable L2 for select ports
   localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
 
@@ -471,7 +516,10 @@ module axi_rab_top
   localparam integer L2TLB_NUM_ENTRIES_PER_SET = 32; // total number including both ports and all rams.
   localparam integer L2TLB_PARALLEL = 4; // Number of parallel VA RAMs in L2 TLB.
   localparam integer L2TLB_W_BUFFER_DEPTH = (16/L2TLB_PARALLEL)+3;
+
+  // }}}
   
+  // Buf and Send {{{
   // ██████╗ ██╗   ██╗███████╗       ██╗       ███████╗███████╗███╗   ██╗██████╗ 
   // ██╔══██╗██║   ██║██╔════╝       ██║       ██╔════╝██╔════╝████╗  ██║██╔══██╗
   // ██████╔╝██║   ██║█████╗      ████████╗    ███████╗█████╗  ██╔██╗ ██║██║  ██║
@@ -481,6 +529,7 @@ module axi_rab_top
   // 
   generate for (i = 0; i < N_PORTS; i++) begin
      
+  // Write Address channel (aw) {{{
   /*
    * write address channel (aw)
    * 
@@ -530,7 +579,7 @@ module axi_rab_top
       .m_axi4_awqos    (int_awqos [i]),
       .m_axi4_awuser   (int_awuser [i])
     );
-  
+
   axi4_aw_sender
     #(
       .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -695,7 +744,9 @@ module axi_rab_top
             l2_wtrans_sent[i]       = l2_m0_wtrans_sent[i];
          end  
     end // always_comb begin   
-   
+   // }}}
+
+  // Write Data channel (dw) {{{
   /*
    * write data channel(dw)
    * 
@@ -910,7 +961,10 @@ module axi_rab_top
        
   assign l2_m0_wtrans_drop[i] = l2_wtrans_drop[i] | (l2_wtrans_accept[i] && (l2_master_select[i] == 1'b1));
   assign l2_m1_wtrans_drop[i] = l2_wtrans_drop[i] | (l2_wtrans_accept[i] && (l2_master_select[i] == 1'b0));      
+
+  // }}}
   
+  // Write Response channel (rw) {{{
   /*
    * write response channel(rw)
    * 
@@ -1021,7 +1075,10 @@ module axi_rab_top
           int_bvalid[i] = int_m0_bvalid[i];
         end
     end
+
+  // }}}
      
+  // Read Address channel (ar) {{{
   /*
    * read address channel (ar)
    *
@@ -1221,7 +1278,10 @@ module axi_rab_top
             l2_rtrans_sent[i]       = l2_m0_rtrans_sent[i];
          end  
     end // always_comb begin   
+
+  // }}}
        
+  // Read Response channel (rr) {{{
   /*
    * read response channel (rr)
    *
@@ -1348,8 +1408,63 @@ module axi_rab_top
     end   
   end
 
-  endgenerate // BUF & SEND
+  // }}}
 
+  endgenerate // BUF & SEND }}}
+
+  // Log {{{
+
+`ifdef RAB_AX_LOG_EN
+  AxiBramLogger
+    #(
+      .AXI_ID_BITW        (AXI_ID_WIDTH),
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
+      .NUM_LOG_ENTRIES    (`RAB_AX_LOG_ENTRIES)
+    )
+    u_aw_logger
+    (
+      .Clk_CI           (NonGatedClk_CI),
+      .TimestampClk_CI  (Clk_CI),
+      .Rst_RBI          (Rst_RBI),
+      .AxiValid_SI      (s_axi4_awvalid[1]),
+      .AxiReady_SI      (s_axi4_awready[1]),
+      .AxiId_DI         (s_axi4_awid[1]),
+      .AxiAddr_DI       (s_axi4_awaddr[1]),
+      .AxiLen_DI        (s_axi4_awlen[1]),
+      .Clear_SI         (AwLogClr_SI),
+      .LogEn_SI         (LogEn_SI),
+      .Full_SO          (int_aw_log_full),
+      .Ready_SO         (AwLogRdy_SO),
+      .Bram_PS          (AwBram_PS)
+    );
+
+  AxiBramLogger
+    #(
+      .AXI_ID_BITW        (AXI_ID_WIDTH),
+      .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
+      .NUM_LOG_ENTRIES    (`RAB_AX_LOG_ENTRIES)
+    )
+    u_ar_logger
+    (
+      .Clk_CI           (NonGatedClk_CI),
+      .TimestampClk_CI  (Clk_CI),
+      .Rst_RBI          (Rst_RBI),
+      .AxiValid_SI      (s_axi4_arvalid[1]),
+      .AxiReady_SI      (s_axi4_arready[1]),
+      .AxiId_DI         (s_axi4_arid[1]),
+      .AxiAddr_DI       (s_axi4_araddr[1]),
+      .AxiLen_DI        (s_axi4_arlen[1]),
+      .Clear_SI         (ArLogClr_SI),
+      .LogEn_SI         (LogEn_SI),
+      .Full_SO          (int_ar_log_full),
+      .Ready_SO         (ArLogRdy_SO),
+      .Bram_PS          (ArBram_PS)
+    );
+`endif
+
+  // }}}
+
+// RAB Core {{{
 // ██████╗  █████╗ ██████╗      ██████╗ ██████╗ ██████╗ ███████╗
 // ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔═══██╗██╔══██╗██╔════╝
 // ██████╔╝███████║██████╔╝    ██║     ██║   ██║██████╔╝█████╗  
@@ -1439,8 +1554,9 @@ module axi_rab_top
     .waddr_tlb_l2        (waddr_tlb_l2),
     .wren_tlb_l2         (wren_tlb_l2)      
     );
+// }}}
 
-
+// L2 TLB {{{
 // ██╗     ██████╗     ████████╗██╗     ██████╗ 
 // ██║     ╚════██╗    ╚══██╔══╝██║     ██╔══██╗
 // ██║      █████╔╝       ██║   ██║     ██████╔╝
@@ -1469,7 +1585,7 @@ module axi_rab_top
           .SET                    ( L2TLB_NUM_SETS                                             ),
           .NUM_OFFSET             ( L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL                 ), 
           .PARALLEL_NUM           ( L2TLB_PARALLEL                                             ),
-          .HIT_OFFSET_STORE_WIDTH ( `log2( (L2TLB_NUM_ENTRIES_PER_SET /2/ L2TLB_PARALLEL) - 1) )
+          .HIT_OFFSET_STORE_WIDTH ( log2(L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL)           )
           ) 
       u_tlb_l2
         (
@@ -1732,4 +1848,8 @@ module axi_rab_top
   end // for (i = 0; i < N_PORTS; i++)
   endgenerate
 
+// }}}
+
 endmodule
+
+// vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker

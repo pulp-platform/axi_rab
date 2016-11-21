@@ -36,6 +36,9 @@ date                                                                      >> ${L
 # generic FIFO
 vlog-${VER}  -work $LIB +incdir+${INC_PATHS} +define+PULP_FPGA_EMUL=1 ${IPS_SOURCE_PATH}/common_cells/generic_fifo.sv >> ${LOG}
 
+# Packages
+vlog-${VER}  -work $LIB ${PULP_BASE_PATH}/fe/rtl/packages/CfMath.sv                               >> ${LOG}
+
 # ID remap
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_4.sv     >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_16.sv    >> ${LOG}
@@ -50,22 +53,28 @@ vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/fsm.sv              
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_rab_cfg.sv                        >> ${LOG}
 
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_rab_cfg.sv                        >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_buffer_rab.v                      >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_buffer_rab_bram.v                 >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_ar_buffer.v                      >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_aw_buffer.v                      >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_w_buffer.v                       >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_r_buffer.v                       >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_b_buffer.v                       >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_aw_sender.v >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_ar_sender.v >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_w_sender.v  >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_r_sender.v  >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_b_sender.v  >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_buffer_rab.sv                     >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_buffer_rab_bram.sv                >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_ar_buffer.sv                     >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_aw_buffer.sv                     >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_w_buffer.sv                      >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_r_buffer.sv                      >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_b_buffer.sv                      >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_aw_sender.sv>> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_ar_sender.sv>> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_w_sender.sv >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_r_sender.sv >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_b_sender.sv >> ${LOG}
 
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram.sv                                >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/check_ram.sv                          >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/tlb_l2.sv                             >> ${LOG}
+
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramPort.sv      >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/TdpBramArray.sv  >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramDwc.sv       >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramLogger.sv    >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/AxiBramLogger.sv >> ${LOG}
 
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/rab_core.sv      >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi_rab_top.sv   >> ${LOG}

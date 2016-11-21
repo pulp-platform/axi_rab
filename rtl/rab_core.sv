@@ -10,7 +10,8 @@
 // --=========================================================================-- 
 
 `include "ulpsoc_defines.sv"
-`define log2(VALUE) ( (VALUE) == ( 1 ) ? 0 : (VALUE) < ( 2 ) ? 1 : (VALUE) < ( 4 ) ? 2 : (VALUE)< (8) ? 3:(VALUE) < ( 16 )  ? 4 : (VALUE) < ( 32 )  ? 5 : (VALUE) < ( 64 )  ? 6 : (VALUE) < ( 128 ) ? 7 : (VALUE) < ( 256 ) ? 8 : (VALUE) < ( 512 ) ? 9 : (VALUE) < ( 1024 ) ? 10 : (VALUE) < ( 2048 ) ? 11: (VALUE) < ( 4096 ) ? 12 : (VALUE) < ( 8192 ) ? 13 : (VALUE) < ( 16384 ) ? 14 : (VALUE) < ( 32768 ) ? 15 : (VALUE) < ( 65536 ) ? 16 : (VALUE) < ( 131072 ) ? 17 : (VALUE) < ( 262144 ) ? 18 : (VALUE) < ( 524288 ) ? 19 :  (VALUE) < ( 1048576 ) ? 20 : -1)
+
+import CfMath::log2;
 
 `define MY_ARRAY_SUM(MY_ARRAY,ARRAY_SIZE) ( (ARRAY_SIZE==1) ? MY_ARRAY[0] : (ARRAY_SIZE==2) ? MY_ARRAY[0] + MY_ARRAY[1] : (ARRAY_SIZE==3) ? MY_ARRAY[0] + MY_ARRAY[1] + MY_ARRAY[2] : (ARRAY_SIZE==4) ? MY_ARRAY[0] + MY_ARRAY[1] + MY_ARRAY[2] + MY_ARRAY[3] : 0 )
 
@@ -106,9 +107,9 @@ module rab_core
   localparam         N_SLICES_MAX              = `N_SLICES_MAX;
   
   localparam N_REGS                            = 4*N_SLICES_TOT + 4;
-  localparam AXI_SIZE_WIDTH                    = `log2(AXI_DATA_WIDTH/8-1);
+  localparam AXI_SIZE_WIDTH                    = log2(AXI_DATA_WIDTH/8);
 
-  localparam PORT_ID_WIDTH                     = (N_PORTS < 3) ? 1 : `log2(N_PORTS-1);
+  localparam PORT_ID_WIDTH                     = (N_PORTS < 2) ? 1 : log2(N_PORTS);
   
   logic [N_PORTS-1:0]                      [15:0] p1_burst_size;
   logic [N_PORTS-1:0]                      [15:0] p2_burst_size;
