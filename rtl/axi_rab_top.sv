@@ -244,27 +244,33 @@ module axi_rab_top
     // }}}
 
     // BRAMs {{{
+`ifdef RAB_AX_LOG_EN
     BramPort.Slave                                         ArBram_PS,
     BramPort.Slave                                         AwBram_PS,
+`endif
     // }}}
 
     // Logger Control {{{
+`ifdef RAB_AX_LOG_EN
     input  logic                                           LogEn_SI,
     input  logic                                           ArLogClr_SI,
     input  logic                                           AwLogClr_SI,
     output logic                                           ArLogRdy_SO,
     output logic                                           AwLogRdy_SO,
+`endif
     // }}}
 
     // Interrupt Outputs {{{
     // Interrupt lines to handle misses, collisions of slices/multiple hits,
     // protection faults and overflow of the miss handling fifo    
+`ifdef RAB_AX_LOG_EN
+    output logic                                           int_ar_log_full,
+    output logic                                           int_aw_log_full,
+`endif
     output logic                             [N_PORTS-1:0] int_miss,
     output logic                             [N_PORTS-1:0] int_multi,
     output logic                             [N_PORTS-1:0] int_prot,
-    output logic                                           int_mhr_full,
-    output logic                                           int_ar_log_full,
-    output logic                                           int_aw_log_full
+    output logic                                           int_mhr_full
     // }}}
 
   );
@@ -1408,11 +1414,12 @@ module axi_rab_top
 
   // Log {{{
 
+`ifdef RAB_AX_LOG_EN
   AxiBramLogger
     #(
       .AXI_ID_BITW        (AXI_ID_WIDTH),
       .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
-      .NUM_LOG_ENTRIES    (64*1024)
+      .NUM_LOG_ENTRIES    (`RAB_AX_LOG_ENTRIES)
     )
     u_aw_logger
     (
@@ -1435,7 +1442,7 @@ module axi_rab_top
     #(
       .AXI_ID_BITW        (AXI_ID_WIDTH),
       .AXI_ADDR_BITW      (AXI_S_ADDR_WIDTH),
-      .NUM_LOG_ENTRIES    (64*1024)
+      .NUM_LOG_ENTRIES    (`RAB_AX_LOG_ENTRIES)
     )
     u_ar_logger
     (
@@ -1453,6 +1460,7 @@ module axi_rab_top
       .Ready_SO         (ArLogRdy_SO),
       .Bram_PS          (ArBram_PS)
     );
+`endif
 
   // }}}
 
