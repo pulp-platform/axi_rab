@@ -294,28 +294,42 @@ module axi_rab_cfg
         end
       else if ( wren_l1 )
           begin
-            // Mask unused bits -> Synthesizer should optimize away unused registers
-            if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin // VIRT_ADDR
-              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                if ( (idx_byte < ADDR_WIDTH_VIRT/8) && wstrb_reg[idx_byte] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
-                else
+            if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin                     // VIRT_ADDR
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
+                if ( (idx_byte < ADDR_WIDTH_VIRT/8) ) begin
+                  if ( wstrb_reg[idx_byte] ) begin
+                    L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
+                  end
+                end
+                else begin  // Let synthesizer optimize away unused registers.
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
+                end
               end
-            else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin // PHYS_ADDR
-              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                if ( (idx_byte < ADDR_WIDTH_PHYS/8) && wstrb_reg[idx_byte] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
-                else
+            end
+            else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin      // PHYS_ADDR
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
+                if ( (idx_byte < ADDR_WIDTH_PHYS/8) ) begin
+                  if ( wstrb_reg[idx_byte] ) begin
+                    L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
+                  end
+                end
+                else begin  // Let synthesizer optimize away unused registers.
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
+                end
               end
-            else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 ) // FLAGS
-              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                if ( (idx_byte < 1) && wstrb_reg[idx_byte] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
-                else
+            end
+            else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 )      // FLAGS
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
+                if ( (idx_byte < 1) ) begin
+                  if ( wstrb_reg[idx_byte] ) begin
+                    L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
+                  end
+                end
+                else begin  // Let synthesizer optimize away unused registers.
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
+                end
               end
+            end
           end
     end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
