@@ -524,3 +524,5 @@ module axi_rab_cfg
     );
 
 endmodule
+
+// vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker
