@@ -65,7 +65,8 @@ module axi_rab_cfg
     output logic [N_PORTS-1:0]                      wren_l2
   );
 
-  localparam ADDR_LSB = 3;
+  localparam ADDR_LSB = log2(64/8); // 64 even if the AXI Lite interface is 32,
+                                    // because RAB slices are 64 bit wide.
   localparam ADDR_MSB = log2(N_REGS)+ADDR_LSB-1;
 
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
