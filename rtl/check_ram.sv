@@ -108,6 +108,10 @@ module check_ram
            if (send_outputs)
              hit_SN = SEARCH;
         end        
+
+        default : begin
+           hit_SN = SEARCH;
+        end
       endcase // case (hit_SP)
    end // always_comb begin
 

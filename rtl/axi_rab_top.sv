@@ -1715,6 +1715,10 @@ module axi_rab_top
               end else
                 l2_next_state[i]   = L2_IDLE;
            end // case: L1_MULTI_PROT_1           
+
+           default : begin
+              l2_next_state[i] = L2_IDLE;
+           end
            
          endcase // case (l2_state[i])
       end // always_comb begin

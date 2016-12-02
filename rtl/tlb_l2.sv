@@ -172,6 +172,10 @@ module tlb_l2
           if (l2_trans_sent || miss_l2 || prot_l2 || multiple_hit_l2)
             cntrl_SN = IDLE;
         end
+
+        default : begin
+          cntrl_SN = IDLE;
+        end
       endcase // case (prot_SP)
    end // always_comb begin
 
@@ -334,11 +338,15 @@ module tlb_l2
            send_outputs = 1'b1;
         end
                
-        OUT_SENT :
+        OUT_SENT : begin
           if (l1_miss)
             out_SN = OUT_IDLE;
-               
-               
+        end
+
+        default : begin
+           out_SN = OUT_IDLE;
+        end
+
       endcase // case (out_SP)
    end // always_comb begin
 
