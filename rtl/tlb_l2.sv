@@ -416,3 +416,5 @@ assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];
 assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
 
 endmodule
+
+// vim: ts=3 sw=3 sts=3 et nosmartindent autoindent foldmethod=marker tw=100
