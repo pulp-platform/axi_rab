@@ -511,11 +511,7 @@ module axi_rab_top
   localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
 
   // L2TLB parameters
-  // Total entries in L2 TLB is (L2TLB_NUM_SETS * L2TLB_NUM_ENTRIES_PER_SET)
-  localparam integer L2TLB_NUM_SETS = 32;
-  localparam integer L2TLB_NUM_ENTRIES_PER_SET = 32; // total number including both ports and all rams.
-  localparam integer L2TLB_PARALLEL = 4; // Number of parallel VA RAMs in L2 TLB.
-  localparam integer L2TLB_W_BUFFER_DEPTH = (16/L2TLB_PARALLEL)+3;
+  localparam integer L2TLB_W_BUFFER_DEPTH = (16/`RAB_L2_N_PAR_VA_RAMS)+3;
 
   // }}}
   
@@ -1582,10 +1578,10 @@ module axi_rab_top
           .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                                           ),   
           .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                                        ),   
           .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                                        ),
-          .SET                    ( L2TLB_NUM_SETS                                             ),
-          .NUM_OFFSET             ( L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL                 ), 
-          .PARALLEL_NUM           ( L2TLB_PARALLEL                                             ),
-          .HIT_OFFSET_STORE_WIDTH ( log2(L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL)           )
+          .SET                    ( `RAB_L2_N_SETS                                             ),
+          .NUM_OFFSET             ( `RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS              ),
+          .PARALLEL_NUM           ( `RAB_L2_N_PAR_VA_RAMS                                      ),
+          .HIT_OFFSET_STORE_WIDTH ( log2(`RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS)        )
           ) 
       u_tlb_l2
         (
