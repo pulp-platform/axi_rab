@@ -1,3 +1,5 @@
+`include "ulpsoc_defines.sv"
+
 import CfMath::log2;
 
 //`define TLB_MULTIHIT
@@ -45,6 +47,7 @@ module tlb_l2
    logic [PARALLEL_NUM-1:0]                                ram_we;
    logic                                                   last_search;
    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    ram_waddr;
+   logic [AXI_S_ADDR_WIDTH-1:0]                            va_ram_wdata;
    logic [PARALLEL_NUM-1:0] [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
    logic                                                   pa_ram_we, read_pa;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
@@ -90,6 +93,19 @@ module tlb_l2
 
    logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr, offset_first_addr;
         
+   // Extract 32-bit word to be written to VA RAMs from 64-bit data input.
+   generate
+      if (`AXI_LITE_DATA_WIDTH == 64) begin
+         assign va_ram_wdata = (waddr[2] == 1'b1) ? wdata[63:32] : wdata[31:0];
+      end
+      else if (`AXI_LITE_DATA_WIDTH == 32) begin
+         assign va_ram_wdata = wdata[31:0];
+      end
+      else begin
+         $fatal(1, "Unsupported AXI_LITE_DATA_WIDTH!");
+      end
+   endgenerate
+
    // Generate the VA Block rams and their surrounding logic
    generate
       for (z = 0; z < PARALLEL_NUM; z++) begin
@@ -109,7 +125,7 @@ module tlb_l2
               .ram_we        ( ram_we[z]                   ),
               .port0_addr    ( port0_addr                  ),
               .port1_addr    ( port1_addr                  ),
-              .ram_wdata     ( wdata[AXI_S_ADDR_WIDTH-1:0] ),
+              .ram_wdata     ( va_ram_wdata                ),
               .send_outputs  ( send_outputs                ),
               .searching     ( searching                   ),
               .offset_addr_d ( offset_addr_d               ),

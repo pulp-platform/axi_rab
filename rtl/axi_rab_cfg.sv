@@ -14,6 +14,8 @@
 //
 // --=========================================================================--
 
+`include "ulpsoc_defines.sv"
+
 import CfMath::log2;
 
 module axi_rab_cfg
@@ -394,7 +396,31 @@ module axi_rab_cfg
               wren_l2[j] <= 0;
           end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
-      assign waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
+        // Word address calculation:  Add an offset of one 32-bit word to the address if upper the
+        // 32-bit word is to be written to VA RAMs from 64-bit data input.
+        logic l2_addr_is_in_va_rams;
+        assign l2_addr_is_in_va_rams
+            = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] < (`RAB_L2_N_ENTRIES << 2));
+        always_comb begin
+          waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
+          if (wren_l2) begin
+            // Check if the AXI Lite data width on this platform is 64 bit.
+            if (AXI_DATA_WIDTH == 64) begin
+              // Check if an upper-32-bit word is to be written to VA RAMs.
+              if (l2_addr_is_in_va_rams && wstrb_reg[7:4] != 4'b0000) begin
+                if (wstrb_reg[3:0] != 4'b0000) begin
+                  $error("Unsupported write across two 32-bit words to VA RAMs!");
+                end
+                else begin
+                  waddr_l2[j] = waddr_l2[j] + 1;
+                end
+              end
+            end
+            else if (AXI_DATA_WIDTH != 32) begin
+              $fatal(1, "Unsupported AXI_DATA_WIDTH!");
+            end
+          end
+        end
 
       end // for (j=0; j< N_PORTS; j++)
    endgenerate
