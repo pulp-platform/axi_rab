@@ -229,13 +229,8 @@ module rab_core
         port1_out_addr[idx] = out_addr_reg[idx];
         port2_out_addr[idx] = out_addr_reg[idx];
 
-      `ifdef EN_ACP
         port1_master_select[idx] = master_select_reg[idx];
         port2_master_select[idx] = master_select_reg[idx];
-      `else
-        port1_master_select[idx] = 1'b0;
-        port2_master_select[idx] = 1'b0;
-      `endif 
       end
     end   
 

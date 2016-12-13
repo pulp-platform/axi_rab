@@ -525,6 +525,7 @@ module axi_rab_top
   // ██████╔╝╚██████╔╝██║         ██████║      ███████║███████╗██║ ╚████║██████╔╝
   // ╚═════╝  ╚═════╝ ╚═╝         ╚═════╝      ╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ 
   // 
+  logic[N_PORTS-1:0] write_is_burst, write_is_cache_coherent, read_is_burst, read_is_cache_coherent;
   generate for (i = 0; i < N_PORTS; i++) begin
      
   // Write Address channel (aw) {{{
@@ -619,12 +620,31 @@ module axi_rab_top
       .m_axi4_awburst  (m0_axi4_awburst[i]),
       .m_axi4_awlock   (m0_axi4_awlock[i]),
       .m_axi4_awprot   (m0_axi4_awprot[i]),
-      .m_axi4_awcache  (m0_axi4_awcache[i]),
+      `ifdef JUNO
+        .m_axi4_awcache  (),
+      `else
+        .m_axi4_awcache  (m0_axi4_awcache[i]),
+      `endif
       .m_axi4_awregion (m0_axi4_awregion[i]),
       .m_axi4_awqos    (m0_axi4_awqos[i]),
       .m_axi4_awuser   (m0_axi4_awuser[i])
     );
-  
+  `ifdef JUNO
+    assign write_is_burst[i] = (m0_axi4_awlen[i] != {8{1'b0}}) && (m0_axi4_awburst[i] != 2'b00);
+    assign write_is_cache_coherent[i] = int_wmaster_select[i] == 1'b1;
+    always_comb begin
+      if (write_is_cache_coherent[i]) begin
+        if (write_is_burst[i]) begin
+          m0_axi4_awcache[i] = 4'b0111;
+        end else begin
+          m0_axi4_awcache[i] = 4'b1111;
+        end
+      end else begin
+        m0_axi4_awcache[i] = 4'b0011;
+      end
+    end
+  `endif
+
     axi4_aw_sender
     #(
       .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -671,60 +691,58 @@ module axi_rab_top
       .m_axi4_awqos    (m1_axi4_awqos[i]),
       .m_axi4_awuser   (m1_axi4_awuser[i])
     );
-  
-  /*   
-   * Multiplexer to switch between the two output master ports on the write address(aw) channel
+
+  /**
+   * Multiplex the two output master ports of the Write Address (AW) channel.
+   *
+   * In case of an L1 hit: If ACP is enabled, use the `wmaster_select` signal to route the signals
+   * to either master 0 (to memory) or master 1 (to ACP).  If ACP is disabled, route the signals to
+   * master 0.
+   * In case of an L1 miss: Route the signals to both masters.  They shall be stored until the L2
+   * outputs are available.
    */
-  // In case of L1 Hit, send the signals to the correct master.
-  // In case of L1 Miss, send the signals to both masters. They will be stored till L2 outputs are available.
-  always_comb
-    begin
-       if(int_wmaster_select[i] == 1'b0 && int_wtrans_accept[i])
-         begin
-            int_m0_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m0_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m0_awvalid[i]        = int_awvalid[i];
-  
-            int_m1_wtrans_accept[i]  = 1'b0;
-            l1_m1_wtrans_drop[i]     = 1'b0;
-            int_m1_awvalid[i]        = 1'b0;
-         end
-       else if (int_wmaster_select[i] == 1'b1 && int_wtrans_accept[i])
-         begin
-            int_m0_wtrans_accept[i]  = 1'b0;
-            l1_m0_wtrans_drop[i]     = 1'b0;
-            int_m0_awvalid[i]        = 1'b0;
-            
-            int_m1_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m1_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m1_awvalid[i]        = int_awvalid[i];
-         end 
-       else // L1 drop
-         begin
-            int_m0_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m0_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m0_awvalid[i]        = int_awvalid[i];
-            
-            int_m1_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m1_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m1_awvalid[i]        = int_awvalid[i];
-         end    
-    end // always_comb begin
-  
-  always_comb
-    begin
-       if (int_wmaster_select[i] == 1'b1)
-         begin
-            int_wtrans_sent[i]       = int_m1_wtrans_sent[i];
-            int_awready[i]           = int_m1_awready[i];   
-         end
-       else
-         begin
-            int_wtrans_sent[i]       = int_m0_wtrans_sent[i];
-            int_awready[i]           = int_m0_awready[i];
-         end
-    end            
-  
+  always_comb begin
+
+    int_m0_wtrans_accept[i] = int_wtrans_accept[i];
+    l1_m0_wtrans_drop[i]    = l1_wtrans_drop[i];
+    int_m0_awvalid[i]       = int_awvalid[i];
+
+    int_wtrans_sent[i]      = int_m0_wtrans_sent[i];
+    int_awready[i]          = int_m0_awready[i];
+
+    if (int_wtrans_accept[i]) begin
+
+      int_m1_wtrans_accept[i] = 1'b0;
+      l1_m1_wtrans_drop[i]    = 1'b0;
+      int_m1_awvalid[i]       = 1'b0;
+
+      `ifdef EN_ACP
+        if (int_wmaster_select[i] == 1'b1) begin
+
+          int_m0_wtrans_accept[i] = 1'b0;
+          l1_m0_wtrans_drop[i]    = 1'b0;
+          int_m0_awvalid[i]       = 1'b0;
+
+          int_m1_wtrans_accept[i] = int_wtrans_accept[i];
+          l1_m1_wtrans_drop[i]    = l1_wtrans_drop[i];
+          int_m1_awvalid[i]       = int_awvalid[i];
+
+          int_wtrans_sent[i]      = int_m1_wtrans_sent[i];
+          int_awready[i]          = int_m1_awready[i];
+
+        end
+      `endif
+
+    end else begin
+
+      int_m1_wtrans_accept[i] = int_wtrans_accept[i];
+      l1_m1_wtrans_drop[i]    = l1_wtrans_drop[i];
+      int_m1_awvalid[i]       = int_awvalid[i];
+
+    end
+
+  end
+
   always_comb
     begin
        if (l2_master_select[i] == 1'b1)
@@ -862,7 +880,11 @@ module axi_rab_top
       .data_out({master_select_fifo_out[i],int_wtrans_was_accept[i]}),
       .valid_out(master_select_fifo_not_empty[i]),
       .ready_out(master_select_fifo_not_full[i]),
-      .data_in({int_wmaster_select[i],int_wtrans_accept[i]}),
+      `ifdef EN_ACP
+        .data_in({int_wmaster_select[i],int_wtrans_accept[i]}),
+      `else
+        .data_in({1'b0,                 int_wtrans_accept[i]}),
+      `endif
       .valid_in(w_new_rab_output[i]),
       .ready_in(int_wlast[i] && int_wready[i] && int_wvalid[i])
     );
@@ -1159,10 +1181,29 @@ module axi_rab_top
         .m_axi4_arburst  (m0_axi4_arburst[i]),
         .m_axi4_arlock   (m0_axi4_arlock[i]),
         .m_axi4_arprot   (m0_axi4_arprot[i]),
-        .m_axi4_arcache  (m0_axi4_arcache[i]),
+        `ifdef JUNO
+          .m_axi4_arcache  (),
+        `else
+          .m_axi4_arcache(m0_axi4_arcache[i]),
+        `endif
         .m_axi4_aruser   (m0_axi4_aruser[i])
       );
-     
+    `ifdef JUNO
+      assign read_is_burst[i] = (m0_axi4_arlen[i] != {8{1'b0}}) && (m0_axi4_arburst[i] != 2'b00);
+      assign read_is_cache_coherent[i] = int_rmaster_select[i] == 1'b1;
+      always_comb begin
+        if (read_is_cache_coherent[i]) begin
+          if (read_is_burst[i]) begin
+            m0_axi4_arcache[i] = 4'b0111;
+          end else begin
+            m0_axi4_arcache[i] = 4'b1111;
+          end
+        end else begin
+          m0_axi4_arcache[i] = 4'b0011;
+        end
+      end
+    `endif
+
      axi4_ar_sender
       #(
         .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -1204,61 +1245,58 @@ module axi_rab_top
         .m_axi4_arcache  (m1_axi4_arcache[i]),
         .m_axi4_aruser   (m1_axi4_aruser[i])
       );
-  
-  /* 
-   * Multiplexer to switch between the two output master ports on the read address(ar) channel
+
+  /**
+   * Multiplex the two output master ports of the Read Address (AR) channel.
+   *
+   * In case of an L1 hit: If ACP is enabled, use the `wmaster_select` signal to route the signals
+   * to either master 0 (to memory) or master 1 (to ACP).  If ACP is disabled, route the signals to
+   * master 0.
+   * In case of an L1 miss: Route the signals to both masters.  They shall be stored until the L2
+   * outputs are available.
    */
-  
-  // In case of L1 Hit, send the signals to the correct master.
-  // In case of L1 Miss, send the signals to both masters. They will be stored till L2 outputs are available.
-  always_comb
-    begin
-      if (int_rmaster_select[i] == 1'b0 && int_rtrans_accept[i])
-        begin
-          int_m0_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m0_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m0_arvalid[i]        = int_arvalid[i];
-  
-          int_m1_rtrans_accept[i]  = 1'b0;
-          l1_m1_rtrans_drop[i]     = 1'b0;
-          int_m1_arvalid[i]        = 1'b0;
+  always_comb begin
+
+    int_m0_rtrans_accept[i] = int_rtrans_accept[i];
+    l1_m0_rtrans_drop[i]    = l1_rtrans_drop[i];
+    int_m0_arvalid[i]       = int_arvalid[i];
+
+    int_rtrans_sent[i]      = int_m0_rtrans_sent[i];
+    int_arready[i]          = int_m0_arready[i];
+
+    if (int_rtrans_accept[i]) begin
+
+      int_m1_rtrans_accept[i] = 1'b0;
+      l1_m1_rtrans_drop[i]    = 1'b0;
+      int_m1_arvalid[i]       = 1'b0;
+
+      `ifdef EN_ACP
+        if (int_wmaster_select[i] == 1'b1) begin
+
+          int_m0_rtrans_accept[i] = 1'b0;
+          l1_m0_rtrans_drop[i]    = 1'b0;
+          int_m0_arvalid[i]       = 1'b0;
+
+          int_m1_rtrans_accept[i] = int_rtrans_accept[i];
+          l1_m1_rtrans_drop[i]    = l1_rtrans_drop[i];
+          int_m1_arvalid[i]       = int_arvalid[i];
+
+          int_rtrans_sent[i]      = int_m1_rtrans_sent[i];
+          int_arready[i]          = int_m1_arready[i];
+
         end
-      else if (int_rmaster_select[i] == 1'b1 && int_rtrans_accept[i])
-        begin
-          int_m0_rtrans_accept[i]  = 1'b0;
-          l1_m0_rtrans_drop[i]     = 1'b0;
-          int_m0_arvalid[i]        = 1'b0;
-          
-          int_m1_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m1_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m1_arvalid[i]        = int_arvalid[i];
-        end 
-      else // L1 drop
-        begin
-          int_m0_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m0_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m0_arvalid[i]        = int_arvalid[i];
-          
-          int_m1_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m1_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m1_arvalid[i]        = int_arvalid[i];
-        end    
-    end // always_comb begin
-  
-  always_comb
-    begin
-      if(int_rmaster_select[i] == 1'b1)
-        begin
-          int_rtrans_sent[i]       = int_m1_rtrans_sent[i];
-          int_arready[i]           = int_m1_arready[i];   
-        end
-      else
-        begin
-          int_rtrans_sent[i]       = int_m0_rtrans_sent[i];
-          int_arready[i]           = int_m0_arready[i];
-        end
-    end          
-     
+      `endif
+
+    end else begin
+
+      int_m1_rtrans_accept[i] = int_rtrans_accept[i];
+      l1_m1_rtrans_drop[i]    = l1_rtrans_drop[i];
+      int_m1_arvalid[i]       = int_arvalid[i];
+
+    end
+
+  end
+
   always_comb
     begin
        if (l2_master_select[i] == 1'b1)
