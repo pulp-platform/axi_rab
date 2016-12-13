@@ -73,6 +73,10 @@ module axi_rab_cfg
 
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
 
+  localparam integer N_L2_ENTRIES = N_L2_SETS * N_L2_SET_ENTRIES;
+
+  localparam logic [AXI_ADDR_WIDTH-1:0] L2_VA_MAX_ADDR = (N_L2_ENTRIES-1) << 2;
+
   logic [AXI_DATA_WIDTH/8-1:0][7:0] L1Cfg_DP[N_REGS]; // [Byte][Bit]
   genvar j;
 
@@ -396,29 +400,39 @@ module axi_rab_cfg
               wren_l2[j] <= 0;
           end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
+        logic l2_addr_is_in_va_rams, upper_word_is_written, lower_word_is_written;
+        assign l2_addr_is_in_va_rams = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
+        assign upper_word_is_written = (wstrb_reg[7:4] != 4'b0000) && wren_l2[j];
+        assign lower_word_is_written = (wstrb_reg[3:0] != 4'b0000) && wren_l2[j];
+
         // Word address calculation:  Add an offset of one 32-bit word to the address if upper the
         // 32-bit word is to be written to VA RAMs from 64-bit data input.
-        logic l2_addr_is_in_va_rams;
-        assign l2_addr_is_in_va_rams
-            = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] < (`RAB_L2_N_ENTRIES << 2));
         always_comb begin
           waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
           if (wren_l2) begin
-            // Check if the AXI Lite data width on this platform is 64 bit.
             if (AXI_DATA_WIDTH == 64) begin
-              // Check if an upper-32-bit word is to be written to VA RAMs.
-              if (l2_addr_is_in_va_rams && wstrb_reg[7:4] != 4'b0000) begin
-                if (wstrb_reg[3:0] != 4'b0000) begin
-                  $error("Unsupported write across two 32-bit words to VA RAMs!");
-                end
-                else begin
+              if (l2_addr_is_in_va_rams && upper_word_is_written) begin
                   waddr_l2[j] = waddr_l2[j] + 1;
-                end
               end
             end
             else if (AXI_DATA_WIDTH != 32) begin
               $fatal(1, "Unsupported AXI_DATA_WIDTH!");
             end
+          end
+        end
+
+        // Assert that only one 32-bit word is ever written at a time to VA RAMs on 64-bit data
+        // systems.
+        always_ff @ (posedge Clk_CI) begin
+          if (AXI_DATA_WIDTH == 64 && l2_addr_is_in_va_rams) begin
+              if (upper_word_is_written) begin
+                assert (!lower_word_is_written)
+                    else $error("Unsupported write across two 32-bit words to VA RAMs!");
+              end
+              else if (lower_word_is_written) begin
+                assert (!upper_word_is_written)
+                    else $error("Unsupported write across two 32-bit words to VA RAMs!");
+              end
           end
         end
 
