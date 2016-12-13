@@ -14,14 +14,14 @@
 //
 // --=========================================================================--
 
-`include "ulpsoc_defines.sv"
-
 import CfMath::log2;
 
 module axi_rab_cfg
   #(
     parameter N_PORTS         = 3,
     parameter N_REGS          = 196,
+    parameter N_L2_SETS       = 32,
+    parameter N_L2_SET_ENTRIES= 32,
     parameter ADDR_WIDTH_PHYS = 40,
     parameter ADDR_WIDTH_VIRT = 32,
     parameter N_FLAGS         = 4,

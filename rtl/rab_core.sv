@@ -18,6 +18,8 @@ import CfMath::log2;
 module rab_core
   #(
     parameter N_PORTS             = 3,
+    parameter N_L2_SETS           = 32,
+    parameter N_L2_SET_ENTRIES    = 32,
     parameter AXI_DATA_WIDTH      = 64,
     parameter AXI_S_ADDR_WIDTH    = 32,
     parameter AXI_M_ADDR_WIDTH    = 40,
@@ -296,6 +298,8 @@ module rab_core
     #(
       .N_PORTS         ( N_PORTS                    ),
       .N_REGS          ( N_REGS                     ),
+      .N_L2_SETS       ( N_L2_SETS                  ),
+      .N_L2_SET_ENTRIES( N_L2_SET_ENTRIES           ),
       .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH           ),
       .ADDR_WIDTH_VIRT ( AXI_S_ADDR_WIDTH           ),
       .N_FLAGS         ( 4                          ),       

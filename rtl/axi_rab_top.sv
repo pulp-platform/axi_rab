@@ -49,6 +49,8 @@ module axi_rab_top
   // Parameters {{{
   #(
     parameter N_PORTS             = 2,
+    parameter N_L2_SETS           = 32,
+    parameter N_L2_SET_ENTRIES    = 32,
     parameter AXI_DATA_WIDTH      = 64,
     parameter AXI_S_ADDR_WIDTH    = 32,
     parameter AXI_M_ADDR_WIDTH    = 40,
@@ -1486,6 +1488,8 @@ module axi_rab_top
  rab_core
    #(
      .N_PORTS             ( N_PORTS             ), 
+     .N_L2_SETS           ( N_L2_SETS           ),
+     .N_L2_SET_ENTRIES    ( N_L2_SET_ENTRIES    ),
      .AXI_DATA_WIDTH      ( AXI_DATA_WIDTH      ),
      .AXI_S_ADDR_WIDTH    ( AXI_S_ADDR_WIDTH    ),
      .AXI_M_ADDR_WIDTH    ( AXI_M_ADDR_WIDTH    ),
