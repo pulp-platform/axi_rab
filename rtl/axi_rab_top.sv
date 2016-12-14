@@ -620,16 +620,18 @@ module axi_rab_top
       .m_axi4_awburst  (m0_axi4_awburst[i]),
       .m_axi4_awlock   (m0_axi4_awlock[i]),
       .m_axi4_awprot   (m0_axi4_awprot[i]),
-      `ifdef JUNO
-        .m_axi4_awcache  (),
+      `ifndef EN_ACP
+        // If RAB is not connected to an ACP, the AWCACHE signal cannot simply be forwarded to the
+        // host, but has to be set according to burstiness and cache coherence (implemented below).
+        .m_axi4_awcache(),
       `else
-        .m_axi4_awcache  (m0_axi4_awcache[i]),
+        .m_axi4_awcache(m0_axi4_awcache[i]),
       `endif
       .m_axi4_awregion (m0_axi4_awregion[i]),
       .m_axi4_awqos    (m0_axi4_awqos[i]),
       .m_axi4_awuser   (m0_axi4_awuser[i])
     );
-  `ifdef JUNO
+  `ifndef EN_ACP
     assign write_is_burst[i] = (m0_axi4_awlen[i] != {8{1'b0}}) && (m0_axi4_awburst[i] != 2'b00);
     assign write_is_cache_coherent[i] = int_wmaster_select[i] == 1'b1;
     always_comb begin
@@ -1181,14 +1183,17 @@ module axi_rab_top
         .m_axi4_arburst  (m0_axi4_arburst[i]),
         .m_axi4_arlock   (m0_axi4_arlock[i]),
         .m_axi4_arprot   (m0_axi4_arprot[i]),
-        `ifdef JUNO
-          .m_axi4_arcache  (),
+        `ifndef EN_ACP
+          // If RAB is not connected to an ACP, the AWCACHE signal cannot simply be forwarded to the
+          // host, but has to be set according to burstiness and cache coherence (implemented
+          // below).
+          .m_axi4_arcache(),
         `else
           .m_axi4_arcache(m0_axi4_arcache[i]),
         `endif
         .m_axi4_aruser   (m0_axi4_aruser[i])
       );
-    `ifdef JUNO
+    `ifndef EN_ACP
       assign read_is_burst[i] = (m0_axi4_arlen[i] != {8{1'b0}}) && (m0_axi4_arburst[i] != 2'b00);
       assign read_is_cache_coherent[i] = int_rmaster_select[i] == 1'b1;
       always_comb begin
