@@ -1254,7 +1254,7 @@ module axi_rab_top
   /**
    * Multiplex the two output master ports of the Read Address (AR) channel.
    *
-   * In case of an L1 hit: If ACP is enabled, use the `wmaster_select` signal to route the signals
+   * In case of an L1 hit: If ACP is enabled, use the `rmaster_select` signal to route the signals
    * to either master 0 (to memory) or master 1 (to ACP).  If ACP is disabled, route the signals to
    * master 0.
    * In case of an L1 miss: Route the signals to both masters.  They shall be stored until the L2
@@ -1276,7 +1276,7 @@ module axi_rab_top
       int_m1_arvalid[i]       = 1'b0;
 
       `ifdef EN_ACP
-        if (int_wmaster_select[i] == 1'b1) begin
+        if (int_rmaster_select[i] == 1'b1) begin
 
           int_m0_rtrans_accept[i] = 1'b0;
           l1_m0_rtrans_drop[i]    = 1'b0;
