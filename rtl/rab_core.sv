@@ -68,7 +68,7 @@ module rab_core
     input  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] port1_ctrl,
     input  logic [N_PORTS-1:0]                           port1_sent,
     output logic [N_PORTS-1:0]    [AXI_M_ADDR_WIDTH-1:0] port1_out_addr,
-    output logic [N_PORTS-1:0]                           port1_master_select,
+    output logic [N_PORTS-1:0]                           port1_cache_coherent,
     output logic [N_PORTS-1:0]                           port1_accept,
     output logic [N_PORTS-1:0]                           port1_drop,
  
@@ -81,7 +81,7 @@ module rab_core
     input  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] port2_ctrl,
     input  logic [N_PORTS-1:0]                           port2_sent,
     output logic [N_PORTS-1:0]    [AXI_M_ADDR_WIDTH-1:0] port2_out_addr,
-    output logic [N_PORTS-1:0]                           port2_master_select,
+    output logic [N_PORTS-1:0]                           port2_cache_coherent,
     output logic [N_PORTS-1:0]                           port2_accept,
     output logic [N_PORTS-1:0]                           port2_drop,
  
@@ -142,8 +142,8 @@ module rab_core
   logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0] out_addr;
   logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0] out_addr_reg;
       
-  logic [N_PORTS-1:0]                             master_select;
-  logic [N_PORTS-1:0]                             master_select_reg;
+  logic [N_PORTS-1:0]                             cache_coherent;
+  logic [N_PORTS-1:0]                             cache_coherent_reg;
      
   logic [N_PORTS-1:0]                             select;
   reg   [N_PORTS-1:0]                             curr_priority;
@@ -229,8 +229,8 @@ module rab_core
         port1_out_addr[idx] = out_addr_reg[idx];
         port2_out_addr[idx] = out_addr_reg[idx];
 
-        port1_master_select[idx] = master_select_reg[idx];
-        port2_master_select[idx] = master_select_reg[idx];
+        port1_cache_coherent[idx] = cache_coherent_reg[idx];
+        port2_cache_coherent[idx] = cache_coherent_reg[idx];
       end
     end   
 
@@ -367,15 +367,15 @@ module rab_core
             )
         u_slice_top
           (
-           .int_cfg_regs  ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
-           .int_rw        ( int_rw[z]                                 ),
-           .int_addr_min  ( int_addr_min[z]                           ),
-           .int_addr_max  ( int_addr_max[z]                           ),
-           .out_addr      ( out_addr[z]                               ),
-           .multiple_hit  ( multiple_hit[z]                           ),      
-           .prot          ( prot[z][N_SLICES[z]-1:0]                  ),
-           .hit           (  hit[z][N_SLICES[z]-1:0]                  ),
-           .master_select ( master_select[z]                          )
+           .int_cfg_regs    ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
+           .int_rw          ( int_rw[z]                                 ),
+           .int_addr_min    ( int_addr_min[z]                           ),
+           .int_addr_max    ( int_addr_max[z]                           ),
+           .out_addr        ( out_addr[z]                               ),
+           .multiple_hit    ( multiple_hit[z]                           ),
+           .prot            ( prot[z][N_SLICES[z]-1:0]                  ),
+           .hit             (  hit[z][N_SLICES[z]-1:0]                  ),
+           .cache_coherent  ( cache_coherent[z]                         )
            );
         // hit[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
         // prot[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
@@ -403,29 +403,29 @@ module rab_core
             )
           u_fsm
           (
-            .Clk_CI            (Clk_CI),
-            .Rst_RBI           (Rst_RBI),
-            .port1_addr_valid  (port1_addr_valid[z]),
-            .port2_addr_valid  (port2_addr_valid[z]),
-            .port1_skip        (p1_skip[z]),
-            .port2_skip        (p2_skip[z]),
-            .port1_sent        (port1_sent[z]),
-            .port2_sent        (port2_sent[z]),
-            .select            (select[z]),        
-            .no_hit            (no_hit[z]),   
-            .multiple_hit      (multiple_hit[z]),
-            .no_prot           (no_prot[z]),
-            .out_addr          (out_addr[z]),
-            .master_select     (master_select[z]),
-            .port1_accept      (port1_accept[z]),
-            .port1_drop        (port1_drop[z]),  
-            .port2_accept      (port2_accept[z]), 
-            .port2_drop        (port2_drop[z]),
-            .out_addr_reg      (out_addr_reg[z]),
-            .master_select_reg (master_select_reg[z]),
-            .int_miss          (int_miss[z]),    
-            .int_multi         (int_multi[z]),  
-            .int_prot          (int_prot[z])
+            .Clk_CI             (Clk_CI),
+            .Rst_RBI            (Rst_RBI),
+            .port1_addr_valid   (port1_addr_valid[z]),
+            .port2_addr_valid   (port2_addr_valid[z]),
+            .port1_skip         (p1_skip[z]),
+            .port2_skip         (p2_skip[z]),
+            .port1_sent         (port1_sent[z]),
+            .port2_sent         (port2_sent[z]),
+            .select             (select[z]),
+            .no_hit             (no_hit[z]),
+            .multiple_hit       (multiple_hit[z]),
+            .no_prot            (no_prot[z]),
+            .out_addr           (out_addr[z]),
+            .cache_coherent     (cache_coherent[z]),
+            .port1_accept       (port1_accept[z]),
+            .port1_drop         (port1_drop[z]),
+            .port2_accept       (port2_accept[z]),
+            .port2_drop         (port2_drop[z]),
+            .out_addr_reg       (out_addr_reg[z]),
+            .cache_coherent_reg (cache_coherent_reg[z]),
+            .int_miss           (int_miss[z]),
+            .int_multi          (int_multi[z]),
+            .int_prot           (int_prot[z])
           );
       end
   endgenerate
