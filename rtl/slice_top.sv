@@ -22,7 +22,6 @@ module slice_top
   
   genvar  i;
   integer j;
-  integer k;  
   
   logic [ADDR_WIDTH_PHYS*N_SLICES-1:0]  slice_out_addr;
    
@@ -56,7 +55,6 @@ module slice_top
     begin
       first_hit       = 0;
       second_hit      = 0;
-      k               = 0;
       multiple_hit    = 0;
       out_addr        = '0;
       cache_coherent  = 0;
@@ -78,7 +76,6 @@ module slice_top
               else
                 begin
                   first_hit       = 1'b1;
-                  k               = j;
                   out_addr        = slice_out_addr[ADDR_WIDTH_PHYS*j +: ADDR_WIDTH_PHYS];
                   cache_coherent  = int_cfg_regs[4*j+3][3];
                 end
