@@ -369,10 +369,11 @@ module tlb_l2
    //// Output signals
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
-         miss_l2         <= 1'b0;
-         prot_l2         <= 1'b0;
-         multiple_hit_l2 <= 1'b0;
-         hit_l2          <= 1'b0;
+         miss_l2           <= 1'b0;
+         prot_l2           <= 1'b0;
+         multiple_hit_l2   <= 1'b0;
+         hit_l2            <= 1'b0;
+         l2_master_select  <= 1'b0;
       end else begin
          miss_l2         <= miss_l2_next;
          prot_l2         <= prot_l2_next;
