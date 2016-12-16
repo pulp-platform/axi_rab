@@ -489,6 +489,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           l2_rtrans_sent;
   logic [N_PORTS-1:0]                           l2_busy;
 
+  logic [N_PORTS-1:0]                           l2_cache_coherent;
   logic [N_PORTS-1:0]                           l2_master_select;
 
   logic [N_PORTS-1:0]                           l1_multi_or_prot_next;
@@ -526,9 +527,11 @@ module axi_rab_top
   `ifdef EN_ACP
     assign int_wmaster_select = int_wtrans_cache_coherent;
     assign int_rmaster_select = int_rtrans_cache_coherent;
+    assign l2_master_select   = l2_cache_coherent;
   `else
     assign int_wmaster_select = '0;
     assign int_rmaster_select = '0;
+    assign l2_master_select   = '0;
   `endif
   // }}}
   
@@ -1645,22 +1648,22 @@ module axi_rab_top
           ) 
       u_tlb_l2
         (
-          .clk_i            (Clk_CI),
-          .rst_ni           (Rst_RBI),
-          .in_addr          (l2_in_addr[i]),
-          .rw_type          (l2_rw_type_comb[i]),
-          .l1_miss          (l1_miss[i]),
-          .we               (wren_tlb_l2[i]),
-          .waddr            (waddr_tlb_l2[i]),
-          .wdata            (wdata_tlb_l2[i]),
-          .l2_trans_sent    (l2_trans_sent[i]),
-          .miss_l2          (miss_l2[i]),
-          .hit_l2           (hit_l2[i]),
-          .multiple_hit_l2  (multi_l2[i]),
-          .prot_l2          (prot_l2[i]),
-          .l2_busy          (l2_busy[i]),
-          .l2_master_select (l2_master_select[i]),
-          .out_addr         (l2_out_addr[i])
+          .clk_i              (Clk_CI),
+          .rst_ni             (Rst_RBI),
+          .in_addr            (l2_in_addr[i]),
+          .rw_type            (l2_rw_type_comb[i]),
+          .l1_miss            (l1_miss[i]),
+          .we                 (wren_tlb_l2[i]),
+          .waddr              (waddr_tlb_l2[i]),
+          .wdata              (wdata_tlb_l2[i]),
+          .l2_trans_sent      (l2_trans_sent[i]),
+          .miss_l2            (miss_l2[i]),
+          .hit_l2             (hit_l2[i]),
+          .multiple_hit_l2    (multi_l2[i]),
+          .prot_l2            (prot_l2[i]),
+          .l2_busy            (l2_busy[i]),
+          .l2_cache_coherent  (l2_cache_coherent[i]),
+          .out_addr           (l2_out_addr[i])
         );
       
       /*
@@ -1893,7 +1896,6 @@ module axi_rab_top
       assign l2_wtrans_addr[i]   = 0;
       assign l2_rtrans_addr[i]   = 0;
       assign trans_id_l2[i]      = 0;
-      assign l2_master_select[i] = 1'b0;
       
       assign l1_wtrans_drop[i] = int_wtrans_drop[i];
       assign l1_rtrans_drop[i] = int_rtrans_drop[i];

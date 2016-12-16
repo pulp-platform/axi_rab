@@ -30,7 +30,7 @@ module tlb_l2
     output logic                           multiple_hit_l2,
     output logic                           prot_l2,
     output logic                           l2_busy, 
-    output logic                           l2_master_select,
+    output logic                           l2_cache_coherent,
     output logic    [AXI_M_ADDR_WIDTH-1:0] out_addr   
     );
 
@@ -59,7 +59,7 @@ module tlb_l2
    logic                                                   send_outputs; 
    int                                                     hit_block_num;
    logic                                                   multi_hit_top;
-   logic [PARALLEL_NUM-1:0]                                master_select;
+   logic [PARALLEL_NUM-1:0]                                cache_coherent;
       
    logic                                                   searching, search_done;
    logic                                                   searching_next;
@@ -89,7 +89,7 @@ module tlb_l2
    logic                                                   hit_l2_next;
    logic                                                   prot_l2_next;
    logic                                                   multiple_hit_l2_next;
-   logic                                                   l2_master_select_next;   
+   logic                                                   l2_cache_coherent_next;
 
    logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr, offset_first_addr;
         
@@ -131,7 +131,7 @@ module tlb_l2
               .offset_addr_d ( offset_addr_d               ),
               .start_search  ( l1_miss                     ),
               .hit_addr      ( hit_addr[z]                 ),
-              .master        ( master_select[z]            ),
+              .master        ( cache_coherent[z]           ),
               .hit           ( hit[z]                      ),
               .multi_hit     ( multi_hit[z]                ),
               .prot          ( prot[z]                     )
@@ -323,14 +323,14 @@ module tlb_l2
    end
    
    always_comb begin
-      out_SN                = out_SP;
-      l2_master_select_next = l2_master_select;
-      send_outputs          = 1'b0;
-      hit_l2_next           = 1'b0;
-      miss_l2_next          = 1'b0;
-      prot_l2_next          = 1'b0;
-      multiple_hit_l2_next  = 1'b0;
-      pa_port0_raddr        = 0;
+      out_SN                  = out_SP;
+      l2_cache_coherent_next  = l2_cache_coherent;
+      send_outputs            = 1'b0;
+      hit_l2_next             = 1'b0;
+      miss_l2_next            = 1'b0;
+      prot_l2_next            = 1'b0;
+      multiple_hit_l2_next    = 1'b0;
+      pa_port0_raddr          = 0;
       unique case (out_SP)
         OUT_IDLE :
           if (multi_hit_top || prot_top || (search_done && ~hit_top)) begin // No Hit
@@ -346,7 +346,7 @@ module tlb_l2
              //pa_port0_raddr = (VA_RAM_DEPTH * hit_block_num) + hit_addr[hit_block_num];
              pa_port0_raddr = (PARALLEL_NUM * hit_addr[hit_block_num]) + hit_block_num;
              hit_l2_next    = 1'b1;
-             l2_master_select_next = master_select[hit_block_num];
+             l2_cache_coherent_next = cache_coherent[hit_block_num];
           end             
         
         SEND_OUTPUT : begin
@@ -373,13 +373,13 @@ module tlb_l2
          prot_l2           <= 1'b0;
          multiple_hit_l2   <= 1'b0;
          hit_l2            <= 1'b0;
-         l2_master_select  <= 1'b0;
+         l2_cache_coherent <= 1'b0;
       end else begin
-         miss_l2         <= miss_l2_next;
-         prot_l2         <= prot_l2_next;
-         multiple_hit_l2 <= multiple_hit_l2_next;
-         hit_l2          <= hit_l2_next ;   
-         l2_master_select <= l2_master_select_next;
+         miss_l2           <= miss_l2_next;
+         prot_l2           <= prot_l2_next;
+         multiple_hit_l2   <= multiple_hit_l2_next;
+         hit_l2            <= hit_l2_next;
+         l2_cache_coherent <= l2_cache_coherent_next;
       end
    end
    
