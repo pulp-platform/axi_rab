@@ -20,6 +20,8 @@ module axi_rab_cfg
   #(
     parameter N_PORTS         = 3,
     parameter N_REGS          = 196,
+    parameter N_L2_SETS       = 32,
+    parameter N_L2_SET_ENTRIES= 32,
     parameter ADDR_WIDTH_PHYS = 40,
     parameter ADDR_WIDTH_VIRT = 32,
     parameter N_FLAGS         = 4,
@@ -65,10 +67,15 @@ module axi_rab_cfg
     output logic [N_PORTS-1:0]                      wren_l2
   );
 
-  localparam ADDR_LSB = 3;
+  localparam ADDR_LSB = log2(64/8); // 64 even if the AXI Lite interface is 32,
+                                    // because RAB slices are 64 bit wide.
   localparam ADDR_MSB = log2(N_REGS)+ADDR_LSB-1;
 
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
+
+  localparam integer N_L2_ENTRIES = N_L2_SETS * N_L2_SET_ENTRIES;
+
+  localparam logic [AXI_ADDR_WIDTH-1:0] L2_VA_MAX_ADDR = (N_L2_ENTRIES-1) << 2;
 
   logic [AXI_DATA_WIDTH/8-1:0][7:0] L1Cfg_DP[N_REGS]; // [Byte][Bit]
   genvar j;
@@ -294,28 +301,42 @@ module axi_rab_cfg
         end
       else if ( wren_l1 )
           begin
-            // Mask unused bits -> Synthesizer should optimize away unused registers
-            if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin // VIRT_ADDR
-              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                if ( (idx_byte < ADDR_WIDTH_VIRT/8) && wstrb_reg[idx_byte] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
-                else
+            if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin                     // VIRT_ADDR
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
+                if ( (idx_byte < ADDR_WIDTH_VIRT/8) ) begin
+                  if ( wstrb_reg[idx_byte] ) begin
+                    L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
+                  end
+                end
+                else begin  // Let synthesizer optimize away unused registers.
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
+                end
               end
-            else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin // PHYS_ADDR
-              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                if ( (idx_byte < ADDR_WIDTH_PHYS/8) && wstrb_reg[idx_byte] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
-                else
+            end
+            else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin      // PHYS_ADDR
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
+                if ( (idx_byte < ADDR_WIDTH_PHYS/8) ) begin
+                  if ( wstrb_reg[idx_byte] ) begin
+                    L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte];
+                  end
+                end
+                else begin  // Let synthesizer optimize away unused registers.
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
+                end
               end
-            else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 ) // FLAGS
-              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                if ( (idx_byte < 1) && wstrb_reg[idx_byte] )
-                  L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
-                else
+            end
+            else begin // ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b11 )      // FLAGS
+              for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
+                if ( (idx_byte < 1) ) begin
+                  if ( wstrb_reg[idx_byte] ) begin
+                    L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= wdata_reg[idx_byte] & { {{8-N_FLAGS}{1'b0}}, {{N_FLAGS}{1'b1}} };
+                  end
+                end
+                else begin  // Let synthesizer optimize away unused registers.
                   L1Cfg_DP[awaddr_reg[ADDR_MSB:ADDR_LSB]][idx_byte] <= '0;
+                end
               end
+            end
           end
     end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
@@ -379,7 +400,41 @@ module axi_rab_cfg
               wren_l2[j] <= 0;
           end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
-      assign waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
+        logic l2_addr_is_in_va_rams, upper_word_is_written, lower_word_is_written;
+        assign l2_addr_is_in_va_rams = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
+        assign upper_word_is_written = (wstrb_reg[7:4] != 4'b0000) && wren_l2[j];
+        assign lower_word_is_written = (wstrb_reg[3:0] != 4'b0000) && wren_l2[j];
+
+        // Word address calculation:  Add an offset of one 32-bit word to the address if upper the
+        // 32-bit word is to be written to VA RAMs from 64-bit data input.
+        always_comb begin
+          waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
+          if (wren_l2) begin
+            if (AXI_DATA_WIDTH == 64) begin
+              if (l2_addr_is_in_va_rams && upper_word_is_written) begin
+                  waddr_l2[j] = waddr_l2[j] + 1;
+              end
+            end
+            else if (AXI_DATA_WIDTH != 32) begin
+              $fatal(1, "Unsupported AXI_DATA_WIDTH!");
+            end
+          end
+        end
+
+        // Assert that only one 32-bit word is ever written at a time to VA RAMs on 64-bit data
+        // systems.
+        always_ff @ (posedge Clk_CI) begin
+          if (AXI_DATA_WIDTH == 64 && l2_addr_is_in_va_rams) begin
+              if (upper_word_is_written) begin
+                assert (!lower_word_is_written)
+                    else $error("Unsupported write across two 32-bit words to VA RAMs!");
+              end
+              else if (lower_word_is_written) begin
+                assert (!upper_word_is_written)
+                    else $error("Unsupported write across two 32-bit words to VA RAMs!");
+              end
+          end
+        end
 
       end // for (j=0; j< N_PORTS; j++)
    endgenerate
@@ -524,3 +579,5 @@ module axi_rab_cfg
     );
 
 endmodule
+
+// vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker

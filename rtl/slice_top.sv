@@ -13,7 +13,7 @@ module slice_top
     output  logic        [N_SLICES-1:0] prot,
     output  logic        [N_SLICES-1:0] hit,
     output  logic                       multiple_hit,
-    output  logic                       master_select,
+    output  logic                       cache_coherent,
     output  logic [ADDR_WIDTH_PHYS-1:0] out_addr
   );
  
@@ -22,7 +22,6 @@ module slice_top
   
   genvar  i;
   integer j;
-  integer k;  
   
   logic [ADDR_WIDTH_PHYS*N_SLICES-1:0]  slice_out_addr;
    
@@ -54,12 +53,11 @@ module slice_top
 
   always_comb
     begin
-      first_hit     = 0;
-      second_hit    = 0;
-      k             = 0;
-      multiple_hit  = 0;
-      out_addr      = '0;
-      master_select = 0;
+      first_hit       = 0;
+      second_hit      = 0;
+      multiple_hit    = 0;
+      out_addr        = '0;
+      cache_coherent  = 0;
         for (j = 0; j < N_SLICES; j++)
         begin
           if (hit[j] == 1'b1)
@@ -71,19 +69,20 @@ module slice_top
                 end
               else if (second_hit)
                 begin
-                  multiple_hit  = 1'b1;
-                  out_addr      = '0;
-                  master_select = 0;
+                  multiple_hit    = 1'b1;
+                  out_addr        = '0;
+                  cache_coherent  = 0;
                 end
               else
                 begin
-                  first_hit     = 1'b1;
-                  k             = j;
-                  out_addr      = slice_out_addr[ADDR_WIDTH_PHYS*j +: ADDR_WIDTH_PHYS];
-                  master_select = int_cfg_regs[4*j+3][3];
+                  first_hit       = 1'b1;
+                  out_addr        = slice_out_addr[ADDR_WIDTH_PHYS*j +: ADDR_WIDTH_PHYS];
+                  cache_coherent  = int_cfg_regs[4*j+3][3];
                 end
             end
         end
     end
    
 endmodule
+
+// vim: ts=2 sw=2 sts=2 et nosmartindent autoindent foldmethod=marker

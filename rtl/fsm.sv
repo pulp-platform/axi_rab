@@ -19,13 +19,13 @@ module fsm
    input  logic                      multiple_hit,
    input  logic                      no_prot,
    input  logic [AXI_ADDR_WIDTH-1:0] out_addr, 
-   input  logic                      master_select,  
+   input  logic                      cache_coherent,
    output logic                      port1_accept,
    output logic                      port1_drop,  
    output logic                      port2_accept, 
    output logic                      port2_drop,
    output logic [AXI_ADDR_WIDTH-1:0] out_addr_reg,
-   output logic                      master_select_reg,
+   output logic                      cache_coherent_reg,
    output logic                      int_miss,    
    output logic                      int_multi,  
    output logic                      int_prot     
@@ -47,7 +47,7 @@ module fsm
    logic                      int_miss_SN;
    logic                      int_multi_SN;
    logic                      int_prot_SN;
-   logic                      master_select_reg_SN;
+   logic                      cache_coherent_reg_SN;
    
    //----------FSM comb------------------------------
    
@@ -90,7 +90,7 @@ module fsm
         int_miss_SN     = 1'b0;
         int_multi_SN    = 1'b0;
         int_prot_SN     = 1'b0;
-        master_select_reg_SN = master_select_reg; // hold
+        cache_coherent_reg_SN = cache_coherent_reg; // hold
         
         if ( state == READY ) // Ready to accept new trans
           begin
@@ -102,7 +102,7 @@ module fsm
              int_multi_SN         = (port1_addr_valid || port2_addr_valid) & multiple_hit;
              int_prot_SN          = (port1_addr_valid || port2_addr_valid) & ~no_prot;
              out_addr_reg_SN      = out_addr;
-             master_select_reg_SN = master_select;
+             cache_coherent_reg_SN = cache_coherent;
           end
      end // block: OUTPUT_COMB
    
@@ -112,27 +112,27 @@ module fsm
      begin: OUTPUT_SEQ
         if (Rst_RBI == 1'b0)
           begin
-             port1_accept      = 1'b0;
-             port1_drop        = 1'b0;
-             port2_accept      = 1'b0;
-             port2_drop        = 1'b0;
-             out_addr_reg      = '0;
-             int_miss          = 1'b0;
-             int_multi         = 1'b0;
-             int_prot          = 1'b0;
-             master_select_reg = 1'b0;
+             port1_accept       = 1'b0;
+             port1_drop         = 1'b0;
+             port2_accept       = 1'b0;
+             port2_drop         = 1'b0;
+             out_addr_reg       = '0;
+             int_miss           = 1'b0;
+             int_multi          = 1'b0;
+             int_prot           = 1'b0;
+             cache_coherent_reg = 1'b0;
           end
         else
           begin
-             port1_accept      = port1_accept_SN;
-             port1_drop        = port1_drop_SN;
-             port2_accept      = port2_accept_SN;
-             port2_drop        = port2_drop_SN;
-             out_addr_reg      = out_addr_reg_SN;
-             int_miss          = int_miss_SN;
-             int_multi         = int_multi_SN;
-             int_prot          = int_prot_SN;
-             master_select_reg = master_select_reg_SN;
+             port1_accept       = port1_accept_SN;
+             port1_drop         = port1_drop_SN;
+             port2_accept       = port2_accept_SN;
+             port2_drop         = port2_drop_SN;
+             out_addr_reg       = out_addr_reg_SN;
+             int_miss           = int_miss_SN;
+             int_multi          = int_multi_SN;
+             int_prot           = int_prot_SN;
+             cache_coherent_reg = cache_coherent_reg_SN;
           end
      end // block: OUTPUT_SEQ
    

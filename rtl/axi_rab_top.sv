@@ -25,10 +25,13 @@
  * axi4_XX_sender instances, which manage inserting error responses
  * for failed lookups
  * 
- * 
- * For every slave there are two master ports, which can be used. This decision
- * is made using the master_select flag (bit 3 of the protection flags) in the
- * rab slices.
+ * If ACP is enabled, two master ports are used for every slave port.  In this
+ * case, the `cache_coherent` flag in the RAB configuration is used to multiplex
+ * between the two ports.
+ *
+ * If ACP is disabled, only the first master port is used.  In this case, the
+ * `cache_coherent` flag is used to set the AxCACHE signals of the AXI bus
+ * accordingly.
  * 
  * Revisions:
  * 
@@ -49,6 +52,8 @@ module axi_rab_top
   // Parameters {{{
   #(
     parameter N_PORTS             = 2,
+    parameter N_L2_SETS           = 32,
+    parameter N_L2_SET_ENTRIES    = 32,
     parameter AXI_DATA_WIDTH      = 64,
     parameter AXI_S_ADDR_WIDTH    = 32,
     parameter AXI_M_ADDR_WIDTH    = 40,
@@ -340,12 +345,14 @@ module axi_rab_top
   logic [N_PORTS-1:0]                         int_wtrans_accept;
   logic [N_PORTS-1:0]                         int_wtrans_drop;
   logic [N_PORTS-1:0]                         int_wtrans_sent;
+  logic [N_PORTS-1:0]                         int_wtrans_cache_coherent;
   logic [N_PORTS-1:0]                         int_wmaster_select;   
   
   logic [N_PORTS-1:0]  [AXI_M_ADDR_WIDTH-1:0] int_rtrans_addr;
   logic [N_PORTS-1:0]                         int_rtrans_accept;
   logic [N_PORTS-1:0]                         int_rtrans_drop;
   logic [N_PORTS-1:0]                         int_rtrans_sent;
+  logic [N_PORTS-1:0]                         int_rtrans_cache_coherent;
   logic [N_PORTS-1:0]                         int_rmaster_select;   
 
   logic [N_PORTS-1:0]                         int_dwch_master_select; // for the current transaction on dw channel
@@ -482,6 +489,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           l2_rtrans_sent;
   logic [N_PORTS-1:0]                           l2_busy;
 
+  logic [N_PORTS-1:0]                           l2_cache_coherent;
   logic [N_PORTS-1:0]                           l2_master_select;
 
   logic [N_PORTS-1:0]                           l1_multi_or_prot_next;
@@ -511,12 +519,20 @@ module axi_rab_top
   localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
 
   // L2TLB parameters
-  // Total entries in L2 TLB is (L2TLB_NUM_SETS * L2TLB_NUM_ENTRIES_PER_SET)
-  localparam integer L2TLB_NUM_SETS = 32;
-  localparam integer L2TLB_NUM_ENTRIES_PER_SET = 32; // total number including both ports and all rams.
-  localparam integer L2TLB_PARALLEL = 4; // Number of parallel VA RAMs in L2 TLB.
-  localparam integer L2TLB_W_BUFFER_DEPTH = (16/L2TLB_PARALLEL)+3;
+  localparam integer L2TLB_W_BUFFER_DEPTH = (16/`RAB_L2_N_PAR_VA_RAMS)+3;
 
+  // }}}
+
+  // Derive `master_select` from cache coherency flag. {{{
+  `ifdef EN_ACP
+    assign int_wmaster_select = int_wtrans_cache_coherent;
+    assign int_rmaster_select = int_rtrans_cache_coherent;
+    assign l2_master_select   = l2_cache_coherent;
+  `else
+    assign int_wmaster_select = '0;
+    assign int_rmaster_select = '0;
+    assign l2_master_select   = '0;
+  `endif
   // }}}
   
   // Buf and Send {{{
@@ -527,6 +543,7 @@ module axi_rab_top
   // ██████╔╝╚██████╔╝██║         ██████║      ███████║███████╗██║ ╚████║██████╔╝
   // ╚═════╝  ╚═════╝ ╚═╝         ╚═════╝      ╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ 
   // 
+  logic[N_PORTS-1:0] write_is_burst, read_is_burst;
   generate for (i = 0; i < N_PORTS; i++) begin
      
   // Write Address channel (aw) {{{
@@ -621,12 +638,32 @@ module axi_rab_top
       .m_axi4_awburst  (m0_axi4_awburst[i]),
       .m_axi4_awlock   (m0_axi4_awlock[i]),
       .m_axi4_awprot   (m0_axi4_awprot[i]),
-      .m_axi4_awcache  (m0_axi4_awcache[i]),
+      `ifndef EN_ACP
+        // If RAB is not connected to an ACP, the AWCACHE signal cannot simply be forwarded to the
+        // host, but has to be set according to burstiness and cache coherence (implemented below).
+        .m_axi4_awcache(),
+      `else
+        .m_axi4_awcache(m0_axi4_awcache[i]),
+      `endif
       .m_axi4_awregion (m0_axi4_awregion[i]),
       .m_axi4_awqos    (m0_axi4_awqos[i]),
       .m_axi4_awuser   (m0_axi4_awuser[i])
     );
-  
+  `ifndef EN_ACP
+    assign write_is_burst[i] = (m0_axi4_awlen[i] != {8{1'b0}}) && (m0_axi4_awburst[i] != 2'b00);
+    always_comb begin
+      if (int_wtrans_cache_coherent[i]) begin
+        if (write_is_burst[i]) begin
+          m0_axi4_awcache[i] = 4'b0111;
+        end else begin
+          m0_axi4_awcache[i] = 4'b1111;
+        end
+      end else begin
+        m0_axi4_awcache[i] = 4'b0011;
+      end
+    end
+  `endif
+
     axi4_aw_sender
     #(
       .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -673,60 +710,58 @@ module axi_rab_top
       .m_axi4_awqos    (m1_axi4_awqos[i]),
       .m_axi4_awuser   (m1_axi4_awuser[i])
     );
-  
-  /*   
-   * Multiplexer to switch between the two output master ports on the write address(aw) channel
+
+  /**
+   * Multiplex the two output master ports of the Write Address (AW) channel.
+   *
+   * In case of an L1 hit: If ACP is enabled, use the `wmaster_select` signal to route the signals
+   * to either master 0 (to memory) or master 1 (to ACP).  If ACP is disabled, route the signals to
+   * master 0.
+   * In case of an L1 miss: Route the signals to both masters.  They shall be stored until the L2
+   * outputs are available.
    */
-  // In case of L1 Hit, send the signals to the correct master.
-  // In case of L1 Miss, send the signals to both masters. They will be stored till L2 outputs are available.
-  always_comb
-    begin
-       if(int_wmaster_select[i] == 1'b0 && int_wtrans_accept[i])
-         begin
-            int_m0_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m0_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m0_awvalid[i]        = int_awvalid[i];
-  
-            int_m1_wtrans_accept[i]  = 1'b0;
-            l1_m1_wtrans_drop[i]     = 1'b0;
-            int_m1_awvalid[i]        = 1'b0;
-         end
-       else if (int_wmaster_select[i] == 1'b1 && int_wtrans_accept[i])
-         begin
-            int_m0_wtrans_accept[i]  = 1'b0;
-            l1_m0_wtrans_drop[i]     = 1'b0;
-            int_m0_awvalid[i]        = 1'b0;
-            
-            int_m1_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m1_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m1_awvalid[i]        = int_awvalid[i];
-         end 
-       else // L1 drop
-         begin
-            int_m0_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m0_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m0_awvalid[i]        = int_awvalid[i];
-            
-            int_m1_wtrans_accept[i]  = int_wtrans_accept[i];
-            l1_m1_wtrans_drop[i]     = l1_wtrans_drop[i];
-            int_m1_awvalid[i]        = int_awvalid[i];
-         end    
-    end // always_comb begin
-  
-  always_comb
-    begin
-       if (int_wmaster_select[i] == 1'b1)
-         begin
-            int_wtrans_sent[i]       = int_m1_wtrans_sent[i];
-            int_awready[i]           = int_m1_awready[i];   
-         end
-       else
-         begin
-            int_wtrans_sent[i]       = int_m0_wtrans_sent[i];
-            int_awready[i]           = int_m0_awready[i];
-         end
-    end            
-  
+  always_comb begin
+
+    int_m0_wtrans_accept[i] = int_wtrans_accept[i];
+    l1_m0_wtrans_drop[i]    = l1_wtrans_drop[i];
+    int_m0_awvalid[i]       = int_awvalid[i];
+
+    int_wtrans_sent[i]      = int_m0_wtrans_sent[i];
+    int_awready[i]          = int_m0_awready[i];
+
+    if (int_wtrans_accept[i]) begin
+
+      int_m1_wtrans_accept[i] = 1'b0;
+      l1_m1_wtrans_drop[i]    = 1'b0;
+      int_m1_awvalid[i]       = 1'b0;
+
+      `ifdef EN_ACP
+        if (int_wmaster_select[i] == 1'b1) begin
+
+          int_m0_wtrans_accept[i] = 1'b0;
+          l1_m0_wtrans_drop[i]    = 1'b0;
+          int_m0_awvalid[i]       = 1'b0;
+
+          int_m1_wtrans_accept[i] = int_wtrans_accept[i];
+          l1_m1_wtrans_drop[i]    = l1_wtrans_drop[i];
+          int_m1_awvalid[i]       = int_awvalid[i];
+
+          int_wtrans_sent[i]      = int_m1_wtrans_sent[i];
+          int_awready[i]          = int_m1_awready[i];
+
+        end
+      `endif
+
+    end else begin
+
+      int_m1_wtrans_accept[i] = int_wtrans_accept[i];
+      l1_m1_wtrans_drop[i]    = l1_wtrans_drop[i];
+      int_m1_awvalid[i]       = int_awvalid[i];
+
+    end
+
+  end
+
   always_comb
     begin
        if (l2_master_select[i] == 1'b1)
@@ -864,7 +899,11 @@ module axi_rab_top
       .data_out({master_select_fifo_out[i],int_wtrans_was_accept[i]}),
       .valid_out(master_select_fifo_not_empty[i]),
       .ready_out(master_select_fifo_not_full[i]),
-      .data_in({int_wmaster_select[i],int_wtrans_accept[i]}),
+      `ifdef EN_ACP
+        .data_in({int_wmaster_select[i],int_wtrans_accept[i]}),
+      `else
+        .data_in({1'b0,                 int_wtrans_accept[i]}),
+      `endif
       .valid_in(w_new_rab_output[i]),
       .ready_in(int_wlast[i] && int_wready[i] && int_wvalid[i])
     );
@@ -1161,10 +1200,31 @@ module axi_rab_top
         .m_axi4_arburst  (m0_axi4_arburst[i]),
         .m_axi4_arlock   (m0_axi4_arlock[i]),
         .m_axi4_arprot   (m0_axi4_arprot[i]),
-        .m_axi4_arcache  (m0_axi4_arcache[i]),
+        `ifndef EN_ACP
+          // If RAB is not connected to an ACP, the AWCACHE signal cannot simply be forwarded to the
+          // host, but has to be set according to burstiness and cache coherence (implemented
+          // below).
+          .m_axi4_arcache(),
+        `else
+          .m_axi4_arcache(m0_axi4_arcache[i]),
+        `endif
         .m_axi4_aruser   (m0_axi4_aruser[i])
       );
-     
+    `ifndef EN_ACP
+      assign read_is_burst[i] = (m0_axi4_arlen[i] != {8{1'b0}}) && (m0_axi4_arburst[i] != 2'b00);
+      always_comb begin
+        if (int_rtrans_cache_coherent[i]) begin
+          if (read_is_burst[i]) begin
+            m0_axi4_arcache[i] = 4'b0111;
+          end else begin
+            m0_axi4_arcache[i] = 4'b1111;
+          end
+        end else begin
+          m0_axi4_arcache[i] = 4'b0011;
+        end
+      end
+    `endif
+
      axi4_ar_sender
       #(
         .AXI_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
@@ -1206,61 +1266,58 @@ module axi_rab_top
         .m_axi4_arcache  (m1_axi4_arcache[i]),
         .m_axi4_aruser   (m1_axi4_aruser[i])
       );
-  
-  /* 
-   * Multiplexer to switch between the two output master ports on the read address(ar) channel
+
+  /**
+   * Multiplex the two output master ports of the Read Address (AR) channel.
+   *
+   * In case of an L1 hit: If ACP is enabled, use the `rmaster_select` signal to route the signals
+   * to either master 0 (to memory) or master 1 (to ACP).  If ACP is disabled, route the signals to
+   * master 0.
+   * In case of an L1 miss: Route the signals to both masters.  They shall be stored until the L2
+   * outputs are available.
    */
-  
-  // In case of L1 Hit, send the signals to the correct master.
-  // In case of L1 Miss, send the signals to both masters. They will be stored till L2 outputs are available.
-  always_comb
-    begin
-      if (int_rmaster_select[i] == 1'b0 && int_rtrans_accept[i])
-        begin
-          int_m0_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m0_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m0_arvalid[i]        = int_arvalid[i];
-  
-          int_m1_rtrans_accept[i]  = 1'b0;
-          l1_m1_rtrans_drop[i]     = 1'b0;
-          int_m1_arvalid[i]        = 1'b0;
+  always_comb begin
+
+    int_m0_rtrans_accept[i] = int_rtrans_accept[i];
+    l1_m0_rtrans_drop[i]    = l1_rtrans_drop[i];
+    int_m0_arvalid[i]       = int_arvalid[i];
+
+    int_rtrans_sent[i]      = int_m0_rtrans_sent[i];
+    int_arready[i]          = int_m0_arready[i];
+
+    if (int_rtrans_accept[i]) begin
+
+      int_m1_rtrans_accept[i] = 1'b0;
+      l1_m1_rtrans_drop[i]    = 1'b0;
+      int_m1_arvalid[i]       = 1'b0;
+
+      `ifdef EN_ACP
+        if (int_rmaster_select[i] == 1'b1) begin
+
+          int_m0_rtrans_accept[i] = 1'b0;
+          l1_m0_rtrans_drop[i]    = 1'b0;
+          int_m0_arvalid[i]       = 1'b0;
+
+          int_m1_rtrans_accept[i] = int_rtrans_accept[i];
+          l1_m1_rtrans_drop[i]    = l1_rtrans_drop[i];
+          int_m1_arvalid[i]       = int_arvalid[i];
+
+          int_rtrans_sent[i]      = int_m1_rtrans_sent[i];
+          int_arready[i]          = int_m1_arready[i];
+
         end
-      else if (int_rmaster_select[i] == 1'b1 && int_rtrans_accept[i])
-        begin
-          int_m0_rtrans_accept[i]  = 1'b0;
-          l1_m0_rtrans_drop[i]     = 1'b0;
-          int_m0_arvalid[i]        = 1'b0;
-          
-          int_m1_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m1_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m1_arvalid[i]        = int_arvalid[i];
-        end 
-      else // L1 drop
-        begin
-          int_m0_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m0_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m0_arvalid[i]        = int_arvalid[i];
-          
-          int_m1_rtrans_accept[i]  = int_rtrans_accept[i];
-          l1_m1_rtrans_drop[i]     = l1_rtrans_drop[i];
-          int_m1_arvalid[i]        = int_arvalid[i];
-        end    
-    end // always_comb begin
-  
-  always_comb
-    begin
-      if(int_rmaster_select[i] == 1'b1)
-        begin
-          int_rtrans_sent[i]       = int_m1_rtrans_sent[i];
-          int_arready[i]           = int_m1_arready[i];   
-        end
-      else
-        begin
-          int_rtrans_sent[i]       = int_m0_rtrans_sent[i];
-          int_arready[i]           = int_m0_arready[i];
-        end
-    end          
-     
+      `endif
+
+    end else begin
+
+      int_m1_rtrans_accept[i] = int_rtrans_accept[i];
+      l1_m1_rtrans_drop[i]    = l1_rtrans_drop[i];
+      int_m1_arvalid[i]       = int_arvalid[i];
+
+    end
+
+  end
+
   always_comb
     begin
        if (l2_master_select[i] == 1'b1)
@@ -1490,6 +1547,8 @@ module axi_rab_top
  rab_core
    #(
      .N_PORTS             ( N_PORTS             ), 
+     .N_L2_SETS           ( N_L2_SETS           ),
+     .N_L2_SET_ENTRIES    ( N_L2_SET_ENTRIES    ),
      .AXI_DATA_WIDTH      ( AXI_DATA_WIDTH      ),
      .AXI_S_ADDR_WIDTH    ( AXI_S_ADDR_WIDTH    ),
      .AXI_M_ADDR_WIDTH    ( AXI_M_ADDR_WIDTH    ),
@@ -1500,59 +1559,59 @@ module axi_rab_top
     )
  u_rab_core
    (
-    .Clk_CI              (Clk_CI),
-    .Rst_RBI             (Rst_RBI),
-    .s_axi_awaddr        (s_axi4lite_awaddr),
-    .s_axi_awvalid       (s_axi4lite_awvalid),
-    .s_axi_awready       (s_axi4lite_awready),
-    .s_axi_wdata         (s_axi4lite_wdata),
-    .s_axi_wstrb         (s_axi4lite_wstrb),
-    .s_axi_wvalid        (s_axi4lite_wvalid),
-    .s_axi_wready        (s_axi4lite_wready),
-    .s_axi_bresp         (s_axi4lite_bresp),
-    .s_axi_bvalid        (s_axi4lite_bvalid),
-    .s_axi_bready        (s_axi4lite_bready),
-    .s_axi_araddr        (s_axi4lite_araddr),
-    .s_axi_arvalid       (s_axi4lite_arvalid),
-    .s_axi_arready       (s_axi4lite_arready),
-    .s_axi_rready        (s_axi4lite_rready),
-    .s_axi_rdata         (s_axi4lite_rdata),
-    .s_axi_rresp         (s_axi4lite_rresp),
-    .s_axi_rvalid        (s_axi4lite_rvalid),
-    .int_miss            (rab_miss),
-    .int_multi           (rab_multi),
-    .int_prot            (rab_prot),
-    .int_mhr_full        (int_mhr_full),
-    .port1_addr          (int_awaddr),
-    .port1_id            (int_awid),                                                                                
-    .port1_len           (int_awlen),
-    .port1_size          (int_awsize),
-    .port1_addr_valid    (int_awvalid),
-    .port1_type          ('1),
-    .port1_ctrl          (int_awuser),
-    .port1_sent          (int_wtrans_sent),
-    .port1_out_addr      (int_wtrans_addr),
-    .port1_master_select (int_wmaster_select),      
-    .port1_accept        (int_wtrans_accept),
-    .port1_drop          (int_wtrans_drop),
-    .port2_addr          (int_araddr),
-    .port2_id            (int_arid),
-    .port2_len           (int_arlen),
-    .port2_size          (int_arsize),
-    .port2_addr_valid    (int_arvalid),
-    .port2_type          ('0),
-    .port2_ctrl          (int_aruser),
-    .port2_sent          (int_rtrans_sent),
-    .port2_out_addr      (int_rtrans_addr),
-    .port2_master_select (int_rmaster_select),      
-    .port2_accept        (int_rtrans_accept),
-    .port2_drop          (int_rtrans_drop),
-    .miss_l2             (miss_l2),     
-    .miss_addr_l2        (l2_in_addr_reg),
-    .miss_id_l2          (trans_id_l2),  
-    .wdata_tlb_l2        (wdata_tlb_l2),
-    .waddr_tlb_l2        (waddr_tlb_l2),
-    .wren_tlb_l2         (wren_tlb_l2)      
+    .Clk_CI               (Clk_CI),
+    .Rst_RBI              (Rst_RBI),
+    .s_axi_awaddr         (s_axi4lite_awaddr),
+    .s_axi_awvalid        (s_axi4lite_awvalid),
+    .s_axi_awready        (s_axi4lite_awready),
+    .s_axi_wdata          (s_axi4lite_wdata),
+    .s_axi_wstrb          (s_axi4lite_wstrb),
+    .s_axi_wvalid         (s_axi4lite_wvalid),
+    .s_axi_wready         (s_axi4lite_wready),
+    .s_axi_bresp          (s_axi4lite_bresp),
+    .s_axi_bvalid         (s_axi4lite_bvalid),
+    .s_axi_bready         (s_axi4lite_bready),
+    .s_axi_araddr         (s_axi4lite_araddr),
+    .s_axi_arvalid        (s_axi4lite_arvalid),
+    .s_axi_arready        (s_axi4lite_arready),
+    .s_axi_rready         (s_axi4lite_rready),
+    .s_axi_rdata          (s_axi4lite_rdata),
+    .s_axi_rresp          (s_axi4lite_rresp),
+    .s_axi_rvalid         (s_axi4lite_rvalid),
+    .int_miss             (rab_miss),
+    .int_multi            (rab_multi),
+    .int_prot             (rab_prot),
+    .int_mhr_full         (int_mhr_full),
+    .port1_addr           (int_awaddr),
+    .port1_id             (int_awid),
+    .port1_len            (int_awlen),
+    .port1_size           (int_awsize),
+    .port1_addr_valid     (int_awvalid),
+    .port1_type           ('1),
+    .port1_ctrl           (int_awuser),
+    .port1_sent           (int_wtrans_sent),
+    .port1_out_addr       (int_wtrans_addr),
+    .port1_cache_coherent (int_wtrans_cache_coherent),
+    .port1_accept         (int_wtrans_accept),
+    .port1_drop           (int_wtrans_drop),
+    .port2_addr           (int_araddr),
+    .port2_id             (int_arid),
+    .port2_len            (int_arlen),
+    .port2_size           (int_arsize),
+    .port2_addr_valid     (int_arvalid),
+    .port2_type           ('0),
+    .port2_ctrl           (int_aruser),
+    .port2_sent           (int_rtrans_sent),
+    .port2_out_addr       (int_rtrans_addr),
+    .port2_cache_coherent (int_rtrans_cache_coherent),
+    .port2_accept         (int_rtrans_accept),
+    .port2_drop           (int_rtrans_drop),
+    .miss_l2              (miss_l2),
+    .miss_addr_l2         (l2_in_addr_reg),
+    .miss_id_l2           (trans_id_l2),
+    .wdata_tlb_l2         (wdata_tlb_l2),
+    .waddr_tlb_l2         (waddr_tlb_l2),
+    .wren_tlb_l2          (wren_tlb_l2)
     );
 // }}}
 
@@ -1582,29 +1641,29 @@ module axi_rab_top
           .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                                           ),   
           .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                                        ),   
           .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                                        ),
-          .SET                    ( L2TLB_NUM_SETS                                             ),
-          .NUM_OFFSET             ( L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL                 ), 
-          .PARALLEL_NUM           ( L2TLB_PARALLEL                                             ),
-          .HIT_OFFSET_STORE_WIDTH ( log2(L2TLB_NUM_ENTRIES_PER_SET/2/L2TLB_PARALLEL)           )
+          .SET                    ( `RAB_L2_N_SETS                                             ),
+          .NUM_OFFSET             ( `RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS              ),
+          .PARALLEL_NUM           ( `RAB_L2_N_PAR_VA_RAMS                                      ),
+          .HIT_OFFSET_STORE_WIDTH ( log2(`RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS)        )
           ) 
       u_tlb_l2
         (
-          .clk_i            (Clk_CI),
-          .rst_ni           (Rst_RBI),
-          .in_addr          (l2_in_addr[i]),
-          .rw_type          (l2_rw_type_comb[i]),
-          .l1_miss          (l1_miss[i]),
-          .we               (wren_tlb_l2[i]),
-          .waddr            (waddr_tlb_l2[i]),
-          .wdata            (wdata_tlb_l2[i]),
-          .l2_trans_sent    (l2_trans_sent[i]),
-          .miss_l2          (miss_l2[i]),
-          .hit_l2           (hit_l2[i]),
-          .multiple_hit_l2  (multi_l2[i]),
-          .prot_l2          (prot_l2[i]),
-          .l2_busy          (l2_busy[i]),
-          .l2_master_select (l2_master_select[i]),
-          .out_addr         (l2_out_addr[i])
+          .clk_i              (Clk_CI),
+          .rst_ni             (Rst_RBI),
+          .in_addr            (l2_in_addr[i]),
+          .rw_type            (l2_rw_type_comb[i]),
+          .l1_miss            (l1_miss[i]),
+          .we                 (wren_tlb_l2[i]),
+          .waddr              (waddr_tlb_l2[i]),
+          .wdata              (wdata_tlb_l2[i]),
+          .l2_trans_sent      (l2_trans_sent[i]),
+          .miss_l2            (miss_l2[i]),
+          .hit_l2             (hit_l2[i]),
+          .multiple_hit_l2    (multi_l2[i]),
+          .prot_l2            (prot_l2[i]),
+          .l2_busy            (l2_busy[i]),
+          .l2_cache_coherent  (l2_cache_coherent[i]),
+          .out_addr           (l2_out_addr[i])
         );
       
       /*
@@ -1715,6 +1774,10 @@ module axi_rab_top
               end else
                 l2_next_state[i]   = L2_IDLE;
            end // case: L1_MULTI_PROT_1           
+
+           default : begin
+              l2_next_state[i] = L2_IDLE;
+           end
            
          endcase // case (l2_state[i])
       end // always_comb begin
@@ -1833,7 +1896,6 @@ module axi_rab_top
       assign l2_wtrans_addr[i]   = 0;
       assign l2_rtrans_addr[i]   = 0;
       assign trans_id_l2[i]      = 0;
-      assign l2_master_select[i] = 1'b0;
       
       assign l1_wtrans_drop[i] = int_wtrans_drop[i];
       assign l1_rtrans_drop[i] = int_rtrans_drop[i];

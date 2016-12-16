@@ -1,3 +1,5 @@
+`include "ulpsoc_defines.sv"
+
 import CfMath::log2;
 
 //`define TLB_MULTIHIT
@@ -28,7 +30,7 @@ module tlb_l2
     output logic                           multiple_hit_l2,
     output logic                           prot_l2,
     output logic                           l2_busy, 
-    output logic                           l2_master_select,
+    output logic                           l2_cache_coherent,
     output logic    [AXI_M_ADDR_WIDTH-1:0] out_addr   
     );
 
@@ -45,6 +47,7 @@ module tlb_l2
    logic [PARALLEL_NUM-1:0]                                ram_we;
    logic                                                   last_search;
    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    ram_waddr;
+   logic [AXI_S_ADDR_WIDTH-1:0]                            va_ram_wdata;
    logic [PARALLEL_NUM-1:0] [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
    logic                                                   pa_ram_we, read_pa;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
@@ -56,7 +59,7 @@ module tlb_l2
    logic                                                   send_outputs; 
    int                                                     hit_block_num;
    logic                                                   multi_hit_top;
-   logic [PARALLEL_NUM-1:0]                                master_select;
+   logic [PARALLEL_NUM-1:0]                                cache_coherent;
       
    logic                                                   searching, search_done;
    logic                                                   searching_next;
@@ -86,10 +89,23 @@ module tlb_l2
    logic                                                   hit_l2_next;
    logic                                                   prot_l2_next;
    logic                                                   multiple_hit_l2_next;
-   logic                                                   l2_master_select_next;   
+   logic                                                   l2_cache_coherent_next;
 
    logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr, offset_first_addr;
         
+   // Extract 32-bit word to be written to VA RAMs from 64-bit data input.
+   generate
+      if (`AXI_LITE_DATA_WIDTH == 64) begin
+         assign va_ram_wdata = (waddr[2] == 1'b1) ? wdata[63:32] : wdata[31:0];
+      end
+      else if (`AXI_LITE_DATA_WIDTH == 32) begin
+         assign va_ram_wdata = wdata[31:0];
+      end
+      else begin
+         $fatal(1, "Unsupported AXI_LITE_DATA_WIDTH!");
+      end
+   endgenerate
+
    // Generate the VA Block rams and their surrounding logic
    generate
       for (z = 0; z < PARALLEL_NUM; z++) begin
@@ -109,13 +125,13 @@ module tlb_l2
               .ram_we        ( ram_we[z]                   ),
               .port0_addr    ( port0_addr                  ),
               .port1_addr    ( port1_addr                  ),
-              .ram_wdata     ( wdata[AXI_S_ADDR_WIDTH-1:0] ),
+              .ram_wdata     ( va_ram_wdata                ),
               .send_outputs  ( send_outputs                ),
               .searching     ( searching                   ),
               .offset_addr_d ( offset_addr_d               ),
               .start_search  ( l1_miss                     ),
               .hit_addr      ( hit_addr[z]                 ),
-              .master        ( master_select[z]            ),
+              .master        ( cache_coherent[z]           ),
               .hit           ( hit[z]                      ),
               .multi_hit     ( multi_hit[z]                ),
               .prot          ( prot[z]                     )
@@ -171,6 +187,10 @@ module tlb_l2
         DONE : begin          
           if (l2_trans_sent || miss_l2 || prot_l2 || multiple_hit_l2)
             cntrl_SN = IDLE;
+        end
+
+        default : begin
+          cntrl_SN = IDLE;
         end
       endcase // case (prot_SP)
    end // always_comb begin
@@ -303,14 +323,14 @@ module tlb_l2
    end
    
    always_comb begin
-      out_SN                = out_SP;
-      l2_master_select_next = l2_master_select;
-      send_outputs          = 1'b0;
-      hit_l2_next           = 1'b0;
-      miss_l2_next          = 1'b0;
-      prot_l2_next          = 1'b0;
-      multiple_hit_l2_next  = 1'b0;
-      pa_port0_raddr        = 0;
+      out_SN                  = out_SP;
+      l2_cache_coherent_next  = l2_cache_coherent;
+      send_outputs            = 1'b0;
+      hit_l2_next             = 1'b0;
+      miss_l2_next            = 1'b0;
+      prot_l2_next            = 1'b0;
+      multiple_hit_l2_next    = 1'b0;
+      pa_port0_raddr          = 0;
       unique case (out_SP)
         OUT_IDLE :
           if (multi_hit_top || prot_top || (search_done && ~hit_top)) begin // No Hit
@@ -326,7 +346,7 @@ module tlb_l2
              //pa_port0_raddr = (VA_RAM_DEPTH * hit_block_num) + hit_addr[hit_block_num];
              pa_port0_raddr = (PARALLEL_NUM * hit_addr[hit_block_num]) + hit_block_num;
              hit_l2_next    = 1'b1;
-             l2_master_select_next = master_select[hit_block_num];
+             l2_cache_coherent_next = cache_coherent[hit_block_num];
           end             
         
         SEND_OUTPUT : begin
@@ -334,27 +354,32 @@ module tlb_l2
            send_outputs = 1'b1;
         end
                
-        OUT_SENT :
+        OUT_SENT : begin
           if (l1_miss)
             out_SN = OUT_IDLE;
-               
-               
+        end
+
+        default : begin
+           out_SN = OUT_IDLE;
+        end
+
       endcase // case (out_SP)
    end // always_comb begin
 
    //// Output signals
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
-         miss_l2         <= 1'b0;
-         prot_l2         <= 1'b0;
-         multiple_hit_l2 <= 1'b0;
-         hit_l2          <= 1'b0;
+         miss_l2           <= 1'b0;
+         prot_l2           <= 1'b0;
+         multiple_hit_l2   <= 1'b0;
+         hit_l2            <= 1'b0;
+         l2_cache_coherent <= 1'b0;
       end else begin
-         miss_l2         <= miss_l2_next;
-         prot_l2         <= prot_l2_next;
-         multiple_hit_l2 <= multiple_hit_l2_next;
-         hit_l2          <= hit_l2_next ;   
-         l2_master_select <= l2_master_select_next;
+         miss_l2           <= miss_l2_next;
+         prot_l2           <= prot_l2_next;
+         multiple_hit_l2   <= multiple_hit_l2_next;
+         hit_l2            <= hit_l2_next;
+         l2_cache_coherent <= l2_cache_coherent_next;
       end
    end
    
@@ -416,3 +441,5 @@ assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];
 assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
 
 endmodule
+
+// vim: ts=3 sw=3 sts=3 et nosmartindent autoindent foldmethod=marker tw=100
