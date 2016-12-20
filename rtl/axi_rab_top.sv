@@ -1215,7 +1215,7 @@ module axi_rab_top
       always_comb begin
         if (int_rtrans_cache_coherent[i]) begin
           if (read_is_burst[i]) begin
-            m0_axi4_arcache[i] = 4'b0111;
+            m0_axi4_arcache[i] = 4'b1011;
           end else begin
             m0_axi4_arcache[i] = 4'b1111;
           end
