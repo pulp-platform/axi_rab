@@ -401,9 +401,11 @@ module axi_rab_cfg
           end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
         logic l2_addr_is_in_va_rams, upper_word_is_written, lower_word_is_written;
-        assign l2_addr_is_in_va_rams = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
-        assign upper_word_is_written = (wstrb_reg[7:4] != 4'b0000) && wren_l2[j];
-        assign lower_word_is_written = (wstrb_reg[3:0] != 4'b0000) && wren_l2[j];
+        if (AXI_DATA_WIDTH == 64) begin
+          assign l2_addr_is_in_va_rams = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
+          assign upper_word_is_written = (wstrb_reg[7:4] != 4'b0000) && wren_l2[j];
+          assign lower_word_is_written = (wstrb_reg[3:0] != 4'b0000) && wren_l2[j];
+        end
 
         // Word address calculation:  Add an offset of one 32-bit word to the address if upper the
         // 32-bit word is to be written to VA RAMs from 64-bit data input.
@@ -424,15 +426,17 @@ module axi_rab_cfg
         // Assert that only one 32-bit word is ever written at a time to VA RAMs on 64-bit data
         // systems.
         always_ff @ (posedge Clk_CI) begin
-          if (AXI_DATA_WIDTH == 64 && l2_addr_is_in_va_rams) begin
+          if (AXI_DATA_WIDTH == 64) begin
+            if  (l2_addr_is_in_va_rams) begin
               if (upper_word_is_written) begin
                 assert (!lower_word_is_written)
-                    else $error("Unsupported write across two 32-bit words to VA RAMs!");
+                  else $error("Unsupported write across two 32-bit words to VA RAMs!");
               end
               else if (lower_word_is_written) begin
                 assert (!upper_word_is_written)
-                    else $error("Unsupported write across two 32-bit words to VA RAMs!");
+                  else $error("Unsupported write across two 32-bit words to VA RAMs!");
               end
+            end
           end
         end
 
