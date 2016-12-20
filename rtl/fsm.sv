@@ -98,9 +98,9 @@ module fsm
              port1_drop_SN        = port1_addr_valid &  select &  (no_hit | multiple_hit | ~no_prot | port1_skip);
              port2_accept_SN      = port2_addr_valid & ~select & ~(no_hit | multiple_hit | ~no_prot | port2_skip);
              port2_drop_SN        = port2_addr_valid & ~select &  (no_hit | multiple_hit | ~no_prot | port2_skip);
-             int_miss_SN          = (port1_addr_valid || port2_addr_valid) & no_hit;
-             int_multi_SN         = (port1_addr_valid || port2_addr_valid) & multiple_hit;
-             int_prot_SN          = (port1_addr_valid || port2_addr_valid) & ~no_prot;
+             int_miss_SN          = (port1_addr_valid | port2_addr_valid) & no_hit;
+             int_multi_SN         = (port1_addr_valid | port2_addr_valid) & multiple_hit;
+             int_prot_SN          = (port1_addr_valid | port2_addr_valid) & ~no_prot;
              out_addr_reg_SN      = out_addr;
              cache_coherent_reg_SN = cache_coherent;
           end
