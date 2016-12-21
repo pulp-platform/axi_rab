@@ -543,7 +543,8 @@ module axi_rab_top
   // ██████╔╝╚██████╔╝██║         ██████║      ███████║███████╗██║ ╚████║██████╔╝
   // ╚═════╝  ╚═════╝ ╚═╝         ╚═════╝      ╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ 
   // 
-  logic[N_PORTS-1:0] write_is_burst, read_is_burst;
+  logic[N_PORTS-1:0] m0_write_is_burst, m0_read_is_burst;
+  logic[N_PORTS-1:0] m1_write_is_burst, m1_read_is_burst;
   generate for (i = 0; i < N_PORTS; i++) begin
      
   // Write Address channel (aw) {{{
@@ -638,22 +639,18 @@ module axi_rab_top
       .m_axi4_awburst  (m0_axi4_awburst[i]),
       .m_axi4_awlock   (m0_axi4_awlock[i]),
       .m_axi4_awprot   (m0_axi4_awprot[i]),
-      `ifndef EN_ACP
-        // If RAB is not connected to an ACP, the AWCACHE signal cannot simply be forwarded to the
-        // host, but has to be set according to burstiness and cache coherence (implemented below).
-        .m_axi4_awcache(),
-      `else
-        .m_axi4_awcache(m0_axi4_awcache[i]),
-      `endif
+      .m_axi4_awcache  (),
       .m_axi4_awregion (m0_axi4_awregion[i]),
       .m_axi4_awqos    (m0_axi4_awqos[i]),
       .m_axi4_awuser   (m0_axi4_awuser[i])
     );
+  // The AXCACHE signals are set according to burstiness and cache coherence or statically
+  // when not connected to ACP on Zynq (implemented below).
   `ifndef EN_ACP
-    assign write_is_burst[i] = (m0_axi4_awlen[i] != {8{1'b0}}) && (m0_axi4_awburst[i] != 2'b00);
+    assign m0_write_is_burst[i] = (m0_axi4_awlen[i] != {8{1'b0}}) && (m0_axi4_awburst[i] != 2'b00);
     always_comb begin
       if (int_wtrans_cache_coherent[i]) begin
-        if (write_is_burst[i]) begin
+        if (m0_write_is_burst[i]) begin
           m0_axi4_awcache[i] = 4'b0111;
         end else begin
           m0_axi4_awcache[i] = 4'b1111;
@@ -662,6 +659,8 @@ module axi_rab_top
         m0_axi4_awcache[i] = 4'b0011;
       end
     end
+  `else
+    assign m0_axi4_awcache[i] = 4'b0011;
   `endif
 
     axi4_aw_sender
@@ -705,11 +704,24 @@ module axi_rab_top
       .m_axi4_awburst  (m1_axi4_awburst[i]),
       .m_axi4_awlock   (m1_axi4_awlock[i]),
       .m_axi4_awprot   (m1_axi4_awprot[i]),
-      .m_axi4_awcache  (m1_axi4_awcache[i]),
+      .m_axi4_awcache  (),
       .m_axi4_awregion (m1_axi4_awregion[i]),
       .m_axi4_awqos    (m1_axi4_awqos[i]),
       .m_axi4_awuser   (m1_axi4_awuser[i])
     );
+    // The AXCACHE signals are set according to burstiness and cache coherence or statically
+    // when not connected to ACP on Zynq (implemented below).
+    `ifdef EN_ACP
+      assign m1_write_is_burst[i] = (m1_axi4_awlen[i] != {8{1'b0}}) && (m1_axi4_awburst[i] != 2'b00);
+      always_comb begin
+        if (m1_write_is_burst[i]) begin
+          m1_axi4_awcache[i] = 4'b1011;
+        end else begin
+          m1_axi4_awcache[i] = 4'b1111;
+        end
+      end
+    `endif
+
 
   /**
    * Multiplex the two output master ports of the Write Address (AW) channel.
@@ -1200,21 +1212,16 @@ module axi_rab_top
         .m_axi4_arburst  (m0_axi4_arburst[i]),
         .m_axi4_arlock   (m0_axi4_arlock[i]),
         .m_axi4_arprot   (m0_axi4_arprot[i]),
-        `ifndef EN_ACP
-          // If RAB is not connected to an ACP, the AWCACHE signal cannot simply be forwarded to the
-          // host, but has to be set according to burstiness and cache coherence (implemented
-          // below).
-          .m_axi4_arcache(),
-        `else
-          .m_axi4_arcache(m0_axi4_arcache[i]),
-        `endif
+        .m_axi4_arcache  (),
         .m_axi4_aruser   (m0_axi4_aruser[i])
       );
+    // The AXCACHE signals are set according to burstiness and cache coherence or statically
+    // when not connected to ACP on Zynq (implemented below).
     `ifndef EN_ACP
-      assign read_is_burst[i] = (m0_axi4_arlen[i] != {8{1'b0}}) && (m0_axi4_arburst[i] != 2'b00);
+      assign m0_read_is_burst[i] = (m0_axi4_arlen[i] != {8{1'b0}}) && (m0_axi4_arburst[i] != 2'b00);
       always_comb begin
         if (int_rtrans_cache_coherent[i]) begin
-          if (read_is_burst[i]) begin
+          if (m0_read_is_burst[i]) begin
             m0_axi4_arcache[i] = 4'b1011;
           end else begin
             m0_axi4_arcache[i] = 4'b1111;
@@ -1223,6 +1230,8 @@ module axi_rab_top
           m0_axi4_arcache[i] = 4'b0011;
         end
       end
+    `else
+      assign m0_axi4_arcache[i] = 4'b0011;
     `endif
 
      axi4_ar_sender
@@ -1263,9 +1272,21 @@ module axi_rab_top
         .m_axi4_arburst  (m1_axi4_arburst[i]),
         .m_axi4_arlock   (m1_axi4_arlock[i]),
         .m_axi4_arprot   (m1_axi4_arprot[i]),
-        .m_axi4_arcache  (m1_axi4_arcache[i]),
+        .m_axi4_arcache  (),
         .m_axi4_aruser   (m1_axi4_aruser[i])
       );
+    // The AXCACHE signals are set according to burstiness and cache coherence or statically
+    // when not connected to ACP on Zynq (implemented below).
+    `ifdef EN_ACP
+      assign m1_read_is_burst[i] = (m1_axi4_arlen[i] != {8{1'b0}}) && (m1_axi4_arburst[i] != 2'b00);
+      always_comb begin
+        if (m1_read_is_burst[i]) begin
+          m1_axi4_arcache[i] = 4'b1011;
+        end else begin
+          m1_axi4_arcache[i] = 4'b1111;
+        end
+      end
+    `endif
 
   /**
    * Multiplex the two output master ports of the Read Address (AR) channel.
