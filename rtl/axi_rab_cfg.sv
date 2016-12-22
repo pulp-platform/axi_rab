@@ -493,7 +493,7 @@ module axi_rab_cfg
             AddrFifoWen_S = 1'b1;
             AddrFifoDin_D = MissAddr_DI;
          end
-       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:ADDR_LSB] == 'b0) ) // write request from AXI interface
+       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 'b0) ) // write request from AXI interface
          begin
             AddrFifoWen_S = 1'b1;
             AddrFifoDin_D = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
@@ -510,7 +510,7 @@ module axi_rab_cfg
             IdFifoWen_S                    = 1'b1;
             IdFifoDin_D[MISS_ID_WIDTH-1:0] = MissId_DI;
          end
-       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:ADDR_LSB] == 4'h8) ) // write request from AXI interface
+       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'h8) ) // write request from AXI interface
          begin
             IdFifoWen_S = 1'b1;
             IdFifoDin_D = wdata_reg_vec[MISS_ID_WIDTH-1:0];
@@ -526,7 +526,7 @@ module axi_rab_cfg
        if ( rvalid == 1'b1 )
          begin
             // read Addr FIFO
-            if ( araddr_reg[ADDR_MSB:ADDR_LSB] == 'b0 )
+            if ( araddr_reg[ADDR_MSB:0] == 'b0 )
               begin
                 s_axi_rdata[AXI_DATA_WIDTH-1]                                = AddrFifoEmpty_S;
                 s_axi_rdata[AXI_DATA_WIDTH-2:AXI_DATA_WIDTH-ADDR_WIDTH_VIRT] = 'b0;
@@ -535,7 +535,7 @@ module axi_rab_cfg
                   AddrFifoRen_S <= 1'b1;
               end
             // read Id FIFO
-            else if ( araddr_reg[ADDR_MSB:ADDR_LSB] == 4'h8 )
+            else if ( araddr_reg[ADDR_MSB:0] == 4'h8 )
               begin
                 s_axi_rdata[AXI_DATA_WIDTH-1]               = IdFifoEmpty_S;
                 s_axi_rdata[AXI_DATA_WIDTH-2:MISS_ID_WIDTH] = 'b0;
