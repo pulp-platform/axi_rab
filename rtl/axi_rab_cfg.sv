@@ -528,18 +528,17 @@ module axi_rab_cfg
             // read Addr FIFO
             if ( araddr_reg[ADDR_MSB:0] == 'b0 )
               begin
-                s_axi_rdata[AXI_DATA_WIDTH-1]                                = AddrFifoEmpty_S;
-                s_axi_rdata[AXI_DATA_WIDTH-2:AXI_DATA_WIDTH-ADDR_WIDTH_VIRT] = 'b0;
-                s_axi_rdata[ADDR_WIDTH_VIRT-1:0]                             = AddrFifoDout_D;
+                s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
+                s_axi_rdata[ADDR_WIDTH_VIRT-1:0] = AddrFifoDout_D;
                 if ( AddrFifoEmpty_S == 1'b0 )
                   AddrFifoRen_S <= 1'b1;
               end
             // read Id FIFO
             else if ( araddr_reg[ADDR_MSB:0] == 4'h8 )
               begin
-                s_axi_rdata[AXI_DATA_WIDTH-1]               = IdFifoEmpty_S;
-                s_axi_rdata[AXI_DATA_WIDTH-2:MISS_ID_WIDTH] = 'b0;
-                s_axi_rdata[MISS_ID_WIDTH-1:0]              = IdFifoDout_D;
+                s_axi_rdata                    = {AXI_DATA_WIDTH{1'b0}};
+                s_axi_rdata[31]                = IdFifoEmpty_S;
+                s_axi_rdata[MISS_ID_WIDTH-1:0] = IdFifoDout_D;
                 if ( IdFifoEmpty_S == 1'b0 )
                   IdFifoRen_S <= 1'b1;
               end
