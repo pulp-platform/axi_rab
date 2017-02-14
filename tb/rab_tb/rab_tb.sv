@@ -83,7 +83,7 @@ module rab_tb
     .AXI_DATA_WIDTH ( C_AXICFG_DATA_WIDTH )
     ) rab_lite();
    
-   logic        intr_mhr_full_o;       
+   logic        intr_mhf_full_o;       
    logic        intr_miss_o;      
    logic        intr_multi_o;     
    logic        intr_prot_o;      
@@ -125,7 +125,7 @@ module rab_tb
       .intr_miss_o     ( intr_miss_o         ), 
       .intr_multi_o    ( intr_multi_o        ), 
       .intr_prot_o     ( intr_prot_o         ), 
-      .intr_mhr_full_o ( intr_mhr_full_o     )
+      .intr_mhf_full_o ( intr_mhf_full_o     )
     );
    
    ///////////////////////////
@@ -223,14 +223,8 @@ module rab_tb
   (
     .clk_i         ( clk_i  ),
     .rst_ni        ( rst_ni ),
-    .init_ni       ( 1'b1   ),      
     .mem_slave     ( mem_if ),
-    .test_mode_i   ( 1'b0   ),
-    .rm_l2_mem_i   ( '0     ),
-    .wm_l2_mem_i   ( '0     ),
-    .LS_l2_mem_i   ( 1'b0   ),
-    .HS_l2_mem_i   ( 1'b0   ),
-    .sleep_l2_mem_i( 1'b0   )
+    .test_mode_i   ( 1'b0   )
   );
 
   l2_ram
@@ -241,14 +235,8 @@ module rab_tb
   (
     .clk_i         ( clk_i      ),
     .rst_ni        ( rst_ni     ),
-    .init_ni       ( 1'b1       ),      
     .mem_slave     ( mem_if_acp ),
-    .test_mode_i   ( 1'b0       ),
-    .rm_l2_mem_i   ( '0         ),
-    .wm_l2_mem_i   ( '0         ),
-    .LS_l2_mem_i   ( 1'b0       ),
-    .HS_l2_mem_i   ( 1'b0       ),
-    .sleep_l2_mem_i( 1'b0       )
+    .test_mode_i   ( 1'b0       )
   );     
  
    ///////////////////////////

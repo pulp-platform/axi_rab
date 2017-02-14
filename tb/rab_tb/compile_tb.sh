@@ -6,7 +6,7 @@ set LIB=rtl
 set DESIGN=rab
 set LOG=${DESIGN}.log
 
-set PULP_BASE_PATH=~/scratch/juno/big.pulp
+set PULP_BASE_PATH=~/scratch/zc706/big.pulp
 
 ## ATTENTION: Make sure ulpsoc_defines.sv has defines for a single RAB port. The tb supports only 0 port.
 set ULPSOC_DEFINES_PATH=
@@ -68,7 +68,7 @@ vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl
 
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram.sv                                >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/check_ram.sv                          >> ${LOG}
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/tlb_l2.sv                             >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/tlb_l2.sv                             >> ${LOG}
 
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramPort.sv      >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/TdpBramArray.sv  >> ${LOG}
