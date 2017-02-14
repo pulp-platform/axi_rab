@@ -51,7 +51,7 @@ module axi_rab_top
 
   // Parameters {{{
   #(
-    parameter N_PORTS             = 2,
+    parameter N_PORTS             =  2,
     parameter N_L2_SETS           = 32,
     parameter N_L2_SET_ENTRIES    = 32,
     parameter AXI_DATA_WIDTH      = 64,
@@ -60,7 +60,8 @@ module axi_rab_top
     parameter AXI_LITE_DATA_WIDTH = 64,
     parameter AXI_LITE_ADDR_WIDTH = 32,
     parameter AXI_ID_WIDTH        = 10,
-    parameter AXI_USER_WIDTH      = 6
+    parameter AXI_USER_WIDTH      =  6,
+    parameter MH_FIFO_DEPTH       = 16
   )
   // }}}
 
@@ -275,7 +276,7 @@ module axi_rab_top
     output logic                             [N_PORTS-1:0] int_miss,
     output logic                             [N_PORTS-1:0] int_multi,
     output logic                             [N_PORTS-1:0] int_prot,
-    output logic                                           int_mhr_full
+    output logic                                           int_mhf_full
     // }}}
 
   );
@@ -444,6 +445,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                         rab_miss; // L1 RAB miss
   logic [N_PORTS-1:0]                         rab_prot;
   logic [N_PORTS-1:0]                         rab_multi;
+  logic [N_PORTS-1:0]                         rab_prefetch;
 
   //
   // Signals used to support L2 TLB
@@ -473,6 +475,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] trans_awid;
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] trans_arid;
   logic [N_PORTS-1:0]                           wtrans_drop,rtrans_drop; // signals used in rwch,rrch senders
+  logic [N_PORTS-1:0]                           wtrans_prefetch, rtrans_prefetch;
 
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] l2_in_addr, l2_in_addr_reg;
   logic [N_PORTS-1:0]                           l2_wtrans_accept;
@@ -495,10 +498,15 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           l1_multi_or_prot_next;
   logic [N_PORTS-1:0]                           l1_multi_or_prot;
   
-  logic [N_PORTS-1:0]                           update_id, update_id_next;
+  logic [N_PORTS-1:0]                           update_meta, update_meta_next;
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] l2_awid,int_awid_d;
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] l2_arid,int_arid_d;
-  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] trans_id_l2;   
+  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] trans_id_l2;
+  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] l2_awuser,int_awuser_d;
+  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] l2_aruser,int_aruser_d;
+  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] trans_user_l2;
+
+  logic [N_PORTS-1:0]                           prefetch_l2;
     
   genvar           i;
 
@@ -924,7 +932,7 @@ module axi_rab_top
   assign int_dwch_master_select[i] = master_select_fifo_not_empty[i] & master_select_fifo_out[i];
   
   /* 
-   * Multiplexer to switch between the two output master ports on the write data(dw) channel
+   * Multiplexer to switch between the two output master ports on the write data (w) channel
    */
   // In case of L1 miss, signals are stored in both masters.
   // In case of L1 hit, send the signals to the correct master.
@@ -1080,9 +1088,10 @@ module axi_rab_top
       .axi4_aclk      (Clk_CI),
       .axi4_arstn     (Rst_RBI),                          
       .trans_id       (trans_awid[i]),
-      .trans_drop     (wtrans_drop[i]),             
+      .trans_drop     (wtrans_drop[i]),
+      .trans_prefetch (wtrans_prefetch[i]),
       .wlast_received (wlast_received[i]),
-      .response_sent  (response_sent[i]),                                     
+      .response_sent  (response_sent[i]),
       .s_axi4_wvalid  (int_wvalid[i]),
       .s_axi4_wlast   (int_wlast[i]),
       .s_axi4_wready  (int_wready[i]),
@@ -1435,7 +1444,8 @@ module axi_rab_top
       .axi4_aclk     (Clk_CI),
       .axi4_arstn    (Rst_RBI),
       .trans_id      (trans_arid[i]),
-      .trans_drop    (rtrans_drop[i]),                                                                                 
+      .trans_drop    (rtrans_drop[i]),
+      .trans_prefetch(rtrans_prefetch[i]),
       .s_axi4_rid    (s_axi4_rid[i]),
       .s_axi4_rresp  (s_axi4_rresp[i]),
       .s_axi4_rdata  (s_axi4_rdata[i]),
@@ -1602,14 +1612,15 @@ module axi_rab_top
     .int_miss             (rab_miss),
     .int_multi            (rab_multi),
     .int_prot             (rab_prot),
-    .int_mhr_full         (int_mhr_full),
+    .int_prefetch         (rab_prefetch),
+    .int_mhf_full         (int_mhf_full),
     .port1_addr           (int_awaddr),
     .port1_id             (int_awid),
     .port1_len            (int_awlen),
     .port1_size           (int_awsize),
     .port1_addr_valid     (int_awvalid),
     .port1_type           ({N_PORTS{1'b1}}),
-    .port1_ctrl           (int_awuser),
+    .port1_user           (int_awuser),
     .port1_sent           (int_wtrans_sent),
     .port1_out_addr       (int_wtrans_addr),
     .port1_cache_coherent (int_wtrans_cache_coherent),
@@ -1621,7 +1632,7 @@ module axi_rab_top
     .port2_size           (int_arsize),
     .port2_addr_valid     (int_arvalid),
     .port2_type           ({N_PORTS{1'b0}}),
-    .port2_ctrl           (int_aruser),
+    .port2_user           (int_aruser),
     .port2_sent           (int_rtrans_sent),
     .port2_out_addr       (int_rtrans_addr),
     .port2_cache_coherent (int_rtrans_cache_coherent),
@@ -1630,6 +1641,7 @@ module axi_rab_top
     .miss_l2              (miss_l2),
     .miss_addr_l2         (l2_in_addr_reg),
     .miss_id_l2           (trans_id_l2),
+    .miss_user_l2         (trans_user_l2),
     .wdata_tlb_l2         (wdata_tlb_l2),
     .waddr_tlb_l2         (waddr_tlb_l2),
     .wren_tlb_l2          (wren_tlb_l2)
@@ -1695,13 +1707,13 @@ module axi_rab_top
        * It also stores the required signals if l2 is busy during a rab miss.
        * 
        */
-      assign l2_wtrans_accept[i] =  l2_rw_type[i] && hit_l2[i] && ~(multi_l2[i] || prot_l2[i]);
-      assign l2_rtrans_accept[i] = ~l2_rw_type[i] && hit_l2[i] && ~(multi_l2[i] || prot_l2[i]);
-      assign l2_wtrans_drop[i]   =  l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || l1_multi_or_prot_next[i]);
-      assign l2_rtrans_drop[i]   = ~l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || l1_multi_or_prot_next[i]);
+      assign l2_wtrans_accept[i] =  l2_rw_type[i] && hit_l2[i] && ~(multi_l2[i] || prot_l2[i] ||  prefetch_l2[i]);
+      assign l2_rtrans_accept[i] = ~l2_rw_type[i] && hit_l2[i] && ~(multi_l2[i] || prot_l2[i] ||  prefetch_l2[i]);
+      assign l2_wtrans_drop[i]   =  l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || (prefetch_l2[i] & hit_l2[i]) || l1_multi_or_prot[i]);
+      assign l2_rtrans_drop[i]   = ~l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || (prefetch_l2[i] & hit_l2[i]) || l1_multi_or_prot[i]);
       assign l2_wtrans_addr[i]   =  l2_out_addr[i];
       assign l2_rtrans_addr[i]   =  l2_out_addr[i];
-      assign l2_trans_sent[i]    =  l2_wtrans_sent[i] | l2_rtrans_sent[i];
+      assign l2_trans_sent[i]    =  l2_wtrans_sent[i] | l2_rtrans_sent[i] | (prefetch_l2[i] & hit_l2[i]);
         
       ////////////////////////// L2 FSM ////////////////////////////////////
       // In case of rab multi/prot, there is no need for L2. In this case, l1_<r/w>trans_drop is asserted, similar to
@@ -1726,51 +1738,51 @@ module axi_rab_top
          l1_wtrans_drop[i]         = 1'b0;
          l1_rtrans_drop[i]         = 1'b0;
          l1_multi_or_prot_next[i]  = 1'b0;
-         update_id_next[i]         = 1'b0;
+         update_meta_next[i]       = 1'b0;
          unique case(l2_state[i])
            L2_IDLE : begin
-              l2_in_addr[i]        = int_wtrans_drop[i] ? int_awaddr[i] :
-                                     int_rtrans_drop[i] ? int_araddr[i] :
-                                     0;
-              l1_wtrans_drop[i]    = int_wtrans_drop[i];
-              l1_rtrans_drop[i]    = int_rtrans_drop[i];
+              l2_in_addr[i]          = int_wtrans_drop[i] ? int_awaddr[i] :
+                                       int_rtrans_drop[i] ? int_araddr[i] :
+                                       0;
+              l1_wtrans_drop[i]      = int_wtrans_drop[i];
+              l1_rtrans_drop[i]      = int_rtrans_drop[i];
               if (rab_miss[i]) begin
-                 l2_next_state[i]  = L2_BUSY;
-                 l1_miss[i]        = 1'b1;
-                 update_id_next[i] = 1'b1;                 
-              end else if (rab_prot[i] || rab_multi[i]) begin
-                 l2_next_state[i]  = L1_MULTI_PROT;
-                 update_id_next[i] = 1'b1;
+                 l2_next_state[i]    = L2_BUSY;
+                 l1_miss[i]          = 1'b1;
+                 update_meta_next[i] = 1'b1;
+              end else if (rab_prot[i] || rab_multi[i] || rab_prefetch[i]) begin
+                 l2_next_state[i]    = L1_MULTI_PROT;
+                 update_meta_next[i] = 1'b1;
               end
            end // case: L2_IDLE
            
            L2_BUSY :
              if (rab_miss[i])
                l2_next_state[i] = L1_WAITING;
-             else if (rab_prot[i] || rab_multi[i])
+             else if (rab_prot[i] || rab_multi[i] || rab_prefetch[i])
                l2_next_state[i] = L1_MULTI_PROT_WAITING;
              else if (~l2_busy[i])
                l2_next_state[i] = L2_IDLE;
   
            L1_WAITING : begin
               if (~l2_busy[i]) begin
-                 l2_next_state[i]  = L2_BUSY;
-                 l1_miss[i]        = 1'b1;
-                 l1_wtrans_drop[i] = l1_wtrans_drop_saved[i];
-                 l1_rtrans_drop[i] = l1_rtrans_drop_saved[i];
-                 update_id_next[i] = 1'b1;
+                 l2_next_state[i]    = L2_BUSY;
+                 l1_miss[i]          = 1'b1;
+                 l1_wtrans_drop[i]   = l1_wtrans_drop_saved[i];
+                 l1_rtrans_drop[i]   = l1_rtrans_drop_saved[i];
+                 update_meta_next[i] = 1'b1;
               end
               l2_in_addr[i] = l1_wtrans_drop_saved[i] ? int_awaddr[i] :
                               l1_rtrans_drop_saved[i] ? int_araddr[i] :
                               0;
            end           
   
-           L1_MULTI_PROT_WAITING : begin            
+           L1_MULTI_PROT_WAITING : begin
               if (~l2_busy[i]) begin
-                 l2_next_state[i]  = L1_MULTI_PROT;
-                 l1_wtrans_drop[i] = l1_wtrans_drop_saved[i];
-                 l1_rtrans_drop[i] = l1_rtrans_drop_saved[i];
-                 update_id_next[i] = 1'b1;
+                 l2_next_state[i]    = L1_MULTI_PROT;
+                 l1_wtrans_drop[i]   = l1_wtrans_drop_saved[i];
+                 l1_rtrans_drop[i]   = l1_rtrans_drop_saved[i];
+                 update_meta_next[i] = 1'b1;
               end  
            end
            
@@ -1783,17 +1795,17 @@ module axi_rab_top
               l2_in_addr[i]          = int_wtrans_drop[i] ? int_awaddr[i] :
                                        int_rtrans_drop[i] ? int_araddr[i] :
                                        0;
-              l1_wtrans_drop[i] = int_wtrans_drop[i];
-              l1_rtrans_drop[i] = int_rtrans_drop[i];              
+              l1_wtrans_drop[i]      = int_wtrans_drop[i];
+              l1_rtrans_drop[i]      = int_rtrans_drop[i];
               if (rab_miss[i]) begin
-                 l2_next_state[i]  = L2_BUSY;
-                 l1_miss[i]        = 1'b1;
-                 update_id_next[i] = 1'b1;
-              end else if (rab_prot[i] || rab_multi[i]) begin
-                 l2_next_state[i]  = L1_MULTI_PROT;
-                 update_id_next[i] = 1'b1;
+                 l2_next_state[i]    = L2_BUSY;
+                 l1_miss[i]          = 1'b1;
+                 update_meta_next[i] = 1'b1;
+              end else if (rab_prot[i] || rab_multi[i] || rab_prefetch[i]) begin
+                 l2_next_state[i]    = L1_MULTI_PROT;
+                 update_meta_next[i] = 1'b1;
               end else
-                l2_next_state[i]   = L2_IDLE;
+                l2_next_state[i]     = L2_IDLE;
            end // case: L1_MULTI_PROT_1           
 
            default : begin
@@ -1806,29 +1818,37 @@ module axi_rab_top
       // ID
       always_ff @(posedge Clk_CI) begin
          if (Rst_RBI == 0) begin
-            update_id[i] <= 1'b0;
+            update_meta[i] <= 1'b0;
          end else begin
-            update_id[i] <= update_id_next[i];
+            update_meta[i] <= update_meta_next[i];
          end
       end
       always_ff @(posedge Clk_CI) begin
          if (Rst_RBI == 0) begin
-            l2_awid[i] <= 0;
-            l2_arid[i] <= 0;            
-         end else if (update_id) begin
-            l2_awid[i] <= int_awid_d[i];
-            l2_arid[i] <= int_arid_d[i];
+            l2_awid[i]   <= 0;
+            l2_arid[i]   <= 0;
+            l2_awuser[i] <= 0;
+            l2_aruser[i] <= 0;
+         end else if (update_meta) begin
+            l2_awid[i]   <= int_awid_d[i];
+            l2_arid[i]   <= int_arid_d[i];
+            l2_awuser[i] <= int_awuser_d[i];
+            l2_aruser[i] <= int_aruser_d[i];
          end
-      end // always_ff @ (posedge Clk_CI)     
+      end // always_ff @ (posedge Clk_CI)
       always_ff @(posedge Clk_CI) begin
          if (Rst_RBI == 0) begin
-            int_awid_d[i] <= 0;
-            int_arid_d[i] <= 0;            
+            int_awid_d[i]   <= 0;
+            int_arid_d[i]   <= 0;
+            int_awuser_d[i] <= 0;
+            int_aruser_d[i] <= 0;
          end else begin
-            int_awid_d[i] <= int_awid[i];
-            int_arid_d[i] <= int_arid[i];
+            int_awid_d[i]   <= int_awid[i];
+            int_arid_d[i]   <= int_arid[i];
+            int_awuser_d[i] <= int_awuser[i];
+            int_aruser_d[i] <= int_aruser[i];
          end
-      end // always_ff @ (posedge Clk_CI)             
+      end // always_ff @ (posedge Clk_CI)
       
       // Save drop status in flipflop
       always_ff @(posedge Clk_CI) begin
@@ -1863,14 +1883,14 @@ module axi_rab_top
       end
       assign l2_rw_type_comb[i] = l1_wtrans_drop[i];
   
-      // Store the l2 input address to write into MHR in case of miss.
+      // Store the l2 input address to write into MH FIFOs in case of miss.
       always_ff @(posedge Clk_CI) begin
          if (Rst_RBI == 0) begin
             l2_in_addr_reg[i] <= 0;
          end else if (l1_miss[i]) begin
             l2_in_addr_reg[i] <= l2_in_addr[i];
          end
-      end      
+      end
       
       // In case of simultaneous L1 and L2 prot/multi, int_<prot/multi> needs to be asserted twice.
       assign double_prot_en[i]  = prot_l2[i]  && rab_prot[i];
@@ -1885,7 +1905,7 @@ module axi_rab_top
          end
       end
       assign int_prot_next[i]  = prot_l2[i]  || rab_prot[i]  || double_prot[i];
-      assign int_multi_next[i] = multi_l2[i] || rab_multi[i] || double_multi[i]; 
+      assign int_multi_next[i] = multi_l2[i] || rab_multi[i] || double_multi[i];
       always_ff @(posedge Clk_CI) begin
          if (Rst_RBI == 0) begin
             int_prot[i]  <= 1'b0;
@@ -1900,10 +1920,23 @@ module axi_rab_top
   
       assign trans_awid[i]  = l2_awid[i];
       assign trans_arid[i]  = l2_arid[i];
-      assign wtrans_drop[i] = l2_wtrans_drop[i];
-      assign rtrans_drop[i] = l2_rtrans_drop[i];
-      assign trans_id_l2[i] = l2_rw_type[i] ? l2_awid[i] : l2_arid[i];      
-      
+
+      assign trans_id_l2[i]   = l2_rw_type[i] ? l2_awid[i]   : l2_arid[i];
+      assign trans_user_l2[i] = l2_rw_type[i] ? l2_awuser[i] : l2_aruser[i];
+
+      always_comb
+        begin
+          if (trans_user_l2[i] == {AXI_USER_WIDTH{1'b1}})
+            prefetch_l2[i] = 1'b1;
+          else
+            prefetch_l2[i] = 1'b0;
+        end
+
+      assign wtrans_drop[i]     = l2_wtrans_drop[i];
+      assign wtrans_prefetch[i] = prefetch_l2[i];
+      assign rtrans_drop[i]     = l2_rtrans_drop[i];
+      assign rtrans_prefetch[i] = prefetch_l2[i];
+
     end else begin // if (ENABLE_L2TLB[i] == 1) 
    
       assign miss_l2[i]          = 1'b0;
@@ -1917,16 +1950,21 @@ module axi_rab_top
       assign l2_wtrans_addr[i]   = 0;
       assign l2_rtrans_addr[i]   = 0;
       assign trans_id_l2[i]      = 0;
+      assign trans_user_l2[i]    = 0;
+      assign prefetch_l2[i]      = 1'b0;
       
       assign l1_wtrans_drop[i] = int_wtrans_drop[i];
       assign l1_rtrans_drop[i] = int_rtrans_drop[i];
       assign int_miss[i]       = rab_miss[i];
       assign int_prot[i]       = rab_prot[i];
-      assign int_multi[i]      = rab_multi[i]; 
+      assign int_multi[i]      = rab_multi[i];
       assign trans_awid[i]     = int_awid[i];
       assign trans_arid[i]     = int_arid[i];
-      assign wtrans_drop[i]    = int_wtrans_drop[i];
-      assign rtrans_drop[i]    = int_rtrans_drop[i]; 
+
+      assign wtrans_drop[i]     = int_wtrans_drop[i];
+      assign rtrans_drop[i]     = int_rtrans_drop[i];
+      assign wtrans_prefetch[i] = rab_prefetch[i];
+      assign rtrans_prefetch[i] = rab_prefetch[i];
     end // !`ifdef ENABLE_L2TLB
   end // for (i = 0; i < N_PORTS; i++)
   endgenerate

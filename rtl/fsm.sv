@@ -10,14 +10,13 @@ module fsm
    ,
    input  logic                      port1_addr_valid,
    input  logic                      port2_addr_valid,
-   input  logic                      port1_skip,
-   input  logic                      port2_skip,
    input  logic                      port1_sent,
    input  logic                      port2_sent,
    input  logic                      select,        
    input  logic                      no_hit,   
    input  logic                      multiple_hit,
    input  logic                      no_prot,
+   input  logic                      prefetch,
    input  logic [AXI_ADDR_WIDTH-1:0] out_addr, 
    input  logic                      cache_coherent,
    output logic                      port1_accept,
@@ -28,7 +27,8 @@ module fsm
    output logic                      cache_coherent_reg,
    output logic                      int_miss,    
    output logic                      int_multi,  
-   output logic                      int_prot     
+   output logic                      int_prot,
+   output logic                      int_prefetch
    );
    
    localparam READY  = 1'b0;
@@ -47,6 +47,7 @@ module fsm
    logic                      int_miss_SN;
    logic                      int_multi_SN;
    logic                      int_prot_SN;
+   logic                      int_prefetch_SN;
    logic                      cache_coherent_reg_SN;
    
    //----------FSM comb------------------------------
@@ -82,26 +83,28 @@ module fsm
      begin: OUTPUT_COMB
 
         // default
-        port1_accept_SN = 1'b0;
-        port1_drop_SN   = 1'b0;
-        port2_accept_SN = 1'b0;
-        port2_drop_SN   = 1'b0;
-        out_addr_reg_SN = out_addr_reg; // hold
-        int_miss_SN     = 1'b0;
-        int_multi_SN    = 1'b0;
-        int_prot_SN     = 1'b0;
+        port1_accept_SN       = 1'b0;
+        port1_drop_SN         = 1'b0;
+        port2_accept_SN       = 1'b0;
+        port2_drop_SN         = 1'b0;
+        out_addr_reg_SN       = out_addr_reg; // hold
+        int_miss_SN           = 1'b0;
+        int_multi_SN          = 1'b0;
+        int_prot_SN           = 1'b0;
+        int_prefetch_SN       = 1'b0;
         cache_coherent_reg_SN = cache_coherent_reg; // hold
         
         if ( state == READY ) // Ready to accept new trans
           begin
-             port1_accept_SN      = port1_addr_valid &  select & ~(no_hit | multiple_hit | ~no_prot | port1_skip);
-             port1_drop_SN        = port1_addr_valid &  select &  (no_hit | multiple_hit | ~no_prot | port1_skip);
-             port2_accept_SN      = port2_addr_valid & ~select & ~(no_hit | multiple_hit | ~no_prot | port2_skip);
-             port2_drop_SN        = port2_addr_valid & ~select &  (no_hit | multiple_hit | ~no_prot | port2_skip);
-             int_miss_SN          = (port1_addr_valid | port2_addr_valid) & no_hit;
-             int_multi_SN         = (port1_addr_valid | port2_addr_valid) & multiple_hit;
-             int_prot_SN          = (port1_addr_valid | port2_addr_valid) & ~no_prot;
-             out_addr_reg_SN      = out_addr;
+             port1_accept_SN       =  port1_addr_valid &  select & ~(no_hit | multiple_hit | ~no_prot | prefetch);
+             port1_drop_SN         =  port1_addr_valid &  select &  (no_hit | multiple_hit | ~no_prot | prefetch);
+             port2_accept_SN       =  port2_addr_valid & ~select & ~(no_hit | multiple_hit | ~no_prot | prefetch);
+             port2_drop_SN         =  port2_addr_valid & ~select &  (no_hit | multiple_hit | ~no_prot | prefetch);
+             int_miss_SN           = (port1_addr_valid | port2_addr_valid) &  no_hit;
+             int_multi_SN          = (port1_addr_valid | port2_addr_valid) &  multiple_hit;
+             int_prot_SN           = (port1_addr_valid | port2_addr_valid) & ~no_prot;
+             int_prefetch_SN       = (port1_addr_valid | port2_addr_valid) & ~no_hit & prefetch;
+             out_addr_reg_SN       = out_addr;
              cache_coherent_reg_SN = cache_coherent;
           end
      end // block: OUTPUT_COMB
@@ -120,6 +123,7 @@ module fsm
              int_miss           = 1'b0;
              int_multi          = 1'b0;
              int_prot           = 1'b0;
+             int_prefetch       = 1'b0;
              cache_coherent_reg = 1'b0;
           end
         else
@@ -132,6 +136,7 @@ module fsm
              int_miss           = int_miss_SN;
              int_multi          = int_multi_SN;
              int_prot           = int_prot_SN;
+             int_prefetch       = int_prefetch_SN;
              cache_coherent_reg = cache_coherent_reg_SN;
           end
      end // block: OUTPUT_SEQ

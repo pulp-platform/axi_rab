@@ -184,7 +184,7 @@ module tlb_l2
                last_search_next = 1'b1;
           end
 
-        DONE : begin          
+        DONE : begin
           if (l2_trans_sent || miss_l2 || prot_l2 || multiple_hit_l2)
             cntrl_SN = IDLE;
         end
