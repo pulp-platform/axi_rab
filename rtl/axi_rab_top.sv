@@ -512,11 +512,11 @@ module axi_rab_top
 
   // L2 FSM
   typedef enum logic[2:0] {L2_IDLE, L2_BUSY, L1_WAITING, L1_MULTI_PROT, L1_MULTI_PROT_1, L1_MULTI_PROT_WAITING} l2_state_t;   
-  l2_state_t [N_PORTS-1:0] [2:0] l2_state,l2_next_state;   
+  l2_state_t [N_PORTS-1:0] l2_state,l2_next_state;
 
   // WREADY FSM
   typedef enum logic[1:0] {WREADY_IDLE, WREADY_WAIT_FOR_M0, WREADY_WAIT_FOR_M1} wready_state_t;   
-  wready_state_t [N_PORTS-1:0] [1:0] wready_state, wready_next_state;  
+  wready_state_t [N_PORTS-1:0] wready_state, wready_next_state;
   logic [N_PORTS-1:0] clr_m0_wvalid, clr_m1_wvalid, send_wready;
 
   // }}}
