@@ -95,10 +95,10 @@ module tlb_l2
         
    // Extract 32-bit word to be written to VA RAMs from 64-bit data input.
    generate
-      if (`AXI_LITE_DATA_WIDTH == 64) begin
+      if      (AXI_LITE_DATA_WIDTH == 64) begin
          assign va_ram_wdata = (waddr[2] == 1'b1) ? wdata[63:32] : wdata[31:0];
       end
-      else if (`AXI_LITE_DATA_WIDTH == 32) begin
+      else if (AXI_LITE_DATA_WIDTH == 32) begin
          assign va_ram_wdata = wdata[31:0];
       end
       else begin
