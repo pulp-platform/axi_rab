@@ -849,7 +849,8 @@ module axi_rab_top
       .axi4_arstn      (Rst_RBI),
       .l1_trans_accept (int_m0_wtrans_accept[i]),
       .l2_trans_accept (l2_m0_wtrans_accept[i]),                                     
-      .l2_trans_drop   (l2_m0_wtrans_drop[i]),
+      .l2_trans_drop   (l2_m0_wtrans_drop[i]), // drop the transaction in this master
+      .l2_trans_drop_x (l2_wtrans_drop[i]), // drop the transaction in all masters
       .l1_miss         (l1_m0_wtrans_drop[i]),                                     
       .stall_aw        (stall_aw_m0[i]),
       .wlast_received  (wlast_received[i]),
@@ -881,7 +882,8 @@ module axi_rab_top
       .axi4_arstn      (Rst_RBI),
       .l1_trans_accept (int_m1_wtrans_accept[i]),
       .l2_trans_accept (l2_m1_wtrans_accept[i]),                                     
-      .l2_trans_drop   (l2_m1_wtrans_drop[i]),
+      .l2_trans_drop   (l2_m1_wtrans_drop[i]), // drop the transaction in this master
+      .l2_trans_drop_x (l2_wtrans_drop[i]), // drop the transaction in all masters
       .l1_miss         (l1_m1_wtrans_drop[i]),                                     
       .stall_aw        (stall_aw_m1[i]),
       .wlast_received  (),
@@ -990,11 +992,11 @@ module axi_rab_top
       clr_m1_wvalid[i] = 1'b0;
       case(wready_state[i])
         WREADY_IDLE :
-          if (~int_wtrans_was_accept[i] && int_m0_wready[i] && int_m1_wready[i]) begin
+          if          (~int_wtrans_was_accept[i] &&  int_m0_wready[i] &&  int_m1_wready[i]) begin
             send_wready[i] = 1'b1;
-          end else if (~int_wtrans_was_accept[i] && int_m0_wready[i] && ~int_m1_wready[i]) begin
+          end else if (~int_wtrans_was_accept[i] &&  int_m0_wready[i] && ~int_m1_wready[i]) begin
             wready_next_state[i] = WREADY_WAIT_FOR_M1;
-          end else if (~int_wtrans_was_accept[i] && ~int_m0_wready[i] && int_m1_wready[i]) begin
+          end else if (~int_wtrans_was_accept[i] && ~int_m0_wready[i] &&  int_m1_wready[i]) begin
             wready_next_state[i] = WREADY_WAIT_FOR_M0;
           end
   

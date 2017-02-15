@@ -7,6 +7,7 @@ module axi4_w_sender (axi4_aclk,
                       l1_trans_accept,
                       l2_trans_accept,
                       l2_trans_drop,
+                      l2_trans_drop_x,
                       l1_miss,
                       stall_aw,
                       wlast_received,
@@ -35,6 +36,7 @@ module axi4_w_sender (axi4_aclk,
   input                         l1_trans_accept;
   input                         l2_trans_accept;
   input                         l2_trans_drop;
+  input                         l2_trans_drop_x;
   input                         l1_miss;
   output                        stall_aw;
   input                         response_sent;
@@ -58,13 +60,13 @@ module axi4_w_sender (axi4_aclk,
   wire                          trans_infifo;
   wire                          trans_done;
   wire                          fifo_not_full;
-  wire [3:0]                    fifo_datain;
-  wire [3:0]                    fifo_dataout;
+  wire [4:0]                    fifo_datain;
+  wire [4:0]                    fifo_dataout;
   wire                          fifo_datain_valid;
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH       ( 4  ),
+      .DATA_WIDTH       ( 5  ),
       .BUFFER_DEPTH     ( 10 ),
       .LOG_BUFFER_DEPTH ( 4  )
       )
@@ -80,8 +82,8 @@ module axi4_w_sender (axi4_aclk,
       .ready_out ( fifo_not_full     )
     );
 
-  assign fifo_datain_valid = l1_miss | l1_trans_accept | l2_trans_accept | l2_trans_drop;
-  assign fifo_datain       = {l1_trans_accept, l1_miss, l2_trans_accept, l2_trans_drop};
+  assign fifo_datain_valid = l1_miss | l1_trans_accept | l2_trans_accept | l2_trans_drop | l2_trans_drop_x;
+  assign fifo_datain       = {l1_trans_accept, l1_miss, l2_trans_accept, l2_trans_drop, l2_trans_drop_x};
 
 generate
 if (ENABLE_L2TLB == 1) begin
@@ -161,29 +163,29 @@ if (ENABLE_L2TLB == 1) begin
      trans_is_l2_accept = 1'b0;
      trans_is_l1_miss   = 1'b0;
      trans_is_l1_accept = 1'b0;
-     if(trans_infifo & fifo_dataout[0] & ~second_trans) begin
+     if(trans_infifo & fifo_dataout[1] & ~second_trans) begin
         trans_is_drop      = 1'b1;
-     end else if (trans_infifo & fifo_dataout[1] & ~second_trans) begin
+     end else if (trans_infifo & fifo_dataout[2] & ~second_trans) begin
         trans_is_l2_accept = 1'b1;
-     end else if (trans_infifo & fifo_dataout[2]) begin
-        trans_is_l1_miss   = 1'b1;
      end else if (trans_infifo & fifo_dataout[3]) begin
+        trans_is_l1_miss   = 1'b1;
+     end else if (trans_infifo & fifo_dataout[4]) begin
         trans_is_l1_accept = 1'b1;
      end
   end // always @ (trans_infifo,fifo_dataout,second_trans)
 
   // In case of double_trans, do not get assert trans_done after first transaction.
-  assign trans_done       = trans_is_l1_accept                    ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) :
-                            trans_is_l1_miss                      ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) | ~buffer_not_full :
-                            trans_is_l2_accept & single_trans     ?  m_axi4_wvalid && m_axi4_wready && m_axi4_wlast  :
-                            trans_is_drop      & single_trans     ?  l2_axi4_wlast                                   : // why wait till last? Simply drop the data. But the data needs to be flushed. TODO.
-                            1'b0;
+  assign trans_done = trans_is_l1_accept                ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) :
+                      trans_is_l1_miss                  ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) | ~buffer_not_full :
+                      trans_is_l2_accept & single_trans ?  m_axi4_wvalid && m_axi4_wready && m_axi4_wlast  :
+                      trans_is_drop      & single_trans ?  l2_axi4_wlast                                   : // the l2buffer is only flushed if the transaction is dropped in all masters
+                      1'b0;
 
   // Will have to send two trans if L1 and L2 results come simultaneously
-  assign double_trans = trans_infifo & ( fifo_dataout[0]|fifo_dataout[1]) & (fifo_dataout[2]|fifo_dataout[3]);
-  assign single_trans = trans_infifo & ((fifo_dataout[0]|fifo_dataout[1]) ^ (fifo_dataout[2]|fifo_dataout[3]));
+  assign double_trans = trans_infifo & ( fifo_dataout[1]|fifo_dataout[2]) & (fifo_dataout[3]|fifo_dataout[4]);
+  assign single_trans = trans_infifo & ((fifo_dataout[1]|fifo_dataout[2]) ^ (fifo_dataout[3]|fifo_dataout[4]));
 
-  assign m_axi4_wlast  = trans_is_drop ? 1'b0                     : trans_is_l2_accept ? l2_axi4_wlast : trans_is_l1_accept ? s_axi4_wlast : 1'b0                       ;
+  assign m_axi4_wlast  = trans_is_drop ? 1'b0                     : trans_is_l2_accept ? l2_axi4_wlast : trans_is_l1_accept ? s_axi4_wlast : 1'b0                     ;
   assign m_axi4_wdata  = trans_is_drop ? {AXI_DATA_WIDTH{1'b0}}   : trans_is_l2_accept ? l2_axi4_wdata : trans_is_l1_accept ? s_axi4_wdata : {AXI_DATA_WIDTH{1'b0}}   ;
   assign m_axi4_wstrb  = trans_is_drop ? {AXI_DATA_WIDTH/8{1'b0}} : trans_is_l2_accept ? l2_axi4_wstrb : trans_is_l1_accept ? s_axi4_wstrb : {AXI_DATA_WIDTH/8{1'b0}} ;
   assign m_axi4_wuser  = trans_is_drop ? {AXI_USER_WIDTH{1'b0}}   : trans_is_l2_accept ? l2_axi4_wuser : trans_is_l1_accept ? s_axi4_wuser : {AXI_USER_WIDTH{1'b0}}   ;
@@ -201,15 +203,15 @@ if (ENABLE_L2TLB == 1) begin
      )
    u_l2buffer
    (
-     .clk          ( axi4_aclk           ),
-     .rstn         ( axi4_arstn          ),
-     .data_out     ( buffer_dataout      ),
-     .valid_out    ( data_inbuffer       ),
-     .ready_in     ( get_next_bufferdata ),
-     .valid_in     ( buffer_datain_valid ),
-     .data_in      ( buffer_datain       ),
-     .ready_out    ( buffer_not_full     ),
-     .flush_entries( trans_is_drop       )
+     .clk          ( axi4_aclk                       ),
+     .rstn         ( axi4_arstn                      ),
+     .data_out     ( buffer_dataout                  ),
+     .valid_out    ( data_inbuffer                   ),
+     .ready_in     ( get_next_bufferdata             ),
+     .valid_in     ( buffer_datain_valid             ),
+     .data_in      ( buffer_datain                   ),
+     .ready_out    ( buffer_not_full                 ),
+     .flush_entries( trans_is_drop & fifo_dataout[0] )
    );
 
   assign {l2_axi4_wlast,l2_axi4_wuser,l2_axi4_wstrb,l2_axi4_wdata} = buffer_dataout;
@@ -218,7 +220,7 @@ if (ENABLE_L2TLB == 1) begin
   assign get_next_bufferdata = (trans_is_l2_accept && m_axi4_wready) || trans_is_drop;
 
   // Store all signals when valid
-  assign buffer_datain = storing ? {s_axi4_wlast,s_axi4_wuser,s_axi4_wstrb,s_axi4_wdata} : 0;
+  assign buffer_datain       = storing ? {s_axi4_wlast,s_axi4_wuser,s_axi4_wstrb,s_axi4_wdata} : 0;
   assign buffer_datain_valid = storing ? s_axi4_wvalid : 0;
 
   // Store FSM
@@ -240,26 +242,24 @@ if (ENABLE_L2TLB == 1) begin
            store_next_state = STORE;
 
        STORE : begin
-          storing = 1'b1;
-          if (s_axi4_wlast && s_axi4_wvalid) begin
-             store_next_state = STORE_DONE;
-             stop_storing_next = 1'b1;
-          end else if (~buffer_not_full) begin
-             store_next_state = WAIT;
-             storing = 1'b0;
+          if (buffer_not_full == 1'b1) begin
+            storing = 1'b1;
+            if (s_axi4_wlast && s_axi4_wvalid) begin
+               store_next_state = STORE_DONE;
+               stop_storing_next = 1'b1;
+            end
           end
        end
-
-       WAIT :
-         if (buffer_not_full)
-           store_next_state = STORE;
-
 
        STORE_DONE : begin
           stop_storing_next = 1'b1;
           if (trans_is_l2_accept || trans_is_drop)
             store_next_state = IDLE;
        end
+
+       default : begin
+          store_next_state = IDLE;
+        end
 
      endcase // case (store_state)
   end
@@ -279,10 +279,10 @@ end else begin // if (ENABLE_L2TLB == 1)
    assign wlast_received     = 1'b0; // This signal is sent to rwch_sender
    assign stall_aw           = 1'b0; // This signal is sent to awch_sender
 
-   assign trans_is_l1_accept = trans_infifo & fifo_dataout[3];
-   assign trans_is_drop      = trans_infifo & fifo_dataout[2];
+   assign trans_is_l1_accept = trans_infifo & fifo_dataout[4];
+   assign trans_is_drop      = trans_infifo & fifo_dataout[3];
 
-   assign  trans_done        =  s_axi4_wvalid && s_axi4_wready && s_axi4_wlast;
+   assign trans_done         =  s_axi4_wvalid && s_axi4_wready && s_axi4_wlast;
 
    assign m_axi4_wlast  = trans_is_drop ? 1'b0                     : s_axi4_wlast ;
    assign m_axi4_wdata  = trans_is_drop ? {AXI_DATA_WIDTH{1'b0}}   : s_axi4_wdata ;
