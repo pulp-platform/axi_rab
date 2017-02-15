@@ -7,12 +7,12 @@ module axi_buffer_rab(clk, rstn, data_out, valid_out, ready_in, valid_in, data_i
     input clk;
     input rstn;
 
-    // Downstream port 
+    // Downstream port
     output [DATA_WIDTH - 1 : 0] data_out;
     output valid_out;
-    input ready_in;      
+    input ready_in;
 
-    // Upstream port 
+    // Upstream port
     input valid_in;
     input [DATA_WIDTH - 1 : 0] data_in;
     output ready_out;

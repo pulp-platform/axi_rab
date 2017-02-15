@@ -7,28 +7,28 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
     input clk;
     input rstn;
 
-    // Downstream port 
+    // Downstream port
     output [DATA_WIDTH - 1 : 0] data_out;
     output valid_out;
-    input ready_in;      
+    input ready_in;
 
-    // Upstream port 
+    // Upstream port
     input valid_in;
     input [DATA_WIDTH - 1 : 0] data_in;
     output ready_out;
 
    input   flush_entries;
-   
+
 
     // Internal data structures
     reg [LOG_BUFFER_DEPTH - 1 : 0] pointer_in;      // location to which we last wrote
     reg [LOG_BUFFER_DEPTH - 1 : 0] pointer_out_d;     // location from which we last sent
-    wire [LOG_BUFFER_DEPTH - 1 : 0] pointer_out;  
+    wire [LOG_BUFFER_DEPTH - 1 : 0] pointer_out;
     reg [LOG_BUFFER_DEPTH : 0] elements;            // number of elements in the buffer
-    
+
 
    wire                        full;
-   
+
    //reg [DATA_WIDTH-1:0] ram[BUFFER_DEPTH-1:0];
     //integer loop1;
 
@@ -98,7 +98,7 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
           // Else stay on the same output location
         end
       end
-   
+
     // Update output ports
     //assign data_out = buffer[pointer_out];
     assign valid_out = (elements != 0);
@@ -106,16 +106,16 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
     assign ready_out = ~full;
 
 //   assign pointer_out = ready_in && valid_out && (pointer_out_d == $unsigned(BUFFER_DEPTH - 1)) ? 0 :
-//                        ready_in && valid_out ? pointer_out_d + 1'b1 : 
+//                        ready_in && valid_out ? pointer_out_d + 1'b1 :
 //                        pointer_out_d;
- 
+
    assign pointer_out = flush_entries && (pointer_in==0) ? $unsigned(BUFFER_DEPTH - 1) :
                         flush_entries ? pointer_in-1'b1 :
                         ready_in && valid_out && (pointer_out_d == $unsigned(BUFFER_DEPTH - 1)) ? 0 :
-                        ready_in && valid_out ? pointer_out_d + 1'b1 : 
+                        ready_in && valid_out ? pointer_out_d + 1'b1 :
                         pointer_out_d;
-                       
- 
+
+
    ram #(
          .ADDR_WIDTH(LOG_BUFFER_DEPTH),
          .DATA_WIDTH(DATA_WIDTH)
@@ -131,13 +131,13 @@ module axi_buffer_rab_bram(clk, rstn, data_out, valid_out, ready_in, valid_in, d
              .d1_o  (data_out)
              );
 
-///////// Bram ///////   
+///////// Bram ///////
 //   always @(posedge clk) begin
 //      if(valid_in && !full) begin
 //         ram[pointer_in] <= data_in;
 //      end
 //   end
 ////   assign d0_o = ram[raddr0];
-//   assign data_out = ram[pointer_out];   
+//   assign data_out = ram[pointer_out];
 
 endmodule

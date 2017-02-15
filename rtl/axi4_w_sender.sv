@@ -27,13 +27,13 @@ module axi4_w_sender (axi4_aclk,
   parameter AXI_DATA_WIDTH = 32;
   parameter AXI_USER_WIDTH = 2;
   parameter ENABLE_L2TLB   = 0;
-  parameter L2BUFFER_DEPTH = 20;   
+  parameter L2BUFFER_DEPTH = 20;
 
   input                         axi4_aclk;
   input                         axi4_arstn;
 
   input                         l1_trans_accept;
-  input                         l2_trans_accept;  
+  input                         l2_trans_accept;
   input                         l2_trans_drop;
   input                         l1_miss;
   output                        stall_aw;
@@ -46,7 +46,7 @@ module axi4_w_sender (axi4_aclk,
   input  [AXI_DATA_WIDTH/8-1:0] s_axi4_wstrb;
   input                         s_axi4_wlast;
   input    [AXI_USER_WIDTH-1:0] s_axi4_wuser;
-  
+
   output   [AXI_DATA_WIDTH-1:0] m_axi4_wdata;
   output                        m_axi4_wvalid;
   input                         m_axi4_wready;
@@ -54,13 +54,13 @@ module axi4_w_sender (axi4_aclk,
   output                        m_axi4_wlast;
   output   [AXI_USER_WIDTH-1:0] m_axi4_wuser;
 
-  
+
   wire                          trans_infifo;
   wire                          trans_done;
   wire                          fifo_not_full;
   wire [3:0]                    fifo_datain;
   wire [3:0]                    fifo_dataout;
-  wire                          fifo_datain_valid; 
+  wire                          fifo_datain_valid;
 
   axi_buffer_rab
     #(
@@ -70,26 +70,26 @@ module axi4_w_sender (axi4_aclk,
       )
     u_transfifo
     (
-      .clk(axi4_aclk),
-      .rstn(axi4_arstn), 
-      .data_out(fifo_dataout),
-      .valid_out(trans_infifo),
-      .ready_in(trans_done),
-      .valid_in(fifo_datain_valid),
-      .data_in(fifo_datain),
-      .ready_out(fifo_not_full)
+      .clk       ( axi4_aclk         ),
+      .rstn      ( axi4_arstn        ),
+      .data_out  ( fifo_dataout      ),
+      .valid_out ( trans_infifo      ),
+      .ready_in  ( trans_done        ),
+      .valid_in  ( fifo_datain_valid ),
+      .data_in   ( fifo_datain       ),
+      .ready_out ( fifo_not_full     )
     );
 
   assign fifo_datain_valid = l1_miss | l1_trans_accept | l2_trans_accept | l2_trans_drop;
   assign fifo_datain       = {l1_trans_accept, l1_miss, l2_trans_accept, l2_trans_drop};
-   
-generate   
+
+generate
 if (ENABLE_L2TLB == 1) begin
-  reg                         trans_is_l1_accept,trans_is_drop;   
+  reg                         trans_is_l1_accept,trans_is_drop;
   wire   [AXI_DATA_WIDTH-1:0] l2_axi4_wdata;
   wire [AXI_DATA_WIDTH/8-1:0] l2_axi4_wstrb;
   wire                        l2_axi4_wlast;
-  wire   [AXI_USER_WIDTH-1:0] l2_axi4_wuser;  
+  wire   [AXI_USER_WIDTH-1:0] l2_axi4_wuser;
   wire                        single_trans,double_trans;
   wire                        data_inbuffer, buffer_not_full;
   reg                         stop_storing, keep_storing;
@@ -111,10 +111,10 @@ if (ENABLE_L2TLB == 1) begin
   localparam STORE_DONE = 2'b10;
   localparam WAIT       = 2'b11 ;
 
-  reg [1:0] store_state, store_next_state;   
- 
+  reg [1:0] store_state, store_next_state;
+
   // Stall aw channel till wlast is encountered or if the fifo is full.(The fifo cannot be full if w and aw are aligned)
-  assign stall_aw = ~fifo_not_full || waiting_wlast;   
+  assign stall_aw = ~fifo_not_full || waiting_wlast;
   always @(posedge axi4_aclk) begin
      if (axi4_arstn == 0) begin
         waiting_wlast <= 1'b0;
@@ -125,7 +125,7 @@ if (ENABLE_L2TLB == 1) begin
      end
   end
 
-  // wlast_received is used in rwch_sender to send write response signals. 
+  // wlast_received is used in b_sender to send write response signals.
   // Write response signals have to be sent only after wlast is received as per AXI protocol.
   // l2_wlast_received_reg indicates if wlast is received for L2 trans.
    always @(posedge axi4_aclk) begin
@@ -136,9 +136,9 @@ if (ENABLE_L2TLB == 1) begin
      end else if (response_sent) begin
         l2_wlast_received_reg <= 1'b0;
      end
-  end       
+  end
   assign wlast_received = l2_wlast_received_reg;
-  
+
   // In case of simultaneous L1 and L2 hit/miss, first send L2 transaction and then L1.
   // second_trans indicates that the second transaction (i.e L1) is taking place.
   always @(posedge axi4_aclk) begin
@@ -154,7 +154,7 @@ if (ENABLE_L2TLB == 1) begin
         end
      end
   end // always @ (posedge axi4_aclk)
-  
+
   //second transfer is always L1.
   always @(trans_infifo,fifo_dataout,second_trans) begin
      trans_is_drop      = 1'b0;
@@ -171,13 +171,13 @@ if (ENABLE_L2TLB == 1) begin
         trans_is_l1_accept = 1'b1;
      end
   end // always @ (trans_infifo,fifo_dataout,second_trans)
-  
-  // In case of double_trans, do not get assert trans_done after first transaction.  
-  assign  trans_done      = trans_is_l1_accept                    ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) :
+
+  // In case of double_trans, do not get assert trans_done after first transaction.
+  assign trans_done       = trans_is_l1_accept                    ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) :
                             trans_is_l1_miss                      ? (s_axi4_wvalid && s_axi4_wready && s_axi4_wlast) | ~buffer_not_full :
                             trans_is_l2_accept & single_trans     ?  m_axi4_wvalid && m_axi4_wready && m_axi4_wlast  :
                             trans_is_drop      & single_trans     ?  l2_axi4_wlast                                   : // why wait till last? Simply drop the data. But the data needs to be flushed. TODO.
-                            1'b0;                    
+                            1'b0;
 
   // Will have to send two trans if L1 and L2 results come simultaneously
   assign double_trans = trans_infifo & ( fifo_dataout[0]|fifo_dataout[1]) & (fifo_dataout[2]|fifo_dataout[3]);
@@ -187,7 +187,7 @@ if (ENABLE_L2TLB == 1) begin
   assign m_axi4_wdata  = trans_is_drop ? {AXI_DATA_WIDTH{1'b0}}   : trans_is_l2_accept ? l2_axi4_wdata : trans_is_l1_accept ? s_axi4_wdata : {AXI_DATA_WIDTH{1'b0}}   ;
   assign m_axi4_wstrb  = trans_is_drop ? {AXI_DATA_WIDTH/8{1'b0}} : trans_is_l2_accept ? l2_axi4_wstrb : trans_is_l1_accept ? s_axi4_wstrb : {AXI_DATA_WIDTH/8{1'b0}} ;
   assign m_axi4_wuser  = trans_is_drop ? {AXI_USER_WIDTH{1'b0}}   : trans_is_l2_accept ? l2_axi4_wuser : trans_is_l1_accept ? s_axi4_wuser : {AXI_USER_WIDTH{1'b0}}   ;
-  
+
   // Outputs
   assign m_axi4_wvalid = (s_axi4_wvalid & trans_is_l1_accept) | (trans_is_l2_accept);
   assign s_axi4_wready = (m_axi4_wready & trans_is_l1_accept) | (trans_is_l1_miss & storing) | (storing && (trans_is_l2_accept | trans_is_drop));
@@ -195,31 +195,31 @@ if (ENABLE_L2TLB == 1) begin
   // Store signals in buffer in case of L1 miss.
   axi_buffer_rab_bram
    #(
-     .DATA_WIDTH      ( AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1 ),
-     .BUFFER_DEPTH    ( L2BUFFER_DEPTH                                   ),
-     .LOG_BUFFER_DEPTH( log2(L2BUFFER_DEPTH)                             )
+     .DATA_WIDTH       ( AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1 ),
+     .BUFFER_DEPTH     ( L2BUFFER_DEPTH                                   ),
+     .LOG_BUFFER_DEPTH ( log2(L2BUFFER_DEPTH)                             )
      )
    u_l2buffer
    (
-     .clk(axi4_aclk),
-     .rstn(axi4_arstn), 
-     .data_out(buffer_dataout),
-     .valid_out(data_inbuffer),
-     .ready_in(get_next_bufferdata),
-     .valid_in(buffer_datain_valid),
-     .data_in(buffer_datain),
-     .ready_out(buffer_not_full),
-     .flush_entries(trans_is_drop)
+     .clk          ( axi4_aclk           ),
+     .rstn         ( axi4_arstn          ),
+     .data_out     ( buffer_dataout      ),
+     .valid_out    ( data_inbuffer       ),
+     .ready_in     ( get_next_bufferdata ),
+     .valid_in     ( buffer_datain_valid ),
+     .data_in      ( buffer_datain       ),
+     .ready_out    ( buffer_not_full     ),
+     .flush_entries( trans_is_drop       )
    );
-  
+
   assign {l2_axi4_wlast,l2_axi4_wuser,l2_axi4_wstrb,l2_axi4_wdata} = buffer_dataout;
-  
+
   //get the data out of buffer upon L2 hit or L2 miss.
   assign get_next_bufferdata = (trans_is_l2_accept && m_axi4_wready) || trans_is_drop;
-  
+
   // Store all signals when valid
   assign buffer_datain = storing ? {s_axi4_wlast,s_axi4_wuser,s_axi4_wstrb,s_axi4_wdata} : 0;
-  assign buffer_datain_valid = storing ? s_axi4_wvalid : 0;     
+  assign buffer_datain_valid = storing ? s_axi4_wvalid : 0;
 
   // Store FSM
   always @(posedge axi4_aclk) begin
@@ -238,7 +238,7 @@ if (ENABLE_L2TLB == 1) begin
        IDLE :
          if(trans_is_l1_miss)
            store_next_state = STORE;
-       
+
        STORE : begin
           storing = 1'b1;
           if (s_axi4_wlast && s_axi4_wvalid) begin
@@ -253,8 +253,8 @@ if (ENABLE_L2TLB == 1) begin
        WAIT :
          if (buffer_not_full)
            store_next_state = STORE;
-       
-       
+
+
        STORE_DONE : begin
           stop_storing_next = 1'b1;
           if (trans_is_l2_accept || trans_is_drop)
@@ -263,38 +263,38 @@ if (ENABLE_L2TLB == 1) begin
 
      endcase // case (store_state)
   end
-              
+
   always @(posedge axi4_aclk) begin
      if (axi4_arstn == 0) begin
         stop_storing <= 1'b0;
      end else begin
         stop_storing <= stop_storing_next;
      end
-  end  
-   
+  end
+
 end else begin // if (ENABLE_L2TLB == 1)
 
-   wire trans_is_l1_accept,trans_is_drop;   
-   
+   wire trans_is_l1_accept,trans_is_drop;
+
    assign wlast_received     = 1'b0; // This signal is sent to rwch_sender
    assign stall_aw           = 1'b0; // This signal is sent to awch_sender
-   
+
    assign trans_is_l1_accept = trans_infifo & fifo_dataout[3];
    assign trans_is_drop      = trans_infifo & fifo_dataout[2];
 
    assign  trans_done        =  s_axi4_wvalid && s_axi4_wready && s_axi4_wlast;
- 
-   assign m_axi4_wlast  = trans_is_drop ? 1'b0                       : s_axi4_wlast ;
+
+   assign m_axi4_wlast  = trans_is_drop ? 1'b0                     : s_axi4_wlast ;
    assign m_axi4_wdata  = trans_is_drop ? {AXI_DATA_WIDTH{1'b0}}   : s_axi4_wdata ;
    assign m_axi4_wstrb  = trans_is_drop ? {AXI_DATA_WIDTH/8{1'b0}} : s_axi4_wstrb ;
    assign m_axi4_wuser  = trans_is_drop ? {AXI_USER_WIDTH{1'b0}}   : s_axi4_wuser ;
 
    // Outputs
    assign m_axi4_wvalid = (s_axi4_wvalid & trans_is_l1_accept);
-   assign s_axi4_wready = (m_axi4_wready & trans_is_l1_accept) | trans_is_drop;  
-           
-end // !`ifdef ENABLE_L2TLB     
-endgenerate      
+   assign s_axi4_wready = (m_axi4_wready & trans_is_l1_accept) | trans_is_drop;
 
-// L2 hit/miss cannot happen simultaneously with L1 miss because L1 miss =0 when L2 is busy.   
+end // !`ifdef ENABLE_L2TLB
+endgenerate
+
+// L2 hit/miss cannot happen simultaneously with L1 miss because L1 miss =0 when L2 is busy.
 endmodule
