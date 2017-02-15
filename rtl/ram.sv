@@ -14,11 +14,11 @@ module ram
    );
 
    localparam DEPTH = 2**ADDR_WIDTH;
-   
+
    reg [DATA_WIDTH-1:0] ram[DEPTH];
-   reg [ADDR_WIDTH-1:0]  raddr0;
-   reg [ADDR_WIDTH-1:0]  raddr1;
-      
+   reg [ADDR_WIDTH-1:0] raddr0;
+   reg [ADDR_WIDTH-1:0] raddr1;
+
    always_ff @(posedge clk) begin
       if(we == 1'b1) begin
          ram[addr0] <= d_i;
@@ -26,6 +26,7 @@ module ram
       raddr0 <= addr0;
       raddr1 <= addr1;
    end
+
    assign d0_o = ram[raddr0];
    assign d1_o = ram[raddr1];
 

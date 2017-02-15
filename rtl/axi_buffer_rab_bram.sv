@@ -1,55 +1,47 @@
-module axi_buffer_rab_bram (clk,
-                            rstn,
-                            data_out,
-                            valid_out,
-                            ready_in,
-                            valid_in,
-                            data_in,
-                            ready_out,
-                            flush_entries);
+module axi_buffer_rab_bram
+  #(
+    parameter DATA_WIDTH       =  32,
+    parameter BUFFER_DEPTH     = 512,
+    parameter LOG_BUFFER_DEPTH =   9
+    )
+   (
+    input logic                   clk,
+    input logic                   rstn,
 
-  parameter DATA_WIDTH = 32;
-  parameter BUFFER_DEPTH = 512;
-  parameter LOG_BUFFER_DEPTH = 9;
+    // Downstream port
+    output logic [DATA_WIDTH-1:0] data_out,
+    output logic                  valid_out,
+    input  logic                  ready_in,
 
-  input clk;
-  input rstn;
+    // Upstream port
+    input  logic                  valid_in,
+    input  logic [DATA_WIDTH-1:0] data_in,
+    output logic                  ready_out,
 
-  // Downstream port
-  output [DATA_WIDTH - 1 : 0] data_out;
-  output valid_out;
-  input  ready_in;
-
-  // Upstream port
-  input  valid_in;
-  input  [DATA_WIDTH - 1 : 0] data_in;
-  output ready_out;
-
-  input  flush_entries;
+    input  logic                  flush_entries
+    );
 
   // Internal data structures
-  reg  [LOG_BUFFER_DEPTH - 1 : 0] pointer_in;     // location to which we last wrote
-  reg  [LOG_BUFFER_DEPTH - 1 : 0] pointer_out_d;  // location from which we last sent
-  wire [LOG_BUFFER_DEPTH - 1 : 0] pointer_out;
-  reg      [LOG_BUFFER_DEPTH : 0] elements;       // number of elements in the buffer
+  logic [LOG_BUFFER_DEPTH-1:0] pointer_in;       // location to which we last wrote
+  logic [LOG_BUFFER_DEPTH-1:0] pointer_out;      // location from which we last sent
+  logic [LOG_BUFFER_DEPTH-1:0] pointer_out_bram; // required for first-word fall-through behavior
+  logic   [LOG_BUFFER_DEPTH:0] elements;         // number of elements in the buffer
 
-  wire full;
+  logic full;
 
   assign full = (elements == BUFFER_DEPTH);
 
   always @(posedge clk or negedge rstn)
     begin: elements_sequential
-      if (rstn == 1'b0)
+      if ( (rstn == 1'b0) || (flush_entries == 1'b1) )
         elements <= 0;
       else
       begin
         // ------------------
         // Are we filling up?
         // ------------------
-        if (flush_entries)
-          elements <= 1;
         // One out, none in
-        else if (ready_in && valid_out && (!valid_in || full))
+        if (ready_in && valid_out && (!valid_in || full))
           elements <= elements - 1;
         // None out, one in
         else if ((!valid_out || !ready_in) && valid_in && !full)
@@ -60,10 +52,10 @@ module axi_buffer_rab_bram (clk,
 
   always @(posedge clk or negedge rstn)
     begin: sequential
-      if (rstn == 1'b0)
+      if ( (rstn == 1'b0) || (flush_entries == 1'b1) )
       begin
-        pointer_out_d <= 0;
-        pointer_in <= 0;
+        pointer_out <= 0;
+        pointer_in  <= 0;
       end
       else
       begin
@@ -86,13 +78,10 @@ module axi_buffer_rab_bram (clk,
         // We had pushed one flit out, we can try to go for the next one
         if (ready_in && valid_out)
         begin
-          if (flush_entries)
-            if (pointer_out == $unsigned(BUFFER_DEPTH - 1))
-              pointer_out_d <= 0;
-            else
-              pointer_out_d <= pointer_out + 1'b1;
+          if (pointer_out == $unsigned(BUFFER_DEPTH - 1))
+            pointer_out <= 0;
           else
-            pointer_out_d <= pointer_out;
+            pointer_out <= pointer_out + 1;
         end
         // Else stay on the same output location
       end
@@ -100,14 +89,22 @@ module axi_buffer_rab_bram (clk,
 
   // Update output ports
   assign valid_out = (elements != 0);
-
   assign ready_out = ~full;
 
-  assign pointer_out = flush_entries && (pointer_in==0) ? $unsigned(BUFFER_DEPTH - 1) :
-                       flush_entries ? pointer_in-1'b1 :
-                       ready_in && valid_out && (pointer_out_d == $unsigned(BUFFER_DEPTH - 1)) ? 0 :
-                       ready_in && valid_out ? pointer_out_d + 1'b1 :
-                       pointer_out_d;
+  // BRAM (ram) has a read latency of one cycle
+  // -> apply new address one cycle earlier for first-word fall-through FIFO behavior
+  always_comb
+    begin
+      if (ready_in && valid_out)
+      begin
+        if (pointer_out == $unsigned(BUFFER_DEPTH - 1))
+          pointer_out_bram <= 0;
+        else
+          pointer_out_bram <= pointer_out + 1;
+      end
+      else
+        pointer_out_bram <= pointer_out;
+    end
 
   ram #(
     .ADDR_WIDTH ( LOG_BUFFER_DEPTH ),
@@ -118,7 +115,7 @@ module axi_buffer_rab_bram (clk,
     .clk   ( clk               ),
     .we    ( valid_in && !full ),
     .addr0 ( pointer_in        ),
-    .addr1 ( pointer_out       ),
+    .addr1 ( pointer_out_bram  ),
     .d_i   ( data_in           ),
     .d0_o  (                   ),
     .d1_o  ( data_out          )
