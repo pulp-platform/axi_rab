@@ -112,13 +112,13 @@ module axi_buffer_rab_bram
   )
   ram_0
   (
-    .clk   ( clk               ),
-    .we    ( valid_in && !full ),
-    .addr0 ( pointer_in        ),
-    .addr1 ( pointer_out_bram  ),
-    .d_i   ( data_in           ),
-    .d0_o  (                   ),
-    .d1_o  ( data_out          )
+    .clk   ( clk              ),
+    .we    ( valid_in         ),
+    .addr0 ( pointer_in       ),
+    .addr1 ( pointer_out_bram ),
+    .d_i   ( data_in          ),
+    .d0_o  (                  ),
+    .d1_o  ( data_out         )
   );
 
 endmodule
