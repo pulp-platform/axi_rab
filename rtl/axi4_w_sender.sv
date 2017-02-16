@@ -108,12 +108,8 @@ if (ENABLE_L2TLB == 1) begin
   wire [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1-1:0] buffer_dataout;
   wire [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1-1:0] buffer_datain;
 
-  localparam IDLE       = 2'b00;
-  localparam STORE      = 2'b01;
-  localparam STORE_DONE = 2'b10;
-  localparam WAIT       = 2'b11 ;
-
-  reg [1:0] store_state, store_next_state;
+  typedef enum logic[1:0] {IDLE, STORE, DONE} store_state_t;
+  store_state_t store_state, store_next_state;
 
   // Stall aw channel till wlast is encountered or if the fifo is full.(The fifo cannot be full if w and aw are aligned)
   assign stall_aw = ~fifo_not_full || waiting_wlast;
@@ -191,8 +187,8 @@ if (ENABLE_L2TLB == 1) begin
   assign m_axi4_wuser  = trans_is_drop ? {AXI_USER_WIDTH{1'b0}}   : trans_is_l2_accept ? l2_axi4_wuser : trans_is_l1_accept ? s_axi4_wuser : {AXI_USER_WIDTH{1'b0}}   ;
 
   // Outputs
-  assign m_axi4_wvalid = (s_axi4_wvalid & trans_is_l1_accept) | (trans_is_l2_accept);
-  assign s_axi4_wready = (m_axi4_wready & trans_is_l1_accept) | (trans_is_l1_miss & storing) | (storing && (trans_is_l2_accept | trans_is_drop));
+  assign m_axi4_wvalid = (trans_is_l1_accept & s_axi4_wvalid) |                                  (trans_is_l2_accept & data_inbuffer);
+  assign s_axi4_wready = (trans_is_l1_accept & m_axi4_wready) | (trans_is_l1_miss & storing ) |  (trans_is_l2_accept & storing      ) | (trans_is_drop & storing);
 
   // Store signals in buffer in case of L1 miss.
   axi_buffer_rab_bram
@@ -217,7 +213,7 @@ if (ENABLE_L2TLB == 1) begin
   assign {l2_axi4_wlast,l2_axi4_wuser,l2_axi4_wstrb,l2_axi4_wdata} = buffer_dataout;
 
   //get the data out of buffer upon L2 hit or L2 miss.
-  assign get_next_bufferdata = (trans_is_l2_accept && m_axi4_wready) || trans_is_drop;
+  assign get_next_bufferdata = data_inbuffer && ( (trans_is_l2_accept && m_axi4_wready) || trans_is_drop);
 
   // Store all signals when valid
   assign buffer_datain       = storing ? {s_axi4_wlast,s_axi4_wuser,s_axi4_wstrb,s_axi4_wdata} : 0;
@@ -245,13 +241,13 @@ if (ENABLE_L2TLB == 1) begin
           if (buffer_not_full == 1'b1) begin
             storing = 1'b1;
             if (s_axi4_wlast && s_axi4_wvalid) begin
-               store_next_state = STORE_DONE;
+               store_next_state = DONE;
                stop_storing_next = 1'b1;
             end
           end
        end
 
-       STORE_DONE : begin
+       DONE : begin
           stop_storing_next = 1'b1;
           if (trans_is_l2_accept || trans_is_drop)
             store_next_state = IDLE;
