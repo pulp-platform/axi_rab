@@ -5,27 +5,27 @@ module axi_buffer_rab_bram
     parameter LOG_BUFFER_DEPTH =   9
     )
    (
-    (* mark_debug = "true" *) input logic                   clk,
-    (* mark_debug = "true" *) input logic                   rstn,
+    input logic                   clk,
+    input logic                   rstn,
 
     // Downstream port
-    (* mark_debug = "true" *) output logic [DATA_WIDTH-1:0] data_out,
-    (* mark_debug = "true" *) output logic                  valid_out,
-    (* mark_debug = "true" *) input  logic                  ready_in,
+    output logic [DATA_WIDTH-1:0] data_out,
+    output logic                  valid_out,
+    input  logic                  ready_in,
 
     // Upstream port
-    (* mark_debug = "true" *) input  logic                  valid_in,
-    (* mark_debug = "true" *) input  logic [DATA_WIDTH-1:0] data_in,
-    (* mark_debug = "true" *) output logic                  ready_out,
+    input  logic                  valid_in,
+    input  logic [DATA_WIDTH-1:0] data_in,
+    output logic                  ready_out,
 
-    (* mark_debug = "true" *) input  logic                  flush_entries
+    input  logic                  flush_entries
     );
 
   // Internal data structures
-  (* mark_debug = "true" *) logic [LOG_BUFFER_DEPTH-1:0] pointer_in;       // location to which we last wrote
-  (* mark_debug = "true" *) logic [LOG_BUFFER_DEPTH-1:0] pointer_out;      // location from which we last sent
-  (* mark_debug = "true" *) logic [LOG_BUFFER_DEPTH-1:0] pointer_out_bram; // required for first-word fall-through behavior
-  (* mark_debug = "true" *) logic   [LOG_BUFFER_DEPTH:0] elements;         // number of elements in the buffer
+  logic [LOG_BUFFER_DEPTH-1:0] pointer_in;       // location to which we last wrote
+  logic [LOG_BUFFER_DEPTH-1:0] pointer_out;      // location from which we last sent
+  logic [LOG_BUFFER_DEPTH-1:0] pointer_out_bram; // required for first-word fall-through behavior
+  logic   [LOG_BUFFER_DEPTH:0] elements;         // number of elements in the buffer
 
   logic full;
 

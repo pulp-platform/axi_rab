@@ -31,38 +31,38 @@ module axi4_w_sender (axi4_aclk,
   parameter L2BUFFER_DEPTH = 20;
 
   input                         axi4_aclk;
-  (* mark_debug = "true" *) input                         axi4_arstn;
+  input                         axi4_arstn;
 
-  (* mark_debug = "true" *) input                         l1_trans_accept;
-  (* mark_debug = "true" *) input                         l2_trans_accept;
-  (* mark_debug = "true" *) input                         l2_trans_drop;
-  (* mark_debug = "true" *) input                         l2_trans_drop_x;
-  (* mark_debug = "true" *) input                         l1_miss;
-  (* mark_debug = "true" *) output                        stall_aw;
-  (* mark_debug = "true" *) input                         response_sent;
-  (* mark_debug = "true" *) output                        wlast_received;
+  input                         l1_trans_accept;
+  input                         l2_trans_accept;
+  input                         l2_trans_drop;
+  input                         l2_trans_drop_x;
+  input                         l1_miss;
+  output                        stall_aw;
+  input                         response_sent;
+  output                        wlast_received;
 
-  (* mark_debug = "true" *) input    [AXI_DATA_WIDTH-1:0] s_axi4_wdata;
-  (* mark_debug = "true" *) input                         s_axi4_wvalid;
-  (* mark_debug = "true" *) output                        s_axi4_wready;
-  (* mark_debug = "true" *) input  [AXI_DATA_WIDTH/8-1:0] s_axi4_wstrb;
-  (* mark_debug = "true" *) input                         s_axi4_wlast;
+  input    [AXI_DATA_WIDTH-1:0] s_axi4_wdata;
+  input                         s_axi4_wvalid;
+  output                        s_axi4_wready;
+  input  [AXI_DATA_WIDTH/8-1:0] s_axi4_wstrb;
+  input                         s_axi4_wlast;
   input    [AXI_USER_WIDTH-1:0] s_axi4_wuser;
 
-  (* mark_debug = "true" *) output   [AXI_DATA_WIDTH-1:0] m_axi4_wdata;
-  (* mark_debug = "true" *) output                        m_axi4_wvalid;
-  (* mark_debug = "true" *) input                         m_axi4_wready;
-  (* mark_debug = "true" *) output [AXI_DATA_WIDTH/8-1:0] m_axi4_wstrb;
-  (* mark_debug = "true" *) output                        m_axi4_wlast;
+  output   [AXI_DATA_WIDTH-1:0] m_axi4_wdata;
+  output                        m_axi4_wvalid;
+  input                         m_axi4_wready;
+  output [AXI_DATA_WIDTH/8-1:0] m_axi4_wstrb;
+  output                        m_axi4_wlast;
   output   [AXI_USER_WIDTH-1:0] m_axi4_wuser;
 
 
-  (* mark_debug = "true" *) wire                          trans_infifo;
-  (* mark_debug = "true" *) wire                          trans_done;
-  (* mark_debug = "true" *) wire                          fifo_not_full;
-  (* mark_debug = "true" *) wire [4:0]                    fifo_datain;
-  (* mark_debug = "true" *) wire [4:0]                    fifo_dataout;
-  (* mark_debug = "true" *) wire                          fifo_datain_valid;
+  wire                          trans_infifo;
+  wire                          trans_done;
+  wire                          fifo_not_full;
+  wire [4:0]                    fifo_datain;
+  wire [4:0]                    fifo_dataout;
+  wire                          fifo_datain_valid;
 
   axi_buffer_rab
     #(
@@ -87,29 +87,29 @@ module axi4_w_sender (axi4_aclk,
 
 generate
 if (ENABLE_L2TLB == 1) begin
-  (* mark_debug = "true" *) reg                         trans_is_l1_accept,trans_is_drop;
-  (* mark_debug = "true" *) wire   [AXI_DATA_WIDTH-1:0] l2_axi4_wdata;
-  (* mark_debug = "true" *) wire [AXI_DATA_WIDTH/8-1:0] l2_axi4_wstrb;
-  (* mark_debug = "true" *) wire                        l2_axi4_wlast;
-  (* mark_debug = "true" *) wire   [AXI_USER_WIDTH-1:0] l2_axi4_wuser;
-  (* mark_debug = "true" *) wire                        single_trans,double_trans;
-  (* mark_debug = "true" *) wire                        data_inbuffer, buffer_not_full;
-  (* mark_debug = "true" *) reg                         stop_storing, keep_storing;
-  (* mark_debug = "true" *) reg                         stop_storing_next;
-  (* mark_debug = "true" *) reg                         storing;
-  (* mark_debug = "true" *) wire                        buffer_datain_valid;
-  (* mark_debug = "true" *) wire                        get_next_bufferdata;
-  (* mark_debug = "true" *) reg                         trans_is_l1_miss;
-  (* mark_debug = "true" *) reg                         trans_is_l2_accept;
-  (* mark_debug = "true" *) reg                         second_trans;
-  (* mark_debug = "true" *) reg                         waiting_wlast;
-  (* mark_debug = "true" *) reg                         l2_wlast_received_reg;
+  reg                         trans_is_l1_accept,trans_is_drop;
+  wire   [AXI_DATA_WIDTH-1:0] l2_axi4_wdata;
+  wire [AXI_DATA_WIDTH/8-1:0] l2_axi4_wstrb;
+  wire                        l2_axi4_wlast;
+  wire   [AXI_USER_WIDTH-1:0] l2_axi4_wuser;
+  wire                        single_trans,double_trans;
+  wire                        data_inbuffer, buffer_not_full;
+  reg                         stop_storing, keep_storing;
+  reg                         stop_storing_next;
+  reg                         storing;
+  wire                        buffer_datain_valid;
+  wire                        get_next_bufferdata;
+  reg                         trans_is_l1_miss;
+  reg                         trans_is_l2_accept;
+  reg                         second_trans;
+  reg                         waiting_wlast;
+  reg                         l2_wlast_received_reg;
 
-  (* mark_debug = "true" *) wire [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1-1:0] buffer_dataout;
-  (* mark_debug = "true" *) wire [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1-1:0] buffer_datain;
+  wire [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1-1:0] buffer_dataout;
+  wire [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+AXI_USER_WIDTH+1-1:0] buffer_datain;
 
   typedef enum logic[1:0] {IDLE, STORE, DONE} store_state_t;
-  (* mark_debug = "true" *) store_state_t store_state, store_next_state;
+  store_state_t store_state, store_next_state;
 
   // Stall aw channel till wlast is encountered or if the fifo is full.(The fifo cannot be full if w and aw are aligned)
   assign stall_aw = ~fifo_not_full || waiting_wlast;
