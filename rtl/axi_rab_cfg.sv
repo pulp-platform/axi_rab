@@ -18,16 +18,17 @@ import CfMath::log2;
 
 module axi_rab_cfg
   #(
-    parameter N_PORTS         = 3,
+    parameter N_PORTS         =   3,
     parameter N_REGS          = 196,
-    parameter N_L2_SETS       = 32,
-    parameter N_L2_SET_ENTRIES= 32,
-    parameter ADDR_WIDTH_PHYS = 40,
-    parameter ADDR_WIDTH_VIRT = 32,
-    parameter N_FLAGS         = 4,
-    parameter AXI_DATA_WIDTH  = 64,
-    parameter AXI_ADDR_WIDTH  = 32,
-    parameter MISS_ID_WIDTH   = 10  // <= FIFO_WIDTH
+    parameter N_L2_SETS       =  32,
+    parameter N_L2_SET_ENTRIES=  32,
+    parameter ADDR_WIDTH_PHYS =  40,
+    parameter ADDR_WIDTH_VIRT =  32,
+    parameter N_FLAGS         =   4,
+    parameter AXI_DATA_WIDTH  =  64,
+    parameter AXI_ADDR_WIDTH  =  32,
+    parameter MISS_META_WIDTH =  10,  // <= FIFO_WIDTH
+    parameter MH_FIFO_DEPTH   =  16
     )
    (
     input  logic                                    Clk_CI,
@@ -57,7 +58,7 @@ module axi_rab_cfg
 
     // Miss handling
     input  logic [ADDR_WIDTH_VIRT-1:0]              MissAddr_DI,
-    input  logic [MISS_ID_WIDTH-1:0]                MissId_DI,
+    input  logic [MISS_META_WIDTH-1:0]              MissMeta_DI,
     input  logic                                    Miss_SI,
     output logic                                    MhFifoFull_SO,
 
@@ -459,24 +460,24 @@ module axi_rab_cfg
   logic                       AddrFifoEmpty_SB;
   logic                       AddrFifoFull_SB;
 
-  logic [MISS_ID_WIDTH-1:0] IdFifoDin_D;
-  logic                     IdFifoWen_S;
-  logic                     IdFifoRen_S;
-  logic [MISS_ID_WIDTH-1:0] IdFifoDout_D;
-  logic                     IdFifoFull_S;
-  logic                     IdFifoEmpty_S;
-  logic                     IdFifoEmpty_SB;
-  logic                     IdFifoFull_SB;
+  logic [MISS_META_WIDTH-1:0] MetaFifoDin_D;
+  logic                       MetaFifoWen_S;
+  logic                       MetaFifoRen_S;
+  logic [MISS_META_WIDTH-1:0] MetaFifoDout_D;
+  logic                       MetaFifoFull_S;
+  logic                       MetaFifoEmpty_S;
+  logic                       MetaFifoEmpty_SB;
+  logic                       MetaFifoFull_SB;
 
   logic [AXI_DATA_WIDTH-1:0] wdata_reg_vec;
 
   assign AddrFifoEmpty_S = ~AddrFifoEmpty_SB;
-  assign IdFifoEmpty_S   = ~IdFifoEmpty_SB;
+  assign MetaFifoEmpty_S = ~MetaFifoEmpty_SB;
 
   assign AddrFifoFull_S = ~AddrFifoFull_SB;
-  assign IdFifoFull_S   = ~IdFifoFull_SB;
+  assign MetaFifoFull_S = ~MetaFifoFull_SB;
 
-  assign MhFifoFull_SO = (AddrFifoWen_S & AddrFifoFull_S) | (IdFifoWen_S & IdFifoFull_S);
+  assign MhFifoFull_SO = (AddrFifoWen_S & AddrFifoFull_S) | (MetaFifoWen_S & MetaFifoFull_S);
 
   generate
      for ( j=0; j<AXI_DATA_WIDTH/8; j++ )
@@ -503,17 +504,17 @@ module axi_rab_cfg
   // write ID FIFO
   always_comb
     begin
-       IdFifoWen_S = 1'b0;
-       IdFifoDin_D = 'b0;
+       MetaFifoWen_S = 1'b0;
+       MetaFifoDin_D = 'b0;
        if ( Miss_SI == 1'b1 ) // register a new miss
          begin
-            IdFifoWen_S                    = 1'b1;
-            IdFifoDin_D[MISS_ID_WIDTH-1:0] = MissId_DI;
+            MetaFifoWen_S                      = 1'b1;
+            MetaFifoDin_D[MISS_META_WIDTH-1:0] = MissMeta_DI;
          end
        else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'h8) ) // write request from AXI interface
          begin
-            IdFifoWen_S = 1'b1;
-            IdFifoDin_D = wdata_reg_vec[MISS_ID_WIDTH-1:0];
+            MetaFifoWen_S = 1'b1;
+            MetaFifoDin_D = wdata_reg_vec[MISS_META_WIDTH-1:0];
          end
     end
 
@@ -522,7 +523,7 @@ module axi_rab_cfg
     begin
        s_axi_rdata   = rdata_reg; // read L1 config
        AddrFifoRen_S = 1'b0;
-       IdFifoRen_S   = 1'b0;
+       MetaFifoRen_S = 1'b0;
        if ( rvalid == 1'b1 )
          begin
             // read Addr FIFO
@@ -533,22 +534,22 @@ module axi_rab_cfg
                 if ( AddrFifoEmpty_S == 1'b0 )
                   AddrFifoRen_S <= 1'b1;
               end
-            // read Id FIFO
+            // read Meta FIFO
             else if ( araddr_reg[ADDR_MSB:0] == 4'h8 )
               begin
-                s_axi_rdata                    = {AXI_DATA_WIDTH{1'b0}};
-                s_axi_rdata[31]                = IdFifoEmpty_S;
-                s_axi_rdata[MISS_ID_WIDTH-1:0] = IdFifoDout_D;
-                if ( IdFifoEmpty_S == 1'b0 )
-                  IdFifoRen_S <= 1'b1;
+                s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
+                s_axi_rdata[31]                  = MetaFifoEmpty_S;
+                s_axi_rdata[MISS_META_WIDTH-1:0] = MetaFifoDout_D;
+                if ( MetaFifoEmpty_S == 1'b0 )
+                  MetaFifoRen_S <= 1'b1;
               end
          end // if ( rvalid == 1'b1 )
     end // always_comb begin
 
   generic_fifo
     #(
-      .DATA_WIDTH (ADDR_WIDTH_VIRT),
-      .DATA_DEPTH (16)
+      .DATA_WIDTH ( ADDR_WIDTH_VIRT ),
+      .DATA_DEPTH ( MH_FIFO_DEPTH   )
       )
     fifo_addr_i
     (
@@ -565,20 +566,20 @@ module axi_rab_cfg
 
   generic_fifo
     #(
-      .DATA_WIDTH (MISS_ID_WIDTH),
-      .DATA_DEPTH (16)
+      .DATA_WIDTH ( MISS_META_WIDTH ),
+      .DATA_DEPTH ( MH_FIFO_DEPTH   )
       )
-    fifo_id_i
+    fifo_meta_i
     (
-      .clk         ( Clk_CI                      ),
-      .rst_n       ( Rst_RBI                     ),
-      .data_i      ( IdFifoDin_D                 ),
-      .valid_i     ( IdFifoWen_S & IdFifoFull_SB ),
-      .grant_o     ( IdFifoFull_SB               ),
-      .data_o      ( IdFifoDout_D                ),
-      .valid_o     ( IdFifoEmpty_SB              ),
-      .grant_i     ( IdFifoRen_S                 ),
-      .test_mode_i ( 1'b0                        )
+      .clk         ( Clk_CI                          ),
+      .rst_n       ( Rst_RBI                         ),
+      .data_i      ( MetaFifoDin_D                   ),
+      .valid_i     ( MetaFifoWen_S & MetaFifoFull_SB ),
+      .grant_o     ( MetaFifoFull_SB                 ),
+      .data_o      ( MetaFifoDout_D                  ),
+      .valid_o     ( MetaFifoEmpty_SB                ),
+      .grant_i     ( MetaFifoRen_S                   ),
+      .test_mode_i ( 1'b0                            )
     );
 
 endmodule

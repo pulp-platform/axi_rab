@@ -1,8 +1,10 @@
+
 `include "ulpsoc_defines.sv"
 module axi4_b_sender (axi4_aclk,
                         axi4_arstn,
                         trans_id,
                         trans_drop,
+                        trans_prefetch,
                         wlast_received,
                         response_sent,                         
                         s_axi4_wvalid,
@@ -28,6 +30,7 @@ module axi4_b_sender (axi4_aclk,
   
   input    [AXI_ID_WIDTH-1:0] trans_id;
   input                       trans_drop;
+  input                       trans_prefetch;
   
   input                       s_axi4_wvalid;
   input                       s_axi4_wlast;
@@ -49,27 +52,27 @@ module axi4_b_sender (axi4_aclk,
 
   wire                        trans_infifo;
   wire                        trans_done;
-  wire                        trans_is_accept;
-  wire                        trans_is_drop;
   wire                        fifo_not_full;
   wire     [AXI_ID_WIDTH-1:0] id_to_drop;
+  wire                        prefetch;
+
   reg                         dropping;
   reg                         wlast_received_reg;
   
   axi_buffer_rab
     #(
-      .DATA_WIDTH ( AXI_ID_WIDTH )
+      .DATA_WIDTH ( 1+AXI_ID_WIDTH )
       )
     u_transfifo
       (
-        .clk(axi4_aclk),
-        .rstn(axi4_arstn),
-        .data_out(id_to_drop),
-        .valid_out(trans_infifo),
-        .ready_in(trans_done),
-        .valid_in(trans_drop),
-        .data_in(trans_id),
-        .ready_out(fifo_not_full)
+        .clk       ( axi4_aclk                  ),
+        .rstn      ( axi4_arstn                 ),
+        .data_out  ( {prefetch, id_to_drop}     ),
+        .valid_out ( trans_infifo               ),
+        .ready_in  ( trans_done                 ),
+        .valid_in  ( trans_drop                 ),
+        .data_in   ( {trans_prefetch, trans_id} ),
+        .ready_out ( fifo_not_full              )
       );
 
   assign trans_done = dropping && s_axi4_bready;
@@ -110,11 +113,14 @@ end else begin
 end // else: !if(ENABLE_L2TLB == 1)
 endgenerate
 
-  assign s_axi4_bid    = dropping ? id_to_drop : m_axi4_bid;
-  assign s_axi4_bresp  = dropping ? 2'b10 : m_axi4_bresp;
   assign s_axi4_buser  = dropping ? {AXI_USER_WIDTH{1'b0}} : m_axi4_buser;
+  assign s_axi4_bid    = dropping ? id_to_drop : m_axi4_bid;
+
+  assign s_axi4_bresp  = (dropping &  prefetch) ? 2'b00 :
+                         (dropping & !prefetch) ? 2'b10 :
+                         m_axi4_bresp;
   
-  assign s_axi4_bvalid = dropping | m_axi4_bvalid;
+  assign s_axi4_bvalid =  dropping | m_axi4_bvalid;
   assign m_axi4_bready = ~dropping & s_axi4_bready;
 
 endmodule

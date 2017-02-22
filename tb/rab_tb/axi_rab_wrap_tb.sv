@@ -45,7 +45,7 @@ module axi_rab_wrap
     output logic intr_miss_o , 
     output logic intr_multi_o,
     output logic intr_prot_o,
-    output logic intr_mhr_full_o
+    output logic intr_mhf_full_o
     );
    
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
@@ -215,7 +215,7 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                          intr_rab_miss;
   logic [N_PORTS-1:0]                          intr_rab_multi;
   logic [N_PORTS-1:0]                          intr_rab_prot;
-  logic                                        intr_mhr_full;
+  logic                                        intr_mhf_full;
       
   //  █████╗ ███████╗███████╗██╗ ██████╗ ███╗   ██╗███╗   ███╗███████╗███╗   ██╗████████╗███████╗
   // ██╔══██╗██╔════╝██╔════╝██║██╔════╝ ████╗  ██║████╗ ████║██╔════╝████╗  ██║╚══██╔══╝██╔════╝
@@ -383,7 +383,7 @@ module axi_rab_wrap
   assign intr_miss_o     = | intr_rab_miss;
   assign intr_multi_o    = | intr_rab_multi;
   assign intr_prot_o     = | intr_rab_prot;
-  assign intr_mhr_full_o = intr_mhr_full;
+  assign intr_mhf_full_o = intr_mhf_full;
 
   //------------------------------   arregion, arqos ---------------------------------
   assign m_axi_arregion = 4'b0;
@@ -584,7 +584,7 @@ module axi_rab_wrap
       .int_miss     (intr_rab_miss ),
       .int_multi    (intr_rab_multi),
       .int_prot     (intr_rab_prot ),
-      .int_mhr_full (intr_mhr_full )
+      .int_mhf_full (intr_mhf_full )
     );
 
 endmodule

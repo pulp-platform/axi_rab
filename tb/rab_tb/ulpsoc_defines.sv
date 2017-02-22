@@ -127,4 +127,11 @@
 `define N_SLICES_MAX   32
 `define EN_ACP         1
 
+`define RAB_N_PORTS              2
+`define RAB_L2_N_SETS           32
+`define RAB_L2_N_SET_ENTRIES    32
+`define RAB_L2_N_PAR_VA_RAMS     4
+
+`include "pulp_interfaces.sv"
+
 `endif // ULPSOC_DEFINES_SV
