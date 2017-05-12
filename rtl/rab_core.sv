@@ -88,6 +88,7 @@ module rab_core
     output logic [N_PORTS-1:0]                           port1_cache_coherent,
     output logic [N_PORTS-1:0]                           port1_accept,
     output logic [N_PORTS-1:0]                           port1_drop,
+    output logic [N_PORTS-1:0]                           port1_miss,
  
     input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] port2_addr,
     input  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] port2_id,
@@ -101,6 +102,7 @@ module rab_core
     output logic [N_PORTS-1:0]                           port2_cache_coherent,
     output logic [N_PORTS-1:0]                           port2_accept,
     output logic [N_PORTS-1:0]                           port2_drop,
+    output logic [N_PORTS-1:0]                           port2_miss,
  
     input  logic [N_PORTS-1:0]                           miss_l2,
     input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] miss_addr_l2,
@@ -448,8 +450,10 @@ module rab_core
             .cache_coherent     ( cache_coherent[z]     ),
             .port1_accept       ( port1_accept[z]       ),
             .port1_drop         ( port1_drop[z]         ),
+            .port1_miss         ( port1_miss[z]         ),
             .port2_accept       ( port2_accept[z]       ),
             .port2_drop         ( port2_drop[z]         ),
+            .port2_miss         ( port2_miss[z]         ),
             .out_addr_reg       ( out_addr_reg[z]       ),
             .cache_coherent_reg ( cache_coherent_reg[z] ),
             .int_miss           ( int_miss[z]           ),

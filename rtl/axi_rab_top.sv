@@ -360,6 +360,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]  [AXI_M_ADDR_WIDTH-1:0] int_wtrans_addr;
   logic [N_PORTS-1:0]                         int_wtrans_accept;
   logic [N_PORTS-1:0]                         int_wtrans_drop;
+  logic [N_PORTS-1:0]                         int_wtrans_miss;
   logic [N_PORTS-1:0]                         int_wtrans_sent;
   logic [N_PORTS-1:0]                         int_wtrans_cache_coherent;
   logic [N_PORTS-1:0]                         int_wmaster_select;   
@@ -367,6 +368,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]  [AXI_M_ADDR_WIDTH-1:0] int_rtrans_addr;
   logic [N_PORTS-1:0]                         int_rtrans_accept;
   logic [N_PORTS-1:0]                         int_rtrans_drop;
+  logic [N_PORTS-1:0]                         int_rtrans_miss;
   logic [N_PORTS-1:0]                         int_rtrans_sent;
   logic [N_PORTS-1:0]                         int_rtrans_cache_coherent;
   logic [N_PORTS-1:0]                         int_rmaster_select;   
@@ -1643,6 +1645,7 @@ module axi_rab_top
     .port1_cache_coherent (int_wtrans_cache_coherent),
     .port1_accept         (int_wtrans_accept),
     .port1_drop           (int_wtrans_drop),
+    .port1_miss           (int_wtrans_miss),
     .port2_addr           (int_araddr),
     .port2_id             (int_arid),
     .port2_len            (int_arlen),
@@ -1655,6 +1658,7 @@ module axi_rab_top
     .port2_cache_coherent (int_rtrans_cache_coherent),
     .port2_accept         (int_rtrans_accept),
     .port2_drop           (int_rtrans_drop),
+    .port2_miss           (int_rtrans_miss),
     .miss_l2              (miss_l2),
     .miss_addr_l2         (l2_in_addr_reg),
     .miss_id_l2           (trans_id_l2),
