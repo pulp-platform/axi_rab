@@ -124,9 +124,9 @@ module fsm
              port1_miss_SN         = (port1_addr_valid &  select) & no_hit;
              port2_miss_SN         = (port2_addr_valid & ~select) & no_hit;
              int_miss_SN           = port1_miss_SN | port2_miss_SN;
-             int_multi_SN          = (port1_addr_valid | port2_addr_valid) &  multiple_hit;
-             int_prot_SN           = (port1_addr_valid | port2_addr_valid) & ~no_prot;
-             int_prefetch_SN       = (port1_addr_valid | port2_addr_valid) & ~no_hit & prefetch;
+             int_multi_SN          = ((port1_addr_valid & select)| (port2_addr_valid & ~select)) &  multiple_hit;
+             int_prot_SN           = ((port1_addr_valid & select)| (port2_addr_valid & ~select)) & ~no_prot;
+             int_prefetch_SN       = ((port1_addr_valid & select)| (port2_addr_valid & ~select)) & ~no_hit & prefetch;
              out_addr_reg_SN       = out_addr;
              cache_coherent_reg_SN = cache_coherent;
           end
