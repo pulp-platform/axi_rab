@@ -493,6 +493,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] trans_arid;
   logic [N_PORTS-1:0]                           wtrans_drop,rtrans_drop; // signals used in rwch,rrch senders
   logic [N_PORTS-1:0]                           wtrans_prefetch, rtrans_prefetch;
+  logic [N_PORTS-1:0]                           wtrans_hit, rtrans_hit;
 
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] l2_in_addr, l2_in_addr_reg;
   logic [N_PORTS-1:0]                           l2_wtrans_accept;
@@ -1109,6 +1110,7 @@ module axi_rab_top
       .trans_id       (trans_awid[i]),
       .trans_drop     (wtrans_drop[i]),
       .trans_prefetch (wtrans_prefetch[i]),
+      .trans_hit      (wtrans_hit[i]),
       .wlast_received (wlast_received[i]),
       .response_sent  (response_sent[i]),
       .s_axi4_wvalid  (int_wvalid[i]),
@@ -1465,6 +1467,7 @@ module axi_rab_top
       .trans_id      (trans_arid[i]),
       .trans_drop    (rtrans_drop[i]),
       .trans_prefetch(rtrans_prefetch[i]),
+      .trans_hit     (rtrans_hit[i]),
       .s_axi4_rid    (s_axi4_rid[i]),
       .s_axi4_rresp  (s_axi4_rresp[i]),
       .s_axi4_rdata  (s_axi4_rdata[i]),
@@ -1721,26 +1724,33 @@ module axi_rab_top
         );
       
       /*
-       *
        * Misc logic
-       * 
-       * The below logic is used to generate triggers for L2 appropriately.
-       * It also stores the required signals if l2 is busy during a rab miss.
-       * 
+       *
+       * The logic below is used to generate triggers for the L2 appropriately.
+       * It also stores the required signals if L2 is busy during an L1 miss,
+       * multi, prot or prefetch hit.
        */
+
       assign l2_wtrans_accept[i] =  l2_rw_type[i] && hit_l2[i] && ~(multi_l2[i] || prot_l2[i] ||  prefetch_l2[i]);
       assign l2_rtrans_accept[i] = ~l2_rw_type[i] && hit_l2[i] && ~(multi_l2[i] || prot_l2[i] ||  prefetch_l2[i]);
-      assign l2_wtrans_drop[i]   =  l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || (prefetch_l2[i] & hit_l2[i]) || l1_multi_or_prot[i]);
-      assign l2_rtrans_drop[i]   = ~l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || (prefetch_l2[i] & hit_l2[i]) || l1_multi_or_prot[i]);
+      assign l2_wtrans_drop[i]   =  l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || (prefetch_l2[i] & hit_l2[i]) || l1_multi_or_prot[i]); // l1_multi_or_prot[i] is also triggered on an L1 prefetch hit
+      assign l2_rtrans_drop[i]   = ~l2_rw_type[i] && (miss_l2[i] || multi_l2[i] || prot_l2[i] || (prefetch_l2[i] & hit_l2[i]) || l1_multi_or_prot[i]); // l1_multi_or_prot[i] is also triggered on an L1 prefetch hit
       assign l2_wtrans_addr[i]   =  l2_out_addr[i];
       assign l2_rtrans_addr[i]   =  l2_out_addr[i];
       assign l2_trans_sent[i]    =  l2_wtrans_sent[i] | l2_rtrans_sent[i] | (prefetch_l2[i] & hit_l2[i]);
-        
-      ////////////////////////// L2 FSM ////////////////////////////////////
-      // In case of rab multi/prot, there is no need for L2. In this case, l1_<r/w>trans_drop is asserted, similar to
-      // a rab_miss. l2_<w/r>_trans_drop is asserted in the next cycle so that the transaction is dropped in the sender modules.
-      // If a rab miss/prot/multi occurs when L2 is busy, the RAB is blocked and the transaction goes into L2 when L2
-      // becomes available.
+
+      /*
+       * L2 FSM
+       *
+       * In case of an L1 multi, prot or prefetch hit, there is actually no need
+       * to perform an L2 lookup. Similar to an L1 miss, l1_<r/w> trans_drop is
+       * asserted. In the next cycle, l2_<w/r>_trans_drop is asserted so that the
+       * sender modules drop the transaction.
+       *
+       * If an L1 multi, prot, prefetch hit or an L1 miss occurs while an L2 lookup
+       * is being performed (l2_busy), the RAB is blocked and the transaction is
+       * is dropped/goes into the L2 as soon as it becomes available.
+       */
       
       // FSM Sequential logic
       always_ff @(posedge Clk_CI) begin
@@ -1953,9 +1963,19 @@ module axi_rab_top
             prefetch_l2[i] = 1'b0;
         end
 
+      /*
+       * R/B Sender Control
+       *
+       * l2_trans_drop[i] is also enabled in case of an L1 multi, prot and prefetch hit
+       * signaled by l1_multi_or_prot[i]
+       */
       assign wtrans_drop[i]     = l2_wtrans_drop[i];
-      assign wtrans_prefetch[i] = prefetch_l2[i];
       assign rtrans_drop[i]     = l2_rtrans_drop[i];
+
+      assign wtrans_hit[i]      =  l2_rw_type[i] & ( hit_l2[i] | l1_multi_or_prot[i] );
+      assign rtrans_hit[i]      = ~l2_rw_type[i] & ( hit_l2[i] | l1_multi_or_prot[i] );
+
+      assign wtrans_prefetch[i] = prefetch_l2[i];
       assign rtrans_prefetch[i] = prefetch_l2[i];
 
     end else begin // if (ENABLE_L2TLB[i] == 1) 
@@ -1984,6 +2004,8 @@ module axi_rab_top
 
       assign wtrans_drop[i]     = int_wtrans_drop[i];
       assign rtrans_drop[i]     = int_rtrans_drop[i];
+      assign wtrans_hit[i]      = ~int_wtrans_miss[i];
+      assign rtrans_hit[i]      = ~int_rtrans_miss[i];
       assign wtrans_prefetch[i] = rab_prefetch[i];
       assign rtrans_prefetch[i] = rab_prefetch[i];
     end // !`ifdef ENABLE_L2TLB
