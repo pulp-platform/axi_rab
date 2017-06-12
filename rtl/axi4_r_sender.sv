@@ -18,6 +18,7 @@ module axi4_r_sender (axi4_aclk,
                       trans_id,
                       trans_drop,
                       trans_prefetch,
+                      trans_hit,
                       s_axi4_rid,
                       s_axi4_rdata,
                       s_axi4_rlast,
@@ -44,6 +45,7 @@ module axi4_r_sender (axi4_aclk,
   input    [AXI_ID_WIDTH-1:0] trans_id;
   input                       trans_drop;
   input                       trans_prefetch;
+  input                       trans_hit;
 
   output   [AXI_ID_WIDTH-1:0] s_axi4_rid;
   output                [1:0] s_axi4_rresp;
@@ -66,23 +68,24 @@ module axi4_r_sender (axi4_aclk,
   wire                        fifo_not_full;
   wire     [AXI_ID_WIDTH-1:0] id_to_drop;
   wire                        prefetch;
+  wire                        hit;
 
   reg                         dropping;
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH ( 1+AXI_ID_WIDTH )
+      .DATA_WIDTH ( 2+AXI_ID_WIDTH )
       )
     u_transfifo
       (
-        .clk       ( axi4_aclk                  ),
-        .rstn      ( axi4_arstn                 ),
-        .data_out  ( {prefetch, id_to_drop}     ),
-        .valid_out ( trans_infifo               ),
-        .ready_in  ( trans_done                 ),
-        .valid_in  ( trans_drop                 ),
-        .data_in   ( {trans_prefetch, trans_id} ),
-        .ready_out ( fifo_not_full              )
+        .clk       ( axi4_aclk                             ),
+        .rstn      ( axi4_arstn                            ),
+        .data_out  ( {prefetch, hit, id_to_drop}           ),
+        .valid_out ( trans_infifo                          ),
+        .ready_in  ( trans_done                            ),
+        .valid_in  ( trans_drop                            ),
+        .data_in   ( {trans_prefetch, trans_hit, trans_id} ),
+        .ready_out ( fifo_not_full                         )
       );
 
   assign trans_done = dropping && s_axi4_rready;
@@ -105,9 +108,9 @@ module axi4_r_sender (axi4_aclk,
   assign s_axi4_ruser  = dropping ? {AXI_USER_WIDTH{1'b0}} : m_axi4_ruser;
   assign s_axi4_rid    = dropping ? id_to_drop : m_axi4_rid;
 
-  assign s_axi4_rresp  = (dropping &  prefetch) ? 2'b00 :
-                         (dropping & !prefetch) ? 2'b10 :
-                         m_axi4_rresp;  
+  assign s_axi4_rresp = (dropping & ~hit)     ? 2'b10 :
+                        (dropping & prefetch) ? 2'b00 :
+                        m_axi4_rresp;
 
   assign s_axi4_rvalid =  dropping | m_axi4_rvalid;
   assign m_axi4_rready = ~dropping & s_axi4_rready;

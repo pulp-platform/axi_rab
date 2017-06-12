@@ -19,6 +19,7 @@ module axi4_b_sender (axi4_aclk,
                         trans_id,
                         trans_drop,
                         trans_prefetch,
+                        trans_hit,
                         wlast_received,
                         response_sent,                         
                         s_axi4_wvalid,
@@ -45,6 +46,7 @@ module axi4_b_sender (axi4_aclk,
   input    [AXI_ID_WIDTH-1:0] trans_id;
   input                       trans_drop;
   input                       trans_prefetch;
+  input                       trans_hit;
   
   input                       s_axi4_wvalid;
   input                       s_axi4_wlast;
@@ -69,24 +71,25 @@ module axi4_b_sender (axi4_aclk,
   wire                        fifo_not_full;
   wire     [AXI_ID_WIDTH-1:0] id_to_drop;
   wire                        prefetch;
+  wire                        hit;
 
   reg                         dropping;
   reg                         wlast_received_reg;
   
   axi_buffer_rab
     #(
-      .DATA_WIDTH ( 1+AXI_ID_WIDTH )
+      .DATA_WIDTH ( 2+AXI_ID_WIDTH )
       )
     u_transfifo
       (
-        .clk       ( axi4_aclk                  ),
-        .rstn      ( axi4_arstn                 ),
-        .data_out  ( {prefetch, id_to_drop}     ),
-        .valid_out ( trans_infifo               ),
-        .ready_in  ( trans_done                 ),
-        .valid_in  ( trans_drop                 ),
-        .data_in   ( {trans_prefetch, trans_id} ),
-        .ready_out ( fifo_not_full              )
+        .clk       ( axi4_aclk                             ),
+        .rstn      ( axi4_arstn                            ),
+        .data_out  ( {prefetch, hit, id_to_drop}           ),
+        .valid_out ( trans_infifo                          ),
+        .ready_in  ( trans_done                            ),
+        .valid_in  ( trans_drop                            ),
+        .data_in   ( {trans_prefetch, trans_hit, trans_id} ),
+        .ready_out ( fifo_not_full                         )
       );
 
   assign trans_done = dropping && s_axi4_bready;
@@ -130,10 +133,10 @@ endgenerate
   assign s_axi4_buser  = dropping ? {AXI_USER_WIDTH{1'b0}} : m_axi4_buser;
   assign s_axi4_bid    = dropping ? id_to_drop : m_axi4_bid;
 
-  assign s_axi4_bresp  = (dropping &  prefetch) ? 2'b00 :
-                         (dropping & !prefetch) ? 2'b10 :
-                         m_axi4_bresp;
-  
+  assign s_axi4_bresp = (dropping & ~hit)     ? 2'b10 :
+                        (dropping & prefetch) ? 2'b00 :
+                        m_axi4_bresp;
+
   assign s_axi4_bvalid =  dropping | m_axi4_bvalid;
   assign m_axi4_bready = ~dropping & s_axi4_bready;
 
