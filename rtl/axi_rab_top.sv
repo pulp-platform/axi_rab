@@ -1608,7 +1608,8 @@ module axi_rab_top
      .AXI_LITE_DATA_WIDTH ( AXI_LITE_DATA_WIDTH ),
      .AXI_LITE_ADDR_WIDTH ( AXI_LITE_ADDR_WIDTH ),
      .AXI_ID_WIDTH        ( AXI_ID_WIDTH        ),
-     .AXI_USER_WIDTH      ( AXI_USER_WIDTH      )
+     .AXI_USER_WIDTH      ( AXI_USER_WIDTH      ),
+     .MH_FIFO_DEPTH       ( MH_FIFO_DEPTH       )
     )
  u_rab_core
    (
