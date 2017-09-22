@@ -406,11 +406,10 @@ module axi_rab_cfg
               end
             else if (wren)
               begin
-                if ( (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg < (j+2)*L2SINGLE_AMAP_SIZE) )
+                if ( (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg < (j+2)*L2SINGLE_AMAP_SIZE) && (|wstrb_reg) )
                   wren_l2[j] <= 1'b1;
                 for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
-                  if ( wstrb_reg[idx_byte] )
-                    wdata_l2[j][idx_byte*8 +: 8] <= wdata_reg[idx_byte];
+                  wdata_l2[j][idx_byte*8 +: 8] <= wdata_reg[idx_byte] & {8{wstrb_reg[idx_byte]}};
               end
             else
               wren_l2[j] <= 0;
