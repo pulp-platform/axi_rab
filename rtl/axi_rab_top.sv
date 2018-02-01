@@ -760,12 +760,10 @@ module axi_rab_top
    */
   always_comb begin
 
+    // valid & forward signals (to master)
     int_m0_wtrans_accept[i] = int_wtrans_accept[i];
     l1_m0_wtrans_drop[i]    = l1_wtrans_drop[i];
     int_m0_awvalid[i]       = int_awvalid[i];
-
-    int_wtrans_sent[i]      = int_m0_wtrans_sent[i];
-    int_awready[i]          = int_m0_awready[i];
 
     if (int_wtrans_accept[i]) begin
 
@@ -784,9 +782,6 @@ module axi_rab_top
           l1_m1_wtrans_drop[i]    = l1_wtrans_drop[i];
           int_m1_awvalid[i]       = int_awvalid[i];
 
-          int_wtrans_sent[i]      = int_m1_wtrans_sent[i];
-          int_awready[i]          = int_m1_awready[i];
-
         end
       `endif
 
@@ -796,6 +791,15 @@ module axi_rab_top
       l1_m1_wtrans_drop[i]    = l1_wtrans_drop[i];
       int_m1_awvalid[i]       = int_awvalid[i];
 
+    end
+
+    // ready & backward signals (to slave)
+    if (int_wmaster_select[i] == 1'b1) begin
+        int_wtrans_sent[i]      = int_m1_wtrans_sent[i];
+        int_awready[i]          = int_m1_awready[i];
+    end else begin
+        int_wtrans_sent[i]      = int_m0_wtrans_sent[i];
+        int_awready[i]          = int_m0_awready[i];
     end
 
   end
@@ -1329,12 +1333,10 @@ module axi_rab_top
    */
   always_comb begin
 
+    // valid & forward signals (to master)
     int_m0_rtrans_accept[i] = int_rtrans_accept[i];
     l1_m0_rtrans_drop[i]    = l1_rtrans_drop[i];
     int_m0_arvalid[i]       = int_arvalid[i];
-
-    int_rtrans_sent[i]      = int_m0_rtrans_sent[i];
-    int_arready[i]          = int_m0_arready[i];
 
     if (int_rtrans_accept[i]) begin
 
@@ -1353,9 +1355,6 @@ module axi_rab_top
           l1_m1_rtrans_drop[i]    = l1_rtrans_drop[i];
           int_m1_arvalid[i]       = int_arvalid[i];
 
-          int_rtrans_sent[i]      = int_m1_rtrans_sent[i];
-          int_arready[i]          = int_m1_arready[i];
-
         end
       `endif
 
@@ -1365,6 +1364,15 @@ module axi_rab_top
       l1_m1_rtrans_drop[i]    = l1_rtrans_drop[i];
       int_m1_arvalid[i]       = int_arvalid[i];
 
+    end
+
+    // ready & backward signals (to slave)
+    if (int_rmaster_select[i] == 1'b1) begin
+      int_rtrans_sent[i]      = int_m1_rtrans_sent[i];
+      int_arready[i]          = int_m1_arready[i];
+    end else begin
+      int_rtrans_sent[i]      = int_m0_rtrans_sent[i];
+      int_arready[i]          = int_m0_arready[i];
     end
 
   end
