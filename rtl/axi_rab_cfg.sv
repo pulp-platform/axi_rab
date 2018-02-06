@@ -393,43 +393,64 @@ module axi_rab_cfg
   // ███████╗███████╗    ╚██████╗██║     ╚██████╔╝
   // ╚══════╝╚══════╝     ╚═════╝╚═╝      ╚═════╝
   //
+  logic [N_PORTS-1:0] l2_addr_is_in_va_rams;
+  logic [N_PORTS-1:0] upper_word_is_written;
+  logic [N_PORTS-1:0] lower_word_is_written;
   generate
     for( j=0; j< N_PORTS; j++)
       begin
-        always @( posedge Clk_CI or negedge Rst_RBI )
-          begin
-            var integer idx_byte;
-            if ( Rst_RBI == 1'b0 )
-              begin
-                wren_l2[j]  <= 1'b0;
-                wdata_l2[j] <= '0;
-              end
-            else if (wren)
-              begin
-                if ( (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg < (j+2)*L2SINGLE_AMAP_SIZE) && (|wstrb_reg) )
-                  wren_l2[j] <= 1'b1;
+        if (AXI_DATA_WIDTH == 64) begin
+          assign l2_addr_is_in_va_rams[j] = (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
+          assign upper_word_is_written[j] = (wstrb_reg[7:4] != 4'b0000);
+          assign lower_word_is_written[j] = (wstrb_reg[3:0] != 4'b0000);
+        end else begin
+          assign l2_addr_is_in_va_rams[j] = 1'b0;
+          assign upper_word_is_written[j] = 1'b0;
+          assign lower_word_is_written[j] = 1'b0;
+        end
+
+        always @( posedge Clk_CI or negedge Rst_RBI ) begin
+          var integer idx_byte, off_byte;
+          if ( Rst_RBI == 1'b0 )
+            begin
+              wren_l2[j]  <= 1'b0;
+              wdata_l2[j] <= '0;
+            end
+          else if (wren)
+            begin
+              if ( (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg < (j+2)*L2SINGLE_AMAP_SIZE) && (|wstrb_reg) )
+                wren_l2[j] <= 1'b1;
+              if      (AXI_DATA_WIDTH == 32) begin
                 for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ )
                   wdata_l2[j][idx_byte*8 +: 8] <= wdata_reg[idx_byte] & {8{wstrb_reg[idx_byte]}};
               end
-            else
-              wren_l2[j] <= 0;
-          end // always @ ( posedge Clk_CI or negedge Rst_RBI )
+              else if (AXI_DATA_WIDTH == 64) begin
+                if (lower_word_is_written[j] == 1'b1)
+                  off_byte = 0;
+                else
+                  off_byte = 4;
+                // always put the payload in the lower word and set upper word to 0
+                for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8/2; idx_byte++ )
+                    wdata_l2[j][idx_byte*8 +: 8] <= wdata_reg[idx_byte+off_byte] & {8{wstrb_reg[idx_byte+off_byte]}};
+                wdata_l2[j][AXI_DATA_WIDTH-1:AXI_DATA_WIDTH/2] <= 'b0;
+              end
+              else
+                $fatal(1, "Unsupported AXI_DATA_WIDTH!");
+            end
+          else
+            wren_l2[j] <= '0;
+        end // always @ ( posedge Clk_CI or negedge Rst_RBI )
 
-        logic l2_addr_is_in_va_rams, upper_word_is_written, lower_word_is_written;
-        if (AXI_DATA_WIDTH == 64) begin
-          assign l2_addr_is_in_va_rams = (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
-          assign upper_word_is_written = (wstrb_reg[7:4] != 4'b0000) && wren_l2[j];
-          assign lower_word_is_written = (wstrb_reg[3:0] != 4'b0000) && wren_l2[j];
-        end
-
-        // Word address calculation:  Add an offset of one 32-bit word to the address if upper the
-        // 32-bit word is to be written to VA RAMs from 64-bit data input.
+        // Properly align the 32-bit word address when writing from 64-bit interface:
+        // Depending on the system, the incoming address is (non-)aligned to the 64-bit
+        // word when writing the upper 32-bit word.
         always_comb begin
           waddr_l2[j] = (awaddr_reg -(j+1)*L2SINGLE_AMAP_SIZE)/4;
-          if (wren_l2) begin
+          if (wren_l2[j]) begin
             if (AXI_DATA_WIDTH == 64) begin
-              if (l2_addr_is_in_va_rams && upper_word_is_written) begin
-                  waddr_l2[j] = waddr_l2[j] + 1;
+              if (upper_word_is_written[j] == 1'b1) begin
+                // address must be non-aligned
+                waddr_l2[j][0] = 1'b1;
               end
             end
             else if (AXI_DATA_WIDTH != 32) begin
@@ -442,13 +463,13 @@ module axi_rab_cfg
         // systems.
         always_ff @ (posedge Clk_CI) begin
           if (AXI_DATA_WIDTH == 64) begin
-            if  (l2_addr_is_in_va_rams) begin
-              if (upper_word_is_written) begin
-                assert (!lower_word_is_written)
+            if  (l2_addr_is_in_va_rams[j]) begin
+              if (upper_word_is_written[j]) begin
+                assert (!lower_word_is_written[j])
                   else $error("Unsupported write across two 32-bit words to VA RAMs!");
               end
-              else if (lower_word_is_written) begin
-                assert (!upper_word_is_written)
+              else if (lower_word_is_written[j]) begin
+                assert (!upper_word_is_written[j])
                   else $error("Unsupported write across two 32-bit words to VA RAMs!");
               end
             end

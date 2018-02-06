@@ -57,18 +57,20 @@ module tlb_l2
    localparam OFFSET_WIDTH      = log2(NUM_OFFSET);
    localparam LL_WIDTH          = log2(PARALLEL_NUM);
    localparam IGNORE_LSB        = log2(PAGE_SIZE);
-      
+
+   localparam VA_RAM_DATA_WIDTH = AXI_S_ADDR_WIDTH - IGNORE_LSB + 4;
+   localparam PA_RAM_DATA_WIDTH = AXI_M_ADDR_WIDTH - IGNORE_LSB;
+
    logic [PARALLEL_NUM-1:0]                                hit, prot, multi_hit;
    logic [PARALLEL_NUM-1:0]                                ram_we;
    logic                                                   last_search;
    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    ram_waddr;
-   logic [AXI_S_ADDR_WIDTH-1:0]                            va_ram_wdata;
    logic [PARALLEL_NUM-1:0] [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
    logic                                                   pa_ram_we, read_pa;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
    logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_addr; // PA RAM addr
-   logic [AXI_M_ADDR_WIDTH-1:0]                            pa_port0_data_o;
-   logic [AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0]                 pa_port0_data_reg, pa_port0_data_saved;
+   logic [PA_RAM_DATA_WIDTH-1:0]                           pa_port0_data_o;
+   logic [PA_RAM_DATA_WIDTH-1:0]                           pa_port0_data_reg, pa_port0_data_saved;
    logic                                                   prot_top;
    logic                                                   first_hit_top, hit_top;
    logic                                                   send_outputs; 
@@ -107,49 +109,37 @@ module tlb_l2
    logic                                                   l2_cache_coherent_next;
 
    logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr, offset_first_addr;
-        
-   // Extract 32-bit word to be written to VA RAMs from 64-bit data input.
-   generate
-      if      (AXI_LITE_DATA_WIDTH == 64) begin
-         assign va_ram_wdata = (waddr[2] == 1'b1) ? wdata[63:32] : wdata[31:0];
-      end
-      else if (AXI_LITE_DATA_WIDTH == 32) begin
-         assign va_ram_wdata = wdata[31:0];
-      end
-      else begin
-         $fatal(1, "Unsupported AXI_LITE_DATA_WIDTH!");
-      end
-   endgenerate
 
    // Generate the VA Block rams and their surrounding logic
    generate
       for (z = 0; z < PARALLEL_NUM; z++) begin
          check_ram
            #(
-    	       .ADDR_WIDTH   ( AXI_S_ADDR_WIDTH ),
-    	       .PAGE_SIZE    ( PAGE_SIZE        ),             
-    	       .SET_WIDTH    ( SET_WIDTH        ),
-    	       .OFFSET_WIDTH ( OFFSET_WIDTH     )
+             .ADDR_WIDTH     ( AXI_S_ADDR_WIDTH  ),
+             .RAM_DATA_WIDTH ( VA_RAM_DATA_WIDTH ),
+             .PAGE_SIZE      ( PAGE_SIZE         ),
+             .SET_WIDTH      ( SET_WIDTH         ),
+             .OFFSET_WIDTH   ( OFFSET_WIDTH      )
              )
          u_check_ram
              (
-              .clk_i         ( clk_i                       ),
-              .rst_ni        ( rst_ni                      ),
-              .in_addr       ( in_addr_saved               ),
-              .rw_type       ( rw_type_saved               ),
-              .ram_we        ( ram_we[z]                   ),
-              .port0_addr    ( port0_addr                  ),
-              .port1_addr    ( port1_addr                  ),
-              .ram_wdata     ( va_ram_wdata                ),
-              .send_outputs  ( send_outputs                ),
-              .searching     ( searching                   ),
-              .offset_addr_d ( offset_addr_d               ),
-              .start_search  ( l1_miss                     ),
-              .hit_addr      ( hit_addr[z]                 ),
-              .master        ( cache_coherent[z]           ),
-              .hit           ( hit[z]                      ),
-              .multi_hit     ( multi_hit[z]                ),
-              .prot          ( prot[z]                     )
+              .clk_i         ( clk_i                        ),
+              .rst_ni        ( rst_ni                       ),
+              .in_addr       ( in_addr_saved                ),
+              .rw_type       ( rw_type_saved                ),
+              .ram_we        ( ram_we[z]                    ),
+              .port0_addr    ( port0_addr                   ),
+              .port1_addr    ( port1_addr                   ),
+              .ram_wdata     ( wdata[VA_RAM_DATA_WIDTH-1:0] ),
+              .send_outputs  ( send_outputs                 ),
+              .searching     ( searching                    ),
+              .offset_addr_d ( offset_addr_d                ),
+              .start_search  ( l1_miss                      ),
+              .hit_addr      ( hit_addr[z]                  ),
+              .master        ( cache_coherent[z]            ),
+              .hit           ( hit[z]                       ),
+              .multi_hit     ( multi_hit[z]                 ),
+              .prot          ( prot[z]                      )
               );
       end // for (z = 0; z < N_PORTS; z++)
    endgenerate
@@ -406,17 +396,17 @@ module tlb_l2
   /// PA Block RAM
   ram #(
         .ADDR_WIDTH( PA_RAM_ADDR_WIDTH ),
-        .DATA_WIDTH( AXI_M_ADDR_WIDTH  )
+        .DATA_WIDTH( PA_RAM_DATA_WIDTH )
         )
   pa_ram
     (
-      .clk   ( clk_i                       ),
-      .we    ( pa_ram_we                   ),
-      .addr0 ( pa_port0_addr               ),
-      .addr1 ( '0                          ),
-      .d_i   ( wdata[AXI_M_ADDR_WIDTH-1:0] ),
-      .d0_o  ( pa_port0_data_o             ),
-      .d1_o  (                             )
+      .clk   ( clk_i                        ),
+      .we    ( pa_ram_we                    ),
+      .addr0 ( pa_port0_addr                ),
+      .addr1 ( '0                           ),
+      .d_i   ( wdata[PA_RAM_DATA_WIDTH-1:0] ),
+      .d0_o  ( pa_port0_data_o              ),
+      .d1_o  (                              )
     );
 
    assign out_addr[IGNORE_LSB-1:0]                = in_addr_saved[IGNORE_LSB-1:0];
@@ -426,13 +416,13 @@ module tlb_l2
       if (rst_ni == 0) begin
          pa_port0_data_reg <= 0;
       end else if (hit_l2) begin
-         pa_port0_data_reg <= pa_port0_data_o[AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0];
+         pa_port0_data_reg <= pa_port0_data_o[PA_RAM_DATA_WIDTH-1:0];
       end
    end
-   assign pa_port0_data_saved = hit_l2 ? pa_port0_data_o[AXI_M_ADDR_WIDTH-IGNORE_LSB-1:0] : pa_port0_data_reg;
-   
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////   
-   
+   assign pa_port0_data_saved = hit_l2 ? pa_port0_data_o[PA_RAM_DATA_WIDTH-1:0] : pa_port0_data_reg;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 ///// Write enable for all block rams
 generate if (LL_WIDTH != 0) begin
    always_comb begin
@@ -450,6 +440,7 @@ end
 
 endgenerate  
 
+// Addresses are word, not byte addresses
 assign pa_ram_we      = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
 assign ram_waddr      = waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
 assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];             

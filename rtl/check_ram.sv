@@ -18,10 +18,11 @@ import CfMath::log2;
 //`define TLB_MULTIHIT
 module check_ram
   #(
-    parameter ADDR_WIDTH   = 32,
-    parameter PAGE_SIZE    = 4096, // 4kB
-    parameter SET_WIDTH    = 5, 
-    parameter OFFSET_WIDTH = 4 
+    parameter ADDR_WIDTH     = 32,
+    parameter RAM_DATA_WIDTH = 32,
+    parameter PAGE_SIZE      = 4096, // 4kB
+    parameter SET_WIDTH      = 5,
+    parameter OFFSET_WIDTH   = 4
     )
   (
    input  logic                                clk_i,
@@ -31,7 +32,7 @@ module check_ram
    input  logic                                ram_we,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr,
-   input  logic [ADDR_WIDTH-1:0]               ram_wdata,
+   input  logic [RAM_DATA_WIDTH-1:0]           ram_wdata,
    input  logic                                send_outputs,
    input  logic                                searching,
    input  logic [OFFSET_WIDTH-1:0]             offset_addr_d,
@@ -45,8 +46,8 @@ module check_ram
 
    localparam IGNORE_LSB = log2(PAGE_SIZE); // 12
 
-   logic [31:0]                         port0_data_i; // RAM write data input
-   logic [31:0]                         port0_data_o, port1_data_o; // RAM read data outputs
+   logic [RAM_DATA_WIDTH-1:0]           port0_data_i; // RAM write data input
+   logic [RAM_DATA_WIDTH-1:0]           port0_data_o, port1_data_o; // RAM read data outputs
    logic                                port0_hit, port1_hit; // Ram output matches in_addr
       
    // Hit FSM Signals
@@ -66,8 +67,8 @@ module check_ram
    
   //// --------------- Block RAM (Dual Port) -------------- ////
    ram #(
-         .ADDR_WIDTH(SET_WIDTH+OFFSET_WIDTH+1),
-         .DATA_WIDTH(32)
+         .ADDR_WIDTH( SET_WIDTH+OFFSET_WIDTH+1 ),
+         .DATA_WIDTH( RAM_DATA_WIDTH           )
          )
    ram_0
      (
@@ -81,8 +82,8 @@ module check_ram
              );
 
    //// Check Ram Outputs
-   assign port0_hit = (port0_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port0_data_o[4+ADDR_WIDTH-IGNORE_LSB-1:4]);
-   assign port1_hit = (port1_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port1_data_o[4+ADDR_WIDTH-IGNORE_LSB-1:4]);
+   assign port0_hit = (port0_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port0_data_o[RAM_DATA_WIDTH-1:4]);
+   assign port1_hit = (port1_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port1_data_o[RAM_DATA_WIDTH-1:4]);
    //// ----------------------------------------------------- /////
 
    //// ------------------- Check if Hit ------------------------ ////  
