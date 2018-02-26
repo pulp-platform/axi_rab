@@ -601,7 +601,7 @@ module axi_rab_cfg
             else if ( araddr_reg[ADDR_MSB:0] == 8'h10 )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
-                s_axi_rdata[0]                   = FifosDisabled_SP;
+                s_axi_rdata[0]                   = FifosDisabled_S;
               end
          end // if ( rvalid == 1'b1 )
     end // always_comb begin
