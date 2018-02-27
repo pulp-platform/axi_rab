@@ -525,7 +525,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] trans_user_l2;
 
   logic [N_PORTS-1:0]                           prefetch_l2;
-    
+
   genvar           i;
 
   // L2 FSM
@@ -536,6 +536,13 @@ module axi_rab_top
   typedef enum logic[1:0] {WREADY_IDLE, WREADY_WAIT_FOR_M0, WREADY_WAIT_FOR_M1} wready_state_t;   
   wready_state_t [N_PORTS-1:0] wready_state, wready_next_state;
   logic [N_PORTS-1:0] clr_m0_wvalid, clr_m1_wvalid, send_wready;
+
+  // RRESP FSM
+  typedef enum logic {IDLE, BUSY} r_resp_mux_ctrl_state_t;
+  r_resp_mux_ctrl_state_t [N_PORTS-1:0] RRespMuxCtrl_SN, RRespMuxCtrl_SP;
+  logic                   [N_PORTS-1:0] RRespSel_SN, RRespSel_SP;
+  logic                   [N_PORTS-1:0] RRespBurst_S;
+  logic                   [N_PORTS-1:0] RRespSelIm_S;
 
   // }}}
      
@@ -1494,12 +1501,96 @@ module axi_rab_top
   
   /* 
    * Multiplexer to switch between the two output master ports on the read response(rr) channel
+   *
+   * Do not perform read burst interleaving as the DMA does not support it. This means we can only
+   * switch between the two masters upon sending rlast or when idle.
+   *
+   * However, if the downstream already performs burst interleaving, this cannot be undone here.
+   * Also, the downstream may interleave a burst reponse with a single-beat transaction. In this
+   * case, the FSM below falls out of the burst mode. To avoid it performing burst interleaving
+   * after such an event, it gives priority to the master which received the last burst in case
+   * both have a have a burst ready (rvalid).
+   *
+   * Order of priority:
+   * 1. Ongoing burst transaction
+   * 2. Single-beat transaction on Master 1.
+   * 3. Single-beat transaction on Master 0.
+   * 4. Burst transaction on master that received the last burst.
    */
+  // Select signal
+  always_ff @(posedge Clk_CI)
+    begin
+      if (Rst_RBI == 0) begin
+        RRespSel_SP[i] <= 1'b0;
+      end else begin
+        RRespSel_SP[i] <= RRespSel_SN[i];
+      end
+    end
+
+  // FSM
+  always_comb
+    begin : RRespMuxFsm
+      RRespMuxCtrl_SN[i] = RRespMuxCtrl_SP[i];
+      RRespSel_SN[i]     = RRespSel_SP[i];
+
+      RRespBurst_S[i]    = 1'b0;
+      RRespSelIm_S[i]    = 1'b0;
+
+      unique case (RRespMuxCtrl_SP[i])
+
+        IDLE: begin
+          // immediately forward single-beat transactions
+          if      (int_m1_rvalid[i] && int_m1_rlast[i])
+            RRespSelIm_S[i] = 1'b1;
+          else if (int_m0_rvalid[i] && int_m0_rlast[i])
+            RRespSelIm_S[i] = 1'b0;
+
+          // bursts - they also start immediately
+          else if (int_m1_rvalid[i] || int_m0_rvalid[i]) begin
+            RRespMuxCtrl_SN[i] = BUSY;
+
+            // in case both are ready, continue with the master that had the last burst
+            if    (int_m1_rvalid[i] && int_m0_rvalid[i]) begin
+              RRespSel_SN[i]  = RRespSel_SP[i];
+              RRespSelIm_S[i] = RRespSel_SP[i];
+            end else if (int_m1_rvalid[i]) begin
+              RRespSel_SN[i]  = 1'b1;
+              RRespSelIm_S[i] = 1'b1;
+            end else begin
+              RRespSel_SN[i]  = 1'b0;
+              RRespSelIm_S[i] = 1'b0;
+            end
+          end
+        end
+
+        BUSY: begin
+          RRespBurst_S[i] = 1'b1;
+          // detect last handshake of currently ongoing transfer
+          if (int_rvalid[i] && int_rready[i] && int_rlast[i])
+            RRespMuxCtrl_SN[i] = IDLE;
+        end
+
+        default: begin
+          RRespMuxCtrl_SN[i] = IDLE;
+        end
+
+      endcase
+    end
+
+  // FSM state
+  always_ff @(posedge Clk_CI)
+    begin
+      if (Rst_RBI == 0) begin
+        RRespMuxCtrl_SP[i] <= IDLE;
+      end else begin
+        RRespMuxCtrl_SP[i] <= RRespMuxCtrl_SN[i];
+      end
+    end
+
+  // Actual multiplexer
   always_comb
     begin
-       /* Output 1 always gets priority, so if it has something to send connect
-        it and let output 0 wait using rready = 0 */
-      if (int_m1_rvalid[i] == 1'b1)
+      if ( (RRespBurst_S[i] && RRespSel_SP[i]) || (!RRespBurst_S[i] && RRespSelIm_S[i]) )
         begin
           int_m0_rready[i] = 1'b0;
           int_m1_rready[i] = int_rready[i];
