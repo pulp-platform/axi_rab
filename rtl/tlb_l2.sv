@@ -188,6 +188,8 @@ module tlb_l2
         SEARCH : begin
           // Terminate search if prot or multi is encountered.
           // If multi hit is disabled, terminate search when hit is encountered, else, search till last offset addr.
+          if (offset_addr == offset_end_addr)
+             last_search_next = 1'b1;
           if ( (|ram_we) )
              searching = 1'b0;
           else begin
@@ -195,9 +197,6 @@ module tlb_l2
              if (last_search || (hit_top && multi_hit_disabled) || prot_top || multi_hit_top) begin
                 cntrl_SN    = DONE;
                 search_done = 1'b1;
-             end else begin
-                if (offset_addr == offset_end_addr)
-                  last_search_next = 1'b1;
              end
           end
         end
