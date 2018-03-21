@@ -53,24 +53,31 @@ module axi4_r_buffer (axi4_aclk,
   input  [AXI_USER_WIDTH-1:0] m_axi4_ruser;
   output                      m_axi4_rready;
 
-  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:0] data_in;
-  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:0] data_out;
+  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3-1:0] data_in;
+  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3-1:0] data_out;
 
-  assign data_in                                                                       [1:0] = m_axi4_rresp;
-  assign data_in                                                                         [2] = m_axi4_rlast;
-  assign data_in                                                          [AXI_ID_WIDTH+2:3] = m_axi4_rid;
-  assign data_in                              [AXI_DATA_WIDTH+AXI_ID_WIDTH+3:AXI_ID_WIDTH+3] = m_axi4_rdata;
-  assign data_in[AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:AXI_DATA_WIDTH+AXI_ID_WIDTH+4] = m_axi4_ruser;
+  localparam ID_START   = 3;
+  localparam ID_END     = AXI_ID_WIDTH-1 + ID_START;
+  localparam DATA_START = ID_END + 1;
+  localparam DATA_END   = AXI_DATA_WIDTH-1 + DATA_START;
+  localparam USER_START = DATA_END + 1;
+  localparam USER_END   = AXI_USER_WIDTH-1 + DATA_START;
 
-  assign s_axi4_rresp  = data_out[1:0];
-  assign s_axi4_rlast  = data_out[2];
-  assign s_axi4_rid    = data_out[AXI_ID_WIDTH+2:3];
-  assign s_axi4_rdata  = data_out[AXI_DATA_WIDTH+AXI_ID_WIDTH+3:AXI_ID_WIDTH+3];
-  assign s_axi4_ruser  = data_out[AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:AXI_DATA_WIDTH+AXI_ID_WIDTH+4];
+  assign data_in                [1:0] = m_axi4_rresp;
+  assign data_in                  [2] = m_axi4_rlast;
+  assign data_in    [ID_END:ID_START] = m_axi4_rid;
+  assign data_in[DATA_END:DATA_START] = m_axi4_rdata;
+  assign data_in[USER_END:USER_START] = m_axi4_ruser;
+
+  assign s_axi4_rresp  = data_out                [1:0];
+  assign s_axi4_rlast  = data_out                  [2];
+  assign s_axi4_rid    = data_out    [ID_END:ID_START];
+  assign s_axi4_rdata  = data_out[DATA_END:DATA_START];
+  assign s_axi4_ruser  = data_out[USER_END:USER_START];
 
   axi_buffer_rab
   #(
-    .DATA_WIDTH ( AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+4 )
+    .DATA_WIDTH ( AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3 )
     )
   u_buffer
   (
