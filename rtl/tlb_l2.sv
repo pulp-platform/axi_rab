@@ -110,7 +110,7 @@ module tlb_l2
    logic                                                   l2_cache_coherent_next_reg_SP,
    l2_cache_coherent_next_reg_SN;
 
-   logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr, offset_first_addr;
+   logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr;
 
    // Generate the VA Block rams and their surrounding logic
    generate
@@ -168,12 +168,10 @@ module tlb_l2
       searching         = 1'b0;
       search_done       = 1'b0;
       last_search_next  = 1'b0;
-      offset_first_addr = 0;
       unique case (cntrl_SP)
         IDLE : begin
           if (l1_miss) begin
              cntrl_SN          = START;
-             offset_first_addr = offset_start_addr;
           end else if (!l1_miss) begin
              l2_busy_next      = 1'b0;
           end
@@ -253,24 +251,24 @@ module tlb_l2
 
    assign port0_addr = ram_we ? ram_waddr : port0_raddr;
 
-   // Offset
+   // Address offset for looking up the VA RAMs
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          offset_addr   <= 0;
       end else if (l1_miss) begin
-         offset_addr <= offset_first_addr;
+         offset_addr <= offset_start_addr;
       end else if (searching)  begin
          offset_addr <= offset_addr + 1'b1;
       end
    end
 
-   //Needed to determine the hit address in check_ram if the search hits
+   // Delayed address offest for looking up the PA RAM upon a hit in the VA RAMs
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          offset_addr_d <= 0;
-      end else if (!searching) begin
-         offset_addr_d <= offset_addr_d;
-      end else begin
+      end else if (l1_miss) begin
+         offset_addr_d <= offset_start_addr;
+      end else if (searching) begin
          offset_addr_d <= offset_addr;
       end
    end
