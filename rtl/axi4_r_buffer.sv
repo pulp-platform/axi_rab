@@ -61,7 +61,7 @@ module axi4_r_buffer (axi4_aclk,
   localparam DATA_START = ID_END + 1;
   localparam DATA_END   = AXI_DATA_WIDTH-1 + DATA_START;
   localparam USER_START = DATA_END + 1;
-  localparam USER_END   = AXI_USER_WIDTH-1 + DATA_START;
+  localparam USER_END   = AXI_USER_WIDTH-1 + USER_START;
 
   assign data_in                [1:0] = m_axi4_rresp;
   assign data_in                  [2] = m_axi4_rlast;
