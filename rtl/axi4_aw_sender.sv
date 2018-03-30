@@ -1,218 +1,152 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
-`include "ulpsoc_defines.sv"
-module axi4_aw_sender (axi4_aclk,
-                       axi4_arstn,
-                       l1_trans_accept,
-                       l1_trans_drop,
-                       l1_trans_sent,
-                       l2_trans_accept,
-                       l2_wtrans_sent,
-                       stall_aw,
-                       l2_busy,
-                       s_axi4_awid,
-                       l1_axi4_awaddr,
-                       l2_axi4_awaddr,
-                       s_axi4_awvalid,
-                       s_axi4_awready,
-                       s_axi4_awlen,
-                       s_axi4_awsize,
-                       s_axi4_awburst,
-                       s_axi4_awlock,
-                       s_axi4_awprot,
-                       s_axi4_awcache,
-                       s_axi4_awregion,
-                       s_axi4_awqos,
-                       s_axi4_awuser,
-                       m_axi4_awid,
-                       m_axi4_awaddr,
-                       m_axi4_awvalid,
-                       m_axi4_awready,
-                       m_axi4_awlen,
-                       m_axi4_awsize,
-                       m_axi4_awburst,
-                       m_axi4_awlock,
-                       m_axi4_awprot,
-                       m_axi4_awcache,
-                       m_axi4_awregion,
-                       m_axi4_awqos,
-                       m_axi4_awuser);
+module axi4_aw_sender
+  #(
+    parameter AXI_ADDR_WIDTH   = 40,
+    parameter AXI_ID_WIDTH     = 4,
+    parameter AXI_USER_WIDTH   = 4,
+    parameter ENABLE_L2TLB     = 0
+  )
+  (
+    input  logic                      axi4_aclk,
+    input  logic                      axi4_arstn,
 
-   parameter AXI_ADDR_WIDTH   = 40;
-   parameter AXI_ID_WIDTH     = 4;
-   parameter AXI_USER_WIDTH   = 4;
-   parameter ENABLE_L2TLB     = 0;
-   
-   input                         axi4_aclk;
-   input                         axi4_arstn;
-   input                         l1_trans_accept;
-   input                         l1_trans_drop;
-   output                        l1_trans_sent;
-   input                         l2_trans_accept;  
-   input                         l2_busy;
-   output                        l2_wtrans_sent;  
-   input                         stall_aw;
-  
-   input      [AXI_ID_WIDTH-1:0] s_axi4_awid;
-   input    [AXI_ADDR_WIDTH-1:0] l1_axi4_awaddr;
-   input    [AXI_ADDR_WIDTH-1:0] l2_axi4_awaddr;
-   input                         s_axi4_awvalid;
-   output                        s_axi4_awready;
-   input                   [7:0] s_axi4_awlen;
-   input                   [2:0] s_axi4_awsize;
-   input                   [1:0] s_axi4_awburst;
-   input                         s_axi4_awlock;
-   input                   [2:0] s_axi4_awprot;
-   input                   [3:0] s_axi4_awcache;
-   input                   [3:0] s_axi4_awregion;
-   input                   [3:0] s_axi4_awqos;
-   input    [AXI_USER_WIDTH-1:0] s_axi4_awuser;
-   
-   output     [AXI_ID_WIDTH-1:0] m_axi4_awid;
-   output   [AXI_ADDR_WIDTH-1:0] m_axi4_awaddr;
-   output                        m_axi4_awvalid;
-   input                         m_axi4_awready;
-   output                  [7:0] m_axi4_awlen;
-   output                  [2:0] m_axi4_awsize;
-   output                  [1:0] m_axi4_awburst;
-   output                        m_axi4_awlock;
-   output                  [2:0] m_axi4_awprot;
-   output                  [3:0] m_axi4_awcache;
-   output                  [3:0] m_axi4_awregion;
-   output                  [3:0] m_axi4_awqos;
-   output   [AXI_USER_WIDTH-1:0] m_axi4_awuser;
+    output logic                      l1_done_o,
+    input  logic                      l1_accept_i,
+    input  logic                      l1_drop_i,
+    input  logic                      l1_save_i,
 
-   
-   reg                           l1_waiting_awready;
-   reg                           waiting_stall; // waiting for aw_stall=0
-   wire                          sending_l2;
-   wire                          get_new;
+    output logic                      l2_done_o,
+    input  logic                      l2_accept_i,
+    input  logic                      l2_drop_i,
+    output logic                      l2_sending_o,
 
-   always @(posedge axi4_aclk or negedge axi4_arstn)
-     begin: buffers_sequential
-        if (axi4_arstn == 1'b0)
-          l1_waiting_awready = 1'b0;
-        else if (~sending_l2 & m_axi4_awvalid & m_axi4_awready)
-          l1_waiting_awready = 1'b0;
-        else if (l1_trans_accept)
-          l1_waiting_awready = 1'b1;
-     end
+    input  logic [AXI_ADDR_WIDTH-1:0] l1_awaddr_i,
+    input  logic [AXI_ADDR_WIDTH-1:0] l2_awaddr_i,
 
-   assign m_axi4_awvalid = (s_axi4_awvalid & (l1_trans_accept | l1_waiting_awready)) || sending_l2 ;
-   // assign s_axi4_awready = waiting_stall && ~stall_aw ;
-   assign l1_trans_sent  = s_axi4_awvalid & s_axi4_awready;
-   
-   // always @(posedge axi4_aclk) begin
-   //    if (axi4_arstn == 1'b0) begin
-   //       waiting_stall <= 1'b0;
-   //    end else
-   //      // if 1: valid aw transaction at input & slave asserts awready & either transaction is accepted or we were waiting for awready. Not asserting awready for L2 transaction.
-   //      //    2: valid aw transaction at input & transaction is dropped
-   //      if ((m_axi4_awvalid & m_axi4_awready & ~sending_l2) | (s_axi4_awvalid & l1_trans_drop)) begin
-   //         waiting_stall = 1'b1;
-   //      end else if (s_axi4_awready) begin
-   //         waiting_stall = 1'b0; 
-   //      end
-   // end // always @ (posedge axi4_aclk)
-   assign get_new = ((m_axi4_awvalid & m_axi4_awready & ~sending_l2) | (s_axi4_awvalid & l1_trans_drop));
-   assign s_axi4_awready = (get_new && ~stall_aw) || (waiting_stall && ~stall_aw);
-   always @(posedge axi4_aclk) begin
+    input  logic   [AXI_ID_WIDTH-1:0] s_axi4_awid,
+    input  logic                      s_axi4_awvalid,
+    output logic                      s_axi4_awready,
+    input  logic                [7:0] s_axi4_awlen,
+    input  logic                [2:0] s_axi4_awsize,
+    input  logic                [1:0] s_axi4_awburst,
+    input  logic                      s_axi4_awlock,
+    input  logic                [2:0] s_axi4_awprot,
+    input  logic                [3:0] s_axi4_awcache,
+    input  logic                [3:0] s_axi4_awregion,
+    input  logic                [3:0] s_axi4_awqos,
+    input  logic [AXI_USER_WIDTH-1:0] s_axi4_awuser,
+
+    output logic   [AXI_ID_WIDTH-1:0] m_axi4_awid,
+    output logic [AXI_ADDR_WIDTH-1:0] m_axi4_awaddr,
+    output logic                      m_axi4_awvalid,
+    input  logic                      m_axi4_awready,
+    output logic                [7:0] m_axi4_awlen,
+    output logic                [2:0] m_axi4_awsize,
+    output logic                [1:0] m_axi4_awburst,
+    output logic                      m_axi4_awlock,
+    output logic                [2:0] m_axi4_awprot,
+    output logic                [3:0] m_axi4_awcache,
+    output logic                [3:0] m_axi4_awregion,
+    output logic                [3:0] m_axi4_awqos,
+    output logic [AXI_USER_WIDTH-1:0] m_axi4_awuser
+  );
+
+  logic l1_save;
+
+  logic l2_sent;
+  logic l2_available_q;
+
+  assign l1_save      = l1_save_i & l2_available_q;
+
+  assign l1_done_o    = s_axi4_awvalid & s_axi4_awready ;
+
+  // if 1: accept and forward a transaction translated by L1
+  //    2: drop or save request (if L2 slot not occupied already)
+  assign m_axi4_awvalid = (s_axi4_awvalid & l1_accept_i) |
+                          l2_sending_o;
+  assign s_axi4_awready = (m_axi4_awvalid & m_axi4_awready & ~l2_sending_o) |
+                          (s_axi4_awvalid & (l1_drop_i | l1_save));
+
+generate
+  if (ENABLE_L2TLB    == 1) begin
+    logic [AXI_USER_WIDTH-1:0] l2_axi4_awuser  ;
+    logic                [3:0] l2_axi4_awcache ;
+    logic                [3:0] l2_axi4_awregion;
+    logic                [3:0] l2_axi4_awqos   ;
+    logic                [2:0] l2_axi4_awprot  ;
+    logic                      l2_axi4_awlock  ;
+    logic                [1:0] l2_axi4_awburst ;
+    logic                [2:0] l2_axi4_awsize  ;
+    logic                [7:0] l2_axi4_awlen   ;
+    logic   [AXI_ID_WIDTH-1:0] l2_axi4_awid    ;
+
+    assign m_axi4_awuser   = l2_sending_o ? l2_axi4_awuser   : s_axi4_awuser;
+    assign m_axi4_awcache  = l2_sending_o ? l2_axi4_awcache  : s_axi4_awcache;
+    assign m_axi4_awregion = l2_sending_o ? l2_axi4_awregion : s_axi4_awregion;
+    assign m_axi4_awqos    = l2_sending_o ? l2_axi4_awqos    : s_axi4_awqos;
+    assign m_axi4_awprot   = l2_sending_o ? l2_axi4_awprot   : s_axi4_awprot;
+    assign m_axi4_awlock   = l2_sending_o ? l2_axi4_awlock   : s_axi4_awlock;
+    assign m_axi4_awburst  = l2_sending_o ? l2_axi4_awburst  : s_axi4_awburst;
+    assign m_axi4_awsize   = l2_sending_o ? l2_axi4_awsize   : s_axi4_awsize;
+    assign m_axi4_awlen    = l2_sending_o ? l2_axi4_awlen    : s_axi4_awlen;
+    assign m_axi4_awaddr   = l2_sending_o ? l2_awaddr_i      : l1_awaddr_i;
+    assign m_axi4_awid     = l2_sending_o ? l2_axi4_awid     : s_axi4_awid;
+
+    // buffer AXI signals in case of L1 miss
+    always @(posedge axi4_aclk or negedge axi4_arstn) begin
       if (axi4_arstn == 1'b0) begin
-         waiting_stall <= 1'b0;
-      end else
-        // if 1: valid aw transaction at input & slave asserts awready & either transaction is accepted or we were waiting for awready. Not asserting awready for L2 transaction.
-        //    2: valid aw transaction at input & transaction is dropped
-        if (stall_aw && get_new) begin
-           waiting_stall = 1'b1;
-        end else if (s_axi4_awready) begin
-           waiting_stall = 1'b0; 
-        end
-   end // always @ (posedge axi4_aclk)   
- 
-generate  
-  if (ENABLE_L2TLB    == 1) begin    
-    reg [AXI_USER_WIDTH-1:0] l2_axi4_awuser    ;   
-    reg                [3:0] l2_axi4_awcache   ;
-    reg                [3:0] l2_axi4_awregion  ;
-    reg                [3:0] l2_axi4_awqos     ;
-    reg                [2:0] l2_axi4_awprot    ;
-    reg                      l2_axi4_awlock    ;
-    reg                [1:0] l2_axi4_awburst   ;
-    reg                [2:0] l2_axi4_awsize    ;
-    reg                [7:0] l2_axi4_awlen     ;
-    reg   [AXI_ID_WIDTH-1:0] l2_axi4_awid      ;
-    reg                      l2_waiting_awready;      
+        l2_axi4_awuser   <=  'b0;
+        l2_axi4_awcache  <=  'b0;
+        l2_axi4_awregion <=  'b0;
+        l2_axi4_awqos    <=  'b0;
+        l2_axi4_awprot   <=  'b0;
+        l2_axi4_awlock   <= 1'b0;
+        l2_axi4_awburst  <=  'b0;
+        l2_axi4_awsize   <=  'b0;
+        l2_axi4_awlen    <=  'b0;
+        l2_axi4_awid     <=  'b0;
+      end else if (l1_save) begin
+        l2_axi4_awuser   <= s_axi4_awuser;
+        l2_axi4_awcache  <= s_axi4_awcache;
+        l2_axi4_awregion <= s_axi4_awregion;
+        l2_axi4_awqos    <= s_axi4_awqos;
+        l2_axi4_awprot   <= s_axi4_awprot;
+        l2_axi4_awlock   <= s_axi4_awlock;
+        l2_axi4_awburst  <= s_axi4_awburst;
+        l2_axi4_awsize   <= s_axi4_awsize;
+        l2_axi4_awlen    <= s_axi4_awlen;
+        l2_axi4_awid     <= s_axi4_awid;
+      end
+    end
 
-    assign m_axi4_awuser   = sending_l2 ? l2_axi4_awuser   : s_axi4_awuser;
-    assign m_axi4_awcache  = sending_l2 ? l2_axi4_awcache  : s_axi4_awcache;
-    assign m_axi4_awregion = sending_l2 ? l2_axi4_awregion : s_axi4_awregion;
-    assign m_axi4_awqos    = sending_l2 ? l2_axi4_awqos    : s_axi4_awqos;
-    assign m_axi4_awprot   = sending_l2 ? l2_axi4_awprot   : s_axi4_awprot;
-    assign m_axi4_awlock   = sending_l2 ? l2_axi4_awlock   : s_axi4_awlock;
-    assign m_axi4_awburst  = sending_l2 ? l2_axi4_awburst  : s_axi4_awburst;
-    assign m_axi4_awsize   = sending_l2 ? l2_axi4_awsize   : s_axi4_awsize;
-    assign m_axi4_awlen    = sending_l2 ? l2_axi4_awlen    : s_axi4_awlen;
-    assign m_axi4_awaddr   = sending_l2 ? l2_axi4_awaddr   : l1_axi4_awaddr;
-    assign m_axi4_awid     = sending_l2 ? l2_axi4_awid     : s_axi4_awid;
-      
-    // Buffer AXI signals in case of L1 miss
-    always @(posedge axi4_aclk or negedge axi4_arstn)
-      begin
-         if (axi4_arstn == 1'b0) begin
-            l2_axi4_awuser   <= 0;
-            l2_axi4_awcache  <= 0;
-            l2_axi4_awregion <= 0;
-            l2_axi4_awqos    <= 0;
-            l2_axi4_awprot   <= 0;
-            l2_axi4_awlock   <= 0;
-            l2_axi4_awburst  <= 0;
-            l2_axi4_awsize   <= 0;
-            l2_axi4_awlen    <= 0;    
-            l2_axi4_awid     <= 0;   
-         end else if (l1_trans_drop) begin           
-            l2_axi4_awuser   <= s_axi4_awuser;
-            l2_axi4_awcache  <= s_axi4_awcache;
-            l2_axi4_awregion <= s_axi4_awregion;
-            l2_axi4_awqos    <= s_axi4_awqos;
-            l2_axi4_awprot   <= s_axi4_awprot;
-            l2_axi4_awlock   <= s_axi4_awlock;
-            l2_axi4_awburst  <= s_axi4_awburst;
-            l2_axi4_awsize   <= s_axi4_awsize;
-            l2_axi4_awlen    <= s_axi4_awlen;           
-            l2_axi4_awid     <= s_axi4_awid;
-         end // if (l1_trans_drop == 1'b1)
-      end // always_ff @ (posedge axi4_aclk or negedge axi4_arstn)
+    // signal that an l1_save_i can be accepted
+    always @(posedge axi4_aclk or negedge axi4_arstn) begin
+      if (axi4_arstn == 1'b0) begin
+        l2_available_q <= 1'b1;
+      end else if (l2_sent | l2_drop_i) begin
+        l2_available_q <= 1'b1;
+      end else if (l1_save) begin
+        l2_available_q <= 1'b0;
+      end
+    end
 
-    // keep sending L2 trans until ready is received
-    always @(posedge axi4_aclk or negedge axi4_arstn)
-      begin: l2_buffers_sequential
-        if (axi4_arstn == 1'b0)
-          l2_waiting_awready = 1'b0;
-        else if (sending_l2 & m_axi4_awvalid & m_axi4_awready) // sending L2 trans
-          l2_waiting_awready = 1'b0;
-        else if (l2_trans_accept) // L2 hit
-          l2_waiting_awready = 1'b1;
-      end  
+    assign l2_sending_o = l2_accept_i & ~l2_available_q;
+    assign l2_sent      = l2_sending_o & m_axi4_awvalid & m_axi4_awready;
 
-    assign sending_l2     = l2_trans_accept | l2_waiting_awready;
-    assign l2_wtrans_sent = m_axi4_awvalid & m_axi4_awready & sending_l2;   
-  end else begin
-    assign sending_l2     = 1'b0;
-    assign l2_wtrans_sent = 1'b0;
-  
+    // if 1: having sent out a transaction translated by L2
+    //    2: drop request (L2 slot is available again)
+    assign l2_done_o    = l2_sent | l2_drop_i;
+
+  end else begin // !`ifdef ENABLE_L2TLB
     assign m_axi4_awuser   =  s_axi4_awuser;
     assign m_axi4_awcache  =  s_axi4_awcache;
     assign m_axi4_awregion =  s_axi4_awregion;
@@ -222,12 +156,13 @@ generate
     assign m_axi4_awburst  =  s_axi4_awburst;
     assign m_axi4_awsize   =  s_axi4_awsize;
     assign m_axi4_awlen    =  s_axi4_awlen;
-    assign m_axi4_awaddr   =  l1_axi4_awaddr;
-    assign m_axi4_awid     =  s_axi4_awid;     
-  end // !`ifdef ENABLE_L2TLB
-endgenerate   
+    assign m_axi4_awaddr   =  l1_awaddr_i;
+    assign m_axi4_awid     =  s_axi4_awid;
 
-// What happens when both L1 and L2 accept/drop happen together ?
-// Ans: L2 trans will be sent first. But L1_accept will be recorded via l1_waiting_awready and L1 trans can be sent in next cycle.   
+    assign l2_sending_o    = 1'b0;
+    assign l2_available_q  = 1'b0;
+    assign l2_done_o       = 1'b0;
+  end // !`ifdef ENABLE_L2TLB
+endgenerate
 
 endmodule

@@ -66,7 +66,8 @@ vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_r_sender.sv >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/axi4_b_sender.sv >> ${LOG}
 
-vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram.sv                                >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram_tp_no_change.sv                   >> ${LOG}
+vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram_tp_write_first.sv                 >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/check_ram.sv                          >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/tlb_l2.sv                             >> ${LOG}
 

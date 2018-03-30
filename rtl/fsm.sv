@@ -1,171 +1,187 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 `timescale 1ns / 1ps
 
 module fsm
   #(
-    parameter AXI_ADDR_WIDTH = 40
-    )
+    parameter AXI_M_ADDR_WIDTH = 40,
+    parameter AXI_S_ADDR_WIDTH = 32,
+    parameter AXI_ID_WIDTH     = 8,
+    parameter AXI_USER_WIDTH   = 6
+  )
   (
-   input  logic                      Clk_CI,
-   input  logic                      Rst_RBI
-   ,
-   input  logic                      port1_addr_valid,
-   input  logic                      port2_addr_valid,
-   input  logic                      port1_sent,
-   input  logic                      port2_sent,
-   input  logic                      select,        
-   input  logic                      no_hit,   
-   input  logic                      multiple_hit,
-   input  logic                      no_prot,
-   input  logic                      prefetch,
-   input  logic [AXI_ADDR_WIDTH-1:0] out_addr, 
-   input  logic                      cache_coherent,
-   output logic                      port1_accept,
-   output logic                      port1_drop,  
-   output logic                      port1_miss,
-   output logic                      port2_accept, 
-   output logic                      port2_drop,
-   output logic                      port2_miss,
-   output logic [AXI_ADDR_WIDTH-1:0] out_addr_reg,
-   output logic                      cache_coherent_reg,
-   output logic                      int_miss,    
-   output logic                      int_multi,  
-   output logic                      int_prot,
-   output logic                      int_prefetch
-   );
-   
-   localparam READY  = 1'b0;
-   localparam WAIT   = 1'b1;
-   
-   //-------------Internal Signals----------------------
-   
-   logic                      state;      // Seq part of the FSM
-   logic                      next_state; // combo part of FSM
-  
-   logic                      port1_accept_SN;
-   logic                      port1_drop_SN;
-   logic                      port1_miss_SN;
-   logic                      port2_accept_SN;
-   logic                      port2_drop_SN;
-   logic                      port2_miss_SN;
-   logic [AXI_ADDR_WIDTH-1:0] out_addr_reg_SN;
-   logic                      int_miss_SN;
-   logic                      int_multi_SN;
-   logic                      int_prot_SN;
-   logic                      int_prefetch_SN;
-   logic                      cache_coherent_reg_SN;
-   
-   //----------FSM comb------------------------------
-   
-   always_comb
-     begin: FSM_COMBO
-        next_state = state;
-        
-        case(state)
-          READY :
-            if (port1_addr_valid || port2_addr_valid)
-              next_state = WAIT;
-          
-          WAIT :
-            if (port1_sent || port2_sent)
-              next_state = READY;
-          
-        endcase
-     end
-   
-   //----------FSM seq-------------------------------
-   
-   always_ff @(posedge Clk_CI, negedge Rst_RBI)
-     begin: FSM_SEQ
-        if (Rst_RBI == 1'b0)
-          state <= #1 READY;
-        else
-          state <= #1 next_state;
-     end
-   
-   //----------Output comb---------------------------
-   always_comb 
-     begin: OUTPUT_COMB
+    input  logic                        Clk_CI,
+    input  logic                        Rst_RBI,
 
-        // default
-        port1_accept_SN       = 1'b0;
-        port1_drop_SN         = 1'b0;
-        port1_miss_SN         = 1'b0;
-        port2_accept_SN       = 1'b0;
-        port2_drop_SN         = 1'b0;
-        port2_miss_SN         = 1'b0;
-        out_addr_reg_SN       = out_addr_reg; // hold
-        int_miss_SN           = 1'b0;
-        int_multi_SN          = 1'b0;
-        int_prot_SN           = 1'b0;
-        int_prefetch_SN       = 1'b0;
-        cache_coherent_reg_SN = cache_coherent_reg; // hold
-        
-        if ( state == READY ) // Ready to accept new trans
-          begin
-             port1_accept_SN       =  port1_addr_valid &  select & ~(no_hit | multiple_hit | ~no_prot | prefetch);
-             port1_drop_SN         =  port1_addr_valid &  select &  (no_hit | multiple_hit | ~no_prot | prefetch);
-             port2_accept_SN       =  port2_addr_valid & ~select & ~(no_hit | multiple_hit | ~no_prot | prefetch);
-             port2_drop_SN         =  port2_addr_valid & ~select &  (no_hit | multiple_hit | ~no_prot | prefetch);
-             port1_miss_SN         = (port1_addr_valid &  select) & no_hit;
-             port2_miss_SN         = (port2_addr_valid & ~select) & no_hit;
-             int_miss_SN           = port1_miss_SN | port2_miss_SN;
-             int_multi_SN          = ((port1_addr_valid & select)| (port2_addr_valid & ~select)) &  multiple_hit;
-             int_prot_SN           = ((port1_addr_valid & select)| (port2_addr_valid & ~select)) & ~no_prot;
-             int_prefetch_SN       = ((port1_addr_valid & select)| (port2_addr_valid & ~select)) & ~no_hit & prefetch;
-             out_addr_reg_SN       = out_addr;
-             cache_coherent_reg_SN = cache_coherent;
+    input  logic                        port1_addr_valid_i,
+    input  logic                        port2_addr_valid_i,
+    input  logic                        port1_sent_i,
+    input  logic                        port2_sent_i,
+    input  logic                        select_i,
+    input  logic                        no_hit_i,
+    input  logic                        multiple_hit_i,
+    input  logic                        no_prot_i,
+    input  logic                        prefetch_i,
+    input  logic [AXI_M_ADDR_WIDTH-1:0] out_addr_i,
+    input  logic                        cache_coherent_i,
+    output logic                        port1_accept_o,
+    output logic                        port1_drop_o,
+    output logic                        port1_miss_o,
+    output logic                        port2_accept_o,
+    output logic                        port2_drop_o,
+    output logic                        port2_miss_o,
+    output logic [AXI_M_ADDR_WIDTH-1:0] out_addr_o,
+    output logic                        cache_coherent_o,
+    output logic                        miss_o,
+    output logic                        multi_o,
+    output logic                        prot_o,
+    output logic                        prefetch_o,
+    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
+    input  logic     [AXI_ID_WIDTH-1:0] in_id_i,
+    input  logic   [AXI_USER_WIDTH-1:0] in_user_i,
+    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_o,
+    output logic     [AXI_ID_WIDTH-1:0] in_id_o,
+    output logic   [AXI_USER_WIDTH-1:0] in_user_o
+  );
+
+  //-------------Internal Signals----------------------
+
+  typedef enum logic           {IDLE, WAIT} state_t;
+  logic                        state_SP; // Present state
+  logic                        state_SN; // Next State
+
+  logic                        port1_accept_SN;
+  logic                        port1_drop_SN;
+  logic                        port1_miss_SN;
+  logic                        port2_accept_SN;
+  logic                        port2_drop_SN;
+  logic                        port2_miss_SN;
+  logic                        miss_SN;
+  logic                        multi_SN;
+  logic                        prot_SN;
+  logic                        prefetch_SN;
+  logic                        cache_coherent_SN;
+  logic [AXI_M_ADDR_WIDTH-1:0] out_addr_DN;
+
+  logic                        out_reg_en_S;
+
+  //----------FSM comb------------------------------
+
+  always_comb begin: FSM_COMBO
+    state_SN          = state_SP;
+
+    port1_accept_SN   = 1'b0;
+    port1_drop_SN     = 1'b0;
+    port1_miss_SN     = 1'b0;
+    port2_accept_SN   = 1'b0;
+    port2_drop_SN     = 1'b0;
+    port2_miss_SN     = 1'b0;
+    miss_SN           = 1'b0;
+    multi_SN          = 1'b0;
+    prot_SN           = 1'b0;
+    prefetch_SN       = 1'b0;
+    cache_coherent_SN = 1'b0;
+    out_addr_DN       =   '0;
+
+    out_reg_en_S      = 1'b0; // by default hold register output
+
+    unique case(state_SP)
+        IDLE :
+          if ( (port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i) ) begin
+            out_reg_en_S = 1'b1;
+            state_SN     = WAIT;
+
+            // Select inputs for output registers
+            if          (port1_addr_valid_i & select_i) begin
+              port1_accept_SN = ~(no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
+              port1_drop_SN   =  (no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
+              port1_miss_SN   =   no_hit_i;
+              port2_accept_SN = 1'b0;
+              port2_drop_SN   = 1'b0;
+              port2_miss_SN   = 1'b0;
+            end else if (port2_addr_valid_i & ~select_i) begin
+              port1_accept_SN = 1'b0;
+              port1_drop_SN   = 1'b0;
+              port1_miss_SN   = 1'b0;
+              port2_accept_SN = ~(no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
+              port2_drop_SN   =  (no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
+              port2_miss_SN   =   no_hit_i;
+            end
+
+            miss_SN           = port1_miss_SN | port2_miss_SN;
+            multi_SN          = multiple_hit_i;
+            prot_SN           = ~no_prot_i;
+            prefetch_SN       = ~no_hit_i & prefetch_i;
+
+            cache_coherent_SN = cache_coherent_i;
+            out_addr_DN       = out_addr_i;
           end
-     end // block: OUTPUT_COMB
-   
-   //----------Output seq--------------------------
-   
-   always_ff @(posedge Clk_CI, negedge Rst_RBI)
-     begin: OUTPUT_SEQ
-        if (Rst_RBI == 1'b0)
-          begin
-             port1_accept       = 1'b0;
-             port1_drop         = 1'b0;
-             port1_miss         = 1'b0;
-             port2_accept       = 1'b0;
-             port2_drop         = 1'b0;
-             port2_miss         = 1'b0;
-             out_addr_reg       = '0;
-             int_miss           = 1'b0;
-             int_multi          = 1'b0;
-             int_prot           = 1'b0;
-             int_prefetch       = 1'b0;
-             cache_coherent_reg = 1'b0;
+
+        WAIT :
+          if ( port1_sent_i | port2_sent_i ) begin
+            out_reg_en_S = 1'b1; // "clear" the register
+            state_SN     = IDLE;
           end
-        else
-          begin
-             port1_accept       = port1_accept_SN;
-             port1_drop         = port1_drop_SN;
-             port1_miss         = port1_miss_SN;
-             port2_accept       = port2_accept_SN;
-             port2_drop         = port2_drop_SN;
-             port2_miss         = port2_miss_SN;
-             out_addr_reg       = out_addr_reg_SN;
-             int_miss           = int_miss_SN;
-             int_multi          = int_multi_SN;
-             int_prot           = int_prot_SN;
-             int_prefetch       = int_prefetch_SN;
-             cache_coherent_reg = cache_coherent_reg_SN;
-          end
-     end // block: OUTPUT_SEQ
-   
+
+        default : begin
+           state_SN      = IDLE;
+        end
+      endcase
+    end
+
+  //----------FSM seq-------------------------------
+
+  always_ff @(posedge Clk_CI, negedge Rst_RBI) begin: FSM_SEQ
+    if (Rst_RBI == 1'b0)
+      state_SP <= IDLE;
+    else
+      state_SP <= state_SN;
+  end
+
+  //----------Output seq--------------------------
+
+  always_ff @(posedge Clk_CI, negedge Rst_RBI) begin: OUTPUT_SEQ
+    if (Rst_RBI == 1'b0) begin
+      port1_accept_o   = 1'b0;
+      port1_drop_o     = 1'b0;
+      port1_miss_o     = 1'b0;
+      port2_accept_o   = 1'b0;
+      port2_drop_o     = 1'b0;
+      port2_miss_o     = 1'b0;
+      miss_o           = 1'b0;
+      multi_o          = 1'b0;
+      prot_o           = 1'b0;
+      prefetch_o       = 1'b0;
+      cache_coherent_o = 1'b0;
+      out_addr_o       =   '0;
+      in_addr_o        =   '0;
+      in_id_o          =   '0;
+      in_user_o        =   '0;
+    end else if (out_reg_en_S == 1'b1) begin
+      port1_accept_o   = port1_accept_SN;
+      port1_drop_o     = port1_drop_SN;
+      port1_miss_o     = port1_miss_SN;
+      port2_accept_o   = port2_accept_SN;
+      port2_drop_o     = port2_drop_SN;
+      port2_miss_o     = port2_miss_SN;
+      miss_o           = miss_SN;
+      multi_o          = multi_SN;
+      prot_o           = prot_SN;
+      prefetch_o       = prefetch_SN;
+      cache_coherent_o = cache_coherent_SN;
+      out_addr_o       = out_addr_DN;
+      in_addr_o        = in_addr_i;
+      in_id_o          = in_id_i;
+      in_user_o        = in_user_i;
+    end
+  end // block: OUTPUT_SEQ
+
 endmodule
