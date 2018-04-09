@@ -33,12 +33,12 @@ for (int i=0; i<2048*2; i++) begin
 
   if (rw_type == 1) begin
      $display("Sending AXI Write: addr=%h, type=%s",addr,trans_type);
-     FILL_LINEAR ( .address_base(addr),   .fill_pattern(addr), .transfer_count(COUNT_ONE), .transfer_type(trans_type) );
-  end 
+     FILL_LINEAR ( .address_base(addr),   .fill_pattern(addr), .cmd_id(i), .transfer_count(COUNT_ONE), .transfer_type(trans_type) );
+  end
   if (rw_type == 0) begin
      if (trans_type == "256_BYTE" || trans_type == "64_BYTE") trans_type = "32_BYTE";
      $display("Sending AXI Read: addr=%h, type=%s",addr,trans_type);
-     CHECK_LINEAR (.address_base(addr),  .check_pattern(addr), .transfer_count(COUNT_ONE), .transfer_type(trans_type) );
+     CHECK_LINEAR (.address_base(addr),  .check_pattern(addr), .cmd_id(i), .transfer_count(COUNT_ONE), .transfer_type(trans_type) );
   end
 @(posedge ACLK);
 @(posedge ACLK);

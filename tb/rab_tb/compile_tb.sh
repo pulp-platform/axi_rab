@@ -45,6 +45,7 @@ vlog-${VER}  -work $LIB +incdir+${INC_PATHS} +define+PULP_FPGA_EMUL=1 ${IPS_SOUR
 vlog-${VER}  -work $LIB ${PULP_BASE_PATH}/fe/rtl/packages/CfMath.sv                               >> ${LOG}
 
 # ID remap
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_1.sv     >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_4.sv     >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_16.sv    >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_64.sv    >> ${LOG}
