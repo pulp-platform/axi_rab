@@ -5,7 +5,7 @@
 
 set TB=rab_tb
 set LIB=rtl
-set VER=10.4c
+set VER=10.6b
 
 ## Tests
 #vsim-${VER}  -voptargs="+acc" -gTEST_NAME="reg_rd_wr" ${LIB}.${TB}

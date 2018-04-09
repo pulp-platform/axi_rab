@@ -1,7 +1,7 @@
 #! /bin/tcsh -x
 
 ## set variables
-set VER=10.4c
+set VER=10.6b
 set LIB=rtl
 set DESIGN=rab
 set LOG=${DESIGN}.log
@@ -19,6 +19,11 @@ set ULPSOC_SOURCE_PATH=${PULP_BASE_PATH}/fe/rtl/ulpsoc
 set FPGA_IPS_SOURCE_PATH=${PULP_BASE_PATH}/fpga/ips
 
 set INC_PATHS=${ULPSOC_DEFINES_PATH}+${PULP_INTERFACE_PATH}+${IPS_SOURCE_PATH}/axi/axi_rab+${FP_DEFINES_PATH}
+
+## clean up the log before recompiling
+if (-e $LOG) then
+ rm $LOG
+endif
 
 ## clean up the library before recompiling
 if (-e $LIB) then
