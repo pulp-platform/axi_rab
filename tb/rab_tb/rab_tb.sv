@@ -1,16 +1,21 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+
+/* rab_tb
  *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
+ * Testbench and RTL simulation framework for the RAB IP core. See README
+ * for more information.
  *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
+ * Authors:
+ * Maheshwara Sharma <msharma@student.ethz.ch>
+ * Pirmin Vogel <vogelpi@iis.ee.ethz.ch>
  */
 
 `include "ulpsoc_defines.sv"
@@ -275,13 +280,18 @@ module rab_tb
         rst_ni = 1'b1; // release reset
         tb_wait(10);
      end
+
    initial
      begin : clk_gen
         clk_i = 1'b1;
         #(clk_period/2-1);
-        forever #(clk_period/2) clk_i = ~clk_i;
+        while(1) begin
+          clk_i = 1'b0;
+          #(clk_period/2);
+          clk_i = 1'b1;
+          #(clk_period/2);
+        end
      end
-
 
   ///////////////////////////
   //

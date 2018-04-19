@@ -8,5 +8,5 @@ view locals
 view source
 view wave 
 
-do ./waves.do
+do ./wave.do
 

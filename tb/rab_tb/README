@@ -1,42 +1,85 @@
-README for compiling and running the RAB tests.
+######################################################################
+#
+#                 RAB RTL Simulation & Testbench
+#
+######################################################################
 
-First, do the following
-- Use only 1 port for RAB defines in ulpsoc_defines.sv
-- Give correct path to your RTL in compile_tb.sh
+To start the RTL simulation & testbench of the RAB IP core, perform
+the following steps:
 
-###################################
-To only compile, run the script "compile_tb.sh". Make sure that the correct paths are given in the script.
-To compile and run the test, run "run_tb.sh". You can change the test name and the AXI traffic using the TEST_NAME and SRC_ID parameters in the script.
-TEST_NAME controls the AXI-Lite config and SRC_ID controls the AXI traffic pattern.
-Load "do_modelsim_rab_tb.do" to restart and load important signals(from waves.do) in the wave window.
-Run the test using "run -a". Happy debugging !!!
+1. Download the AMBA4 AXI-Lite Verification IP from SysWip:
 
-###################################
-- How to generate a new test ?
-Open test.sv
-You will find various tests in different "if" conditions. Add a new condition for your test.
-You can program the RAB using the function "slice_cfg"
-You can program  L2 TLB using the function "l2_cfg"
-Check the test named 'l2' for reference.
-Both the functions l2_cfg and slice_cfg are defined in the same file if you want to have a look.
-####################################
+        http://syswip.com/axi4-lite-verification-ip
 
-####################################
-- How to change the AXI traffic pattern?
-The AXI traffic pattern is controlled by the parameter SRC_ID in rab_tb.sv
-There are a total of 16 patterns in TGEN. These files are called TRAFFIC_0_<n>.cmd (n=00..15)
-You can edit these files to create the desired AXI traffic pattern.
-Have a look at TRAFFIC_0_00.cmd, TRAFFIC_0_05.cmd, TRAFFIC_0_06.cmd for reference.
-TRAFFIC_0_08.cmd has random AXI patterns
-TRAFFIC_0_13_gen.cmd can be used to generate multiple TRAFFIC_0_13.cmd files with different random seeds. You can use this to run different randomised AXI traffic. A script(commented) is provided in run_tb.sh.
-####################################
+   and extract the archive inside axi_rab/tb/.
 
-###### Makefile #######
-Makefile can be used to compile, run tests.
-It can also be used to cleran the directory.
+2. Open the compile script compile_tb.sh and adjust it to your local
+   environment. In particular, you must set up the PULP_BASE_ADDR
+   variable.
 
-############## TB Limitations ########
-- The AXI traffic generator sends AW and W at the same clock cycle. So we cannot simulate a cse where W channel signals arrive after AW signals (We can simulate it, if we buffer the W channel signals. This is not done currently).
-- A Read and Write transaction where one is followed immediately by other cannot be handled by the TB. Give few cycles between reads and writes. A read can follow another read immediately. Also, a write can follow another write immediately.
+3. Eexecute run_tb.sh to compile the testbench and the design, and to
+   start the simulation.
 
+######################################################################
 
+*** How to change the test being executed?
+
+You can change the test name and the AXI traffic using the TEST_NAME
+and SRC_ID parameters in the run_tb.sh script.
+
+TEST_NAME controls the AXI-Lite config port, i.e., the configuration
+written to the RAB.
+
+SRC_ID controls the AXI traffic pattern, i.e., the transactions
+passing through the RAB and of which the address needs to be
+translated.
+
+######################################################################
+
+*** How to change the RAB configuration?
+
+Open test.sv and alter the section where the RAB is being configured
+using the functions slice_cfg(), slice_acp_cfg(), and l2_cfg().
+
+######################################################################
+
+*** How to change the AXI traffic pattern?
+
+The AXI traffic pattern is controlled by the parameter SRC_ID in
+rab_tb.sv. There are a couple of patterns inside
+axi_rab/tb/TGEN_RAB/TGEN/traffic_pattern.
+
+TRAFFIC_0_13_gen.cmd can be used to generate multiple TRAFFIC_0_13.cmd
+files with different random seeds. You can use this to run different
+randomised AXI traffic. A script (commented) is provided in run_tb.sh.
+
+######################################################################
+
+*** TESTBENCH LIMITATIONS ****
+
+- The AXI traffic generator sends AW and W simultaneously.
+
+- It is not clear if read and write transactions following
+  back-to-back on the AR and AW channels can be tested properly.
+
+- Prefetch transactions cannot be generated as the tasks inside
+  TGEN_TASK_ADDON.sv always use the SRC_ID as AXUSER.
+
+- The verification infrastructure inside rab_tb.sv only works on
+  Master Port 0 but not on Master Port 1 (the ACP). Consequently,
+  when using Port 1, the support for verification is very limited.
+  The following is supported for the different tasks inside
+  TGEN_TASK_ADDON.sv in this case:
+
+  - FILL_LINEAR: checking if there is a response for every issued
+    transaction.
+
+  - READ_LINEAR: checking if there is a response for every issued
+    transaction.
+
+  - CHECK_LINEAR: checking of responses and read data according
+    to a specified pattern. Note: the memory must first be written
+    using FILL_LINEAR.
+
+  - FILL_RANDOM: checking if there is a response for every issued
+    transaction.
