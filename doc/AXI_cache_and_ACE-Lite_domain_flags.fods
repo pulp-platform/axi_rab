@@ -520,7 +520,7 @@
   <style:master-page style:name="Default" style:page-layout-name="pm1">
    <style:header>
     <style:region-left>
-     <text:p><text:span text:style-name="T3">Maintainers: vogelpi@iis.ee.ethz.ch, andkurt@ee.ethz.ch</text:span></text:p>
+     <text:p><text:span text:style-name="T3">Maintainers: vogelpi@iis.ee.ethz.ch, akurth@iis.ee.ethz.ch</text:span></text:p>
     </style:region-left>
     <style:region-center>
      <text:p><text:span text:style-name="T2"><text:title>???</text:title></text:span></text:p>
