@@ -2,6 +2,7 @@
 
 ## Adjust this path to match your local environment
 set PULP_BASE_PATH=~/scratch/zc706/big.pulp
+set AXI4LITE_VIP_PATH=~/scratch/zc706
 
 ## Set variables
 set VER=10.6b
@@ -89,9 +90,9 @@ vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ./axi_rab_wrap_tb.sv                                 >> ${LOG}
  
 # Traffic Generators
-vlog-${VER}  -work $LIB ../axi4lite_vip/verification_ip/axi4lite_m_if.sv                           >> ${LOG}
-vlog-${VER}  -work $LIB ../axi4lite_vip/verification_ip/axi4lite_m.sv                              >> ${LOG}
-vlog-${VER}  -work $LIB ../axi4lite_vip/examples/testbench/packet.sv                               >> ${LOG}
+vlog-${VER}  -work $LIB ${AXI4LITE_VIP_PATH}/axi4lite_vip/verification_ip/axi4lite_m_if.sv         >> ${LOG}
+vlog-${VER}  -work $LIB ${AXI4LITE_VIP_PATH}/axi4lite_vip/verification_ip/axi4lite_m.sv            >> ${LOG}
+vlog-${VER}  -work $LIB ${AXI4LITE_VIP_PATH}/axi4lite_vip/examples/testbench/packet.sv             >> ${LOG}
 vlog-${VER}  -work $LIB +incdir+../TGEN_RAB/TGEN/traffic_pattern ../TGEN_RAB/TGEN/TGEN.sv          >> ${LOG}
 vlog-${VER}  -work $LIB +incdir+../TGEN_RAB/TGEN/traffic_pattern +incdir+${INC_PATHS}  ../TGEN_RAB/TGEN/TGEN_wrap.sv >> ${LOG}
 
