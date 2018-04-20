@@ -18,7 +18,8 @@ axi_rab:
     rtl/fsm.sv,
     rtl/rab_core.sv,
     rtl/rab_slice.sv,
-    rtl/ram.sv,
+    rtl/ram_tp_write_first.sv,
+    rtl/ram_tp_no_change.sv,
     rtl/slice_top.sv,
     rtl/tlb_l2.sv,
   ]

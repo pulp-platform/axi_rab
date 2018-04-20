@@ -1,28 +1,23 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 // --=========================================================================--
 //
 // ██████╗  █████╗ ██████╗      ██████╗ ██████╗ ██████╗ ███████╗
 // ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔═══██╗██╔══██╗██╔════╝
-// ██████╔╝███████║██████╔╝    ██║     ██║   ██║██████╔╝█████╗  
-// ██╔══██╗██╔══██║██╔══██╗    ██║     ██║   ██║██╔══██╗██╔══╝  
+// ██████╔╝███████║██████╔╝    ██║     ██║   ██║██████╔╝█████╗
+// ██╔══██╗██╔══██║██╔══██╗    ██║     ██║   ██║██╔══██╗██╔══╝
 // ██║  ██║██║  ██║██████╔╝    ╚██████╗╚██████╔╝██║  ██║███████╗
 // ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝
-// 
-// --=========================================================================-- 
+//
+// --=========================================================================--
 
 `include "ulpsoc_defines.sv"
 
@@ -69,13 +64,17 @@ module rab_core
     output logic                                   [1:0] s_axi_bresp,
     output logic                                         s_axi_bvalid,
     input  logic                                         s_axi_bready,
-         
+
     output logic [N_PORTS-1:0]                           int_miss,
     output logic [N_PORTS-1:0]                           int_prot,
     output logic [N_PORTS-1:0]                           int_multi,
     output logic [N_PORTS-1:0]                           int_prefetch,
     output logic                                         int_mhf_full,
- 
+
+    output logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] int_axaddr_o,
+    output logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] int_axid_o,
+    output logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] int_axuser_o,
+
     input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] port1_addr,
     input  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] port1_id,
     input  logic [N_PORTS-1:0]                     [7:0] port1_len,
@@ -89,7 +88,7 @@ module rab_core
     output logic [N_PORTS-1:0]                           port1_accept,
     output logic [N_PORTS-1:0]                           port1_drop,
     output logic [N_PORTS-1:0]                           port1_miss,
- 
+
     input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] port2_addr,
     input  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] port2_id,
     input  logic [N_PORTS-1:0]                     [7:0] port2_len,
@@ -103,15 +102,15 @@ module rab_core
     output logic [N_PORTS-1:0]                           port2_accept,
     output logic [N_PORTS-1:0]                           port2_drop,
     output logic [N_PORTS-1:0]                           port2_miss,
- 
-    input  logic [N_PORTS-1:0]                           miss_l2,
-    input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] miss_addr_l2,
-    input  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] miss_id_l2,
-    input  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] miss_user_l2,
 
-    output logic [N_PORTS-1:0] [AXI_LITE_DATA_WIDTH-1:0] wdata_tlb_l2,
-    output logic [N_PORTS-1:0] [AXI_LITE_ADDR_WIDTH-1:0] waddr_tlb_l2,
-    output logic [N_PORTS-1:0]                           wren_tlb_l2      
+    input  logic [N_PORTS-1:0]                           miss_l2_i,
+    input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] miss_l2_addr_i,
+    input  logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] miss_l2_id_i,
+    input  logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] miss_l2_user_i,
+
+    output logic [N_PORTS-1:0] [AXI_LITE_DATA_WIDTH-1:0] wdata_l2_o,
+    output logic [N_PORTS-1:0] [AXI_LITE_ADDR_WIDTH-1:0] waddr_l2_o,
+    output logic [N_PORTS-1:0]                           wren_l2_o
     );
 
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
@@ -127,29 +126,29 @@ module rab_core
   localparam integer N_SLICES[N_PORTS-1:0]     = `N_SLICES_ARRAY;
   localparam         N_SLICES_TOT              = `MY_ARRAY_SUM(N_SLICES,N_PORTS);
   localparam         N_SLICES_MAX              = `N_SLICES_MAX;
-  
+
   localparam N_REGS                            = 4*N_SLICES_TOT + 4;
   localparam AXI_SIZE_WIDTH                    = log2(AXI_DATA_WIDTH/8);
 
   localparam PORT_ID_WIDTH                     = (N_PORTS < 2) ? 1 : log2(N_PORTS);
   localparam MISS_META_WIDTH                   = PORT_ID_WIDTH + AXI_USER_WIDTH + AXI_ID_WIDTH;
-  
+
   logic [N_PORTS-1:0]                      [15:0] p1_burst_size;
   logic [N_PORTS-1:0]                      [15:0] p2_burst_size;
-    
+
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p1_align_addr;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p2_align_addr;
-    
+
   logic [N_PORTS-1:0]        [AXI_SIZE_WIDTH-1:0] p1_mask;
   logic [N_PORTS-1:0]        [AXI_SIZE_WIDTH-1:0] p2_mask;
-      
+
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p1_max_addr;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p2_max_addr;
-     
+
   logic [N_PORTS-1:0]                             p1_prefetch;
   logic [N_PORTS-1:0]                             p2_prefetch;
-      
-  logic [N_PORTS-1:0]                             int_rw;   
+
+  logic [N_PORTS-1:0]                             int_rw;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] int_addr_min;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] int_addr_max;
   logic [N_PORTS-1:0]          [AXI_ID_WIDTH-1:0] int_id;
@@ -164,24 +163,24 @@ module rab_core
 
   logic [N_PORTS-1:0]          [N_SLICES_MAX-1:0] hit_slices;
   logic [N_PORTS-1:0]          [N_SLICES_MAX-1:0] prot_slices;
-      
+
   logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0] out_addr;
   logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0] out_addr_reg;
-      
+
   logic [N_PORTS-1:0]                             cache_coherent;
   logic [N_PORTS-1:0]                             cache_coherent_reg;
-     
+
   logic [N_PORTS-1:0]                             select;
   reg   [N_PORTS-1:0]                             curr_priority;
-     
+
   reg   [N_PORTS-1:0]                             multiple_hit;
-     
+
   logic [N_PORTS-1:0]                             miss_valid_mhf;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] miss_addr_mhf;
   logic [N_PORTS-1:0]       [MISS_META_WIDTH-1:0] miss_meta_mhf;
 
-  logic [N_REGS-1:0]                       [63:0] int_cfg_regs; 
-  logic [N_PORTS-1:0] [4*N_SLICES_MAX-1:0] [63:0] int_cfg_regs_slices; 
+  logic [N_REGS-1:0]                       [63:0] int_cfg_regs;
+  logic [N_PORTS-1:0] [4*N_SLICES_MAX-1:0] [63:0] int_cfg_regs_slices;
 
   genvar z;
 
@@ -194,38 +193,38 @@ module rab_core
   //
 
   always_comb
-    begin
+    begin : PORT_SELECT
       var integer idx;
-  
+
       for (idx=0; idx<N_PORTS; idx++) begin
 
         // select = 1 -> port1 active
         // select = 0 -> port2 active
         select[idx] = (curr_priority[idx] & port1_addr_valid[idx]) | ~port2_addr_valid[idx];
-        
+
         p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
         p2_burst_size[idx] = (port2_len[idx] + 1) << port2_size[idx];
 
-        // align min addr for max addr computation to allow for smart AXI bursts around the 4k boundary 
+        // align min addr for max addr computation to allow for smart AXI bursts around the 4k boundary
         if      (port1_size[idx] == 3'b001)
           p1_mask[idx] = 3'b110;
         else if (port1_size[idx] == 3'b010)
           p1_mask[idx] = 3'b100;
         else if (port1_size[idx] == 3'b011)
           p1_mask[idx] = 3'b000;
-        else 
+        else
           p1_mask[idx] = 3'b111;
 
         p1_align_addr[idx][AXI_S_ADDR_WIDTH-1:AXI_SIZE_WIDTH] = port1_addr[idx][AXI_S_ADDR_WIDTH-1:AXI_SIZE_WIDTH];
         p1_align_addr[idx][AXI_SIZE_WIDTH-1:0]                = port1_addr[idx][AXI_SIZE_WIDTH-1:0] & p1_mask[idx];
-         
+
         if      (port2_size[idx] == 3'b001)
           p2_mask[idx] = 3'b110;
         else if (port2_size[idx] == 3'b010)
           p2_mask[idx] = 3'b100;
         else if (port2_size[idx] == 3'b011)
           p2_mask[idx] = 3'b000;
-        else 
+        else
           p2_mask[idx] = 3'b111;
 
         if (port1_user[idx] == {AXI_USER_WIDTH{1'b1}})
@@ -237,10 +236,10 @@ module rab_core
           p2_prefetch[idx] = 1'b1;
         else
           p2_prefetch[idx] = 1'b0;
-         
+
         p2_align_addr[idx][AXI_S_ADDR_WIDTH-1:AXI_SIZE_WIDTH] = port2_addr[idx][AXI_S_ADDR_WIDTH-1:AXI_SIZE_WIDTH];
         p2_align_addr[idx][AXI_SIZE_WIDTH-1:0]                = port2_addr[idx][AXI_SIZE_WIDTH-1:0] & p2_mask[idx];
-        
+
         p1_max_addr[idx]  = p1_align_addr[idx] + p1_burst_size[idx] - 1;
         p2_max_addr[idx]  = p2_align_addr[idx] + p2_burst_size[idx] - 1;
 
@@ -263,7 +262,7 @@ module rab_core
         port1_cache_coherent[idx] = cache_coherent_reg[idx];
         port2_cache_coherent[idx] = cache_coherent_reg[idx];
       end
-    end   
+    end
 
   always_comb
     begin
@@ -278,48 +277,44 @@ module rab_core
         // int_cfg_regs_slices[idx_port][N_SLICES_MAX:N_SLICES[idx_port]] will be dangling
         // Fix to zero. Synthesis will remove these signals.
         // int_cfg_regs_slices[idx_port][4*N_SLICES_MAX-1:4*N_SLICES[idx_port]] = 0;
-      end   
+      end
   end
-   
+
   always @(posedge Clk_CI or negedge Rst_RBI)
-    begin
+    begin : PORT_PRIORITY
       var integer idx;
       if (Rst_RBI == 1'b0)
         curr_priority = 'h0;
-      else
-        begin
-          for (idx=0; idx<N_PORTS; idx++) begin
-            if (port1_accept[idx] || port1_drop[idx])
-              curr_priority[idx] = 1'b1;
-            else if (port2_accept[idx] || port2_drop[idx])
-              curr_priority[idx] = 1'b0;
+      else begin
+        for (idx=0; idx<N_PORTS; idx++) begin
+          if (port1_accept[idx] || port1_drop[idx])
+            curr_priority[idx] = 1'b1;
+          else if (port2_accept[idx] || port2_drop[idx])
+            curr_priority[idx] = 1'b0;
         end
       end
     end
-   
+
   // find port that misses
   logic [PORT_ID_WIDTH-1:0] PortIdx_D; // index of the first missing port
   var integer               idx_miss;
-  always_comb
-    begin
-      PortIdx_D = 'b0; 
-      for (idx_miss = 0; idx_miss < N_PORTS; idx_miss++)
-        begin
-          if (miss_valid_mhf[idx_miss] == 1'b1)
-            begin
-              PortIdx_D = idx_miss;
-              break;
-            end
-        end
-    end // always_comb begin
+  always_comb begin : MHF_PORT_SELECT
+    PortIdx_D = 'b0;
+    for (idx_miss = 0; idx_miss < N_PORTS; idx_miss++) begin
+      if (miss_valid_mhf[idx_miss] == 1'b1) begin
+        PortIdx_D = idx_miss;
+        break;
+      end
+    end
+  end // always_comb begin
 
-  //  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗      ██████╗███████╗ ██████╗ 
-  // ██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔════╝██╔════╝ 
+  //  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗      ██████╗███████╗ ██████╗
+  // ██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔════╝██╔════╝
   // ███████║ ╚███╔╝ ██║    ██████╔╝███████║██████╔╝    ██║     █████╗  ██║  ███╗
   // ██╔══██║ ██╔██╗ ██║    ██╔══██╗██╔══██║██╔══██╗    ██║     ██╔══╝  ██║   ██║
   // ██║  ██║██╔╝ ██╗██║    ██║  ██║██║  ██║██████╔╝    ╚██████╗██║     ╚██████╔╝
-  // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚═════╝╚═╝      ╚═════╝ 
-  // 
+  // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚═════╝╚═╝      ╚═════╝
+  //
   axi_rab_cfg
     #(
       .N_PORTS         ( N_PORTS             ),
@@ -333,8 +328,8 @@ module rab_core
       .AXI_ADDR_WIDTH  ( AXI_LITE_ADDR_WIDTH ),
       .MISS_META_WIDTH ( MISS_META_WIDTH     ),
       .MH_FIFO_DEPTH   ( MH_FIFO_DEPTH       )
-      ) 
-  u_axi_rab_cfg
+    )
+    u_axi_rab_cfg
     (
       .Clk_CI        ( Clk_CI                    ),
       .Rst_RBI       ( Rst_RBI                   ),
@@ -360,108 +355,111 @@ module rab_core
       .MissMeta_DI   ( miss_meta_mhf[PortIdx_D]  ),
       .Miss_SI       ( miss_valid_mhf[PortIdx_D] ),
       .MhFifoFull_SO ( int_mhf_full              ),
-      .wdata_l2      ( wdata_tlb_l2              ),
-      .waddr_l2      ( waddr_tlb_l2              ),
-      .wren_l2       ( wren_tlb_l2               )
-   );
+      .wdata_l2      ( wdata_l2_o                ),
+      .waddr_l2      ( waddr_l2_o                ),
+      .wren_l2       ( wren_l2_o                 )
+    );
 
-  generate
-    for (z = 0; z < N_PORTS; z++)
-      begin
-         if (ENABLE_L2TLB[z] == 1) begin // L2 TLB is enabled
-            assign miss_valid_mhf[z] = miss_l2[z];
-            assign miss_addr_mhf[z]  = miss_addr_l2[z];
-            assign miss_meta_mhf[z]  = {miss_user_l2[z], PortIdx_D, miss_id_l2[z]};
-         end else begin// L2 TLB is disabled
-            assign miss_valid_mhf[z] = int_miss[z];
-            assign miss_addr_mhf[z]  = int_addr_min[z];
-            assign miss_meta_mhf[z]  = {int_user[z], PortIdx_D, int_id[z]};
-         end
-      end
+  generate for (z = 0; z < N_PORTS; z++) begin : MHF_TLB_SELECT
+    if (ENABLE_L2TLB[z] == 1) begin // L2 TLB is enabled
+      assign miss_valid_mhf[z] = miss_l2_i[z];
+      assign miss_addr_mhf[z]  = miss_l2_addr_i[z];
+      assign miss_meta_mhf[z]  = {miss_l2_user_i[z], PortIdx_D, miss_l2_id_i[z]};
+    end else begin// L2 TLB is disabled
+      assign miss_valid_mhf[z] = int_miss[z];
+      assign miss_addr_mhf[z]  = int_addr_min[z];
+      assign miss_meta_mhf[z]  = {int_user[z], PortIdx_D, int_id[z]};
+    end
+  end
   endgenerate
 
-  // ███████╗██╗     ██╗ ██████╗███████╗    ████████╗ ██████╗ ██████╗ 
+  // ███████╗██╗     ██╗ ██████╗███████╗    ████████╗ ██████╗ ██████╗
   // ██╔════╝██║     ██║██╔════╝██╔════╝    ╚══██╔══╝██╔═══██╗██╔══██╗
   // ███████╗██║     ██║██║     █████╗         ██║   ██║   ██║██████╔╝
-  // ╚════██║██║     ██║██║     ██╔══╝         ██║   ██║   ██║██╔═══╝ 
-  // ███████║███████╗██║╚██████╗███████╗       ██║   ╚██████╔╝██║     
-  // ╚══════╝╚══════╝╚═╝ ╚═════╝╚══════╝       ╚═╝    ╚═════╝ ╚═╝     
-  //                                                                  
-  generate
-    for (z = 0; z < N_PORTS; z++)
-      begin
-        slice_top 
-          #(
-            .N_SLICES        ( N_SLICES[z]      ),
-            .N_REGS          ( 4*N_SLICES[z]    ),
-            .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH ),
-            .ADDR_WIDTH_VIRT ( AXI_S_ADDR_WIDTH )
-            )
-        u_slice_top
-          (
-           .int_cfg_regs    ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
-           .int_rw          ( int_rw[z]                                 ),
-           .int_addr_min    ( int_addr_min[z]                           ),
-           .int_addr_max    ( int_addr_max[z]                           ),
-           .out_addr        ( out_addr[z]                               ),
-           .multiple_hit    ( multiple_hit[z]                           ),
-           .prot            ( prot_slices[z][N_SLICES[z]-1:0]           ),
-           .hit             ( hit_slices [z][N_SLICES[z]-1:0]           ),
-           .cache_coherent  ( cache_coherent[z]                         )
-           );
-        // hit_slices [N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
-        // prot_slices[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
-        // Fix to zero. Synthesis will remove these signals.
-        if ( N_SLICES[z] < N_SLICES_MAX ) begin
-          assign hit_slices [z][N_SLICES_MAX-1:N_SLICES[z]] = 0;
-          assign prot_slices[z][N_SLICES_MAX-1:N_SLICES[z]] = 0;
-        end
-      end // for (z = 0; z < N_PORTS; z++)
-   endgenerate
-   
+  // ╚════██║██║     ██║██║     ██╔══╝         ██║   ██║   ██║██╔═══╝
+  // ███████║███████╗██║╚██████╗███████╗       ██║   ╚██████╔╝██║
+  // ╚══════╝╚══════╝╚═╝ ╚═════╝╚══════╝       ╚═╝    ╚═════╝ ╚═╝
+  //
+  generate for (z = 0; z < N_PORTS; z++) begin : SLICE_TOP_GEN
+    slice_top
+      #(
+        .N_SLICES        ( N_SLICES[z]      ),
+        .N_REGS          ( 4*N_SLICES[z]    ),
+        .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH ),
+        .ADDR_WIDTH_VIRT ( AXI_S_ADDR_WIDTH )
+      )
+      u_slice_top
+      (
+        .int_cfg_regs   ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
+        .int_rw         ( int_rw[z]                                 ),
+        .int_addr_min   ( int_addr_min[z]                           ),
+        .int_addr_max   ( int_addr_max[z]                           ),
+        .out_addr       ( out_addr[z]                               ),
+        .multiple_hit   ( multiple_hit[z]                           ),
+        .prot           ( prot_slices[z][N_SLICES[z]-1:0]           ),
+        .hit            ( hit_slices [z][N_SLICES[z]-1:0]           ),
+        .cache_coherent ( cache_coherent[z]                         )
+      );
+    // hit_slices [N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
+    // prot_slices[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
+    // Fix to zero. Synthesis will remove these signals.
+    if ( N_SLICES[z] < N_SLICES_MAX ) begin
+      assign hit_slices [z][N_SLICES_MAX-1:N_SLICES[z]] = 0;
+      assign prot_slices[z][N_SLICES_MAX-1:N_SLICES[z]] = 0;
+    end
+  end // for (z = 0; z < N_PORTS; z++)
+  endgenerate
+
   // ███████╗███████╗███╗   ███╗
   // ██╔════╝██╔════╝████╗ ████║
   // █████╗  ███████╗██╔████╔██║
   // ██╔══╝  ╚════██║██║╚██╔╝██║
   // ██║     ███████║██║ ╚═╝ ██║
   // ╚═╝     ╚══════╝╚═╝     ╚═╝
-  //                            
-  generate
-    for (z = 0; z < N_PORTS; z++)
-      begin
-        fsm
-          #(
-            .AXI_ADDR_WIDTH (AXI_M_ADDR_WIDTH)
-            )
-          u_fsm
-          (
-            .Clk_CI             ( Clk_CI                ),
-            .Rst_RBI            ( Rst_RBI               ),
-            .port1_addr_valid   ( port1_addr_valid[z]   ),
-            .port2_addr_valid   ( port2_addr_valid[z]   ),
-            .port1_sent         ( port1_sent[z]         ),
-            .port2_sent         ( port2_sent[z]         ),
-            .select             ( select[z]             ),
-            .no_hit             ( no_hit[z]             ),
-            .multiple_hit       ( multiple_hit[z]       ),
-            .no_prot            ( no_prot[z]            ),
-            .prefetch           ( prefetch[z]           ),
-            .out_addr           ( out_addr[z]           ),
-            .cache_coherent     ( cache_coherent[z]     ),
-            .port1_accept       ( port1_accept[z]       ),
-            .port1_drop         ( port1_drop[z]         ),
-            .port1_miss         ( port1_miss[z]         ),
-            .port2_accept       ( port2_accept[z]       ),
-            .port2_drop         ( port2_drop[z]         ),
-            .port2_miss         ( port2_miss[z]         ),
-            .out_addr_reg       ( out_addr_reg[z]       ),
-            .cache_coherent_reg ( cache_coherent_reg[z] ),
-            .int_miss           ( int_miss[z]           ),
-            .int_multi          ( int_multi[z]          ),
-            .int_prot           ( int_prot[z]           ),
-            .int_prefetch       ( int_prefetch[z]       )
-          );
-      end
+  //
+  generate for (z = 0; z < N_PORTS; z++) begin : FSM_GEN
+    fsm
+      #(
+        .AXI_M_ADDR_WIDTH ( AXI_M_ADDR_WIDTH ),
+        .AXI_S_ADDR_WIDTH ( AXI_S_ADDR_WIDTH ),
+        .AXI_ID_WIDTH     ( AXI_ID_WIDTH     ),
+        .AXI_USER_WIDTH   ( AXI_USER_WIDTH   )
+      )
+      u_fsm
+      (
+        .Clk_CI             ( Clk_CI                ),
+        .Rst_RBI            ( Rst_RBI               ),
+        .port1_addr_valid_i ( port1_addr_valid[z]   ),
+        .port2_addr_valid_i ( port2_addr_valid[z]   ),
+        .port1_sent_i       ( port1_sent[z]         ),
+        .port2_sent_i       ( port2_sent[z]         ),
+        .select_i           ( select[z]             ),
+        .no_hit_i           ( no_hit[z]             ),
+        .multiple_hit_i     ( multiple_hit[z]       ),
+        .no_prot_i          ( no_prot[z]            ),
+        .prefetch_i         ( prefetch[z]           ),
+        .out_addr_i         ( out_addr[z]           ),
+        .cache_coherent_i   ( cache_coherent[z]     ),
+        .port1_accept_o     ( port1_accept[z]       ),
+        .port1_drop_o       ( port1_drop[z]         ),
+        .port1_miss_o       ( port1_miss[z]         ),
+        .port2_accept_o     ( port2_accept[z]       ),
+        .port2_drop_o       ( port2_drop[z]         ),
+        .port2_miss_o       ( port2_miss[z]         ),
+        .out_addr_o         ( out_addr_reg[z]       ),
+        .cache_coherent_o   ( cache_coherent_reg[z] ),
+        .miss_o             ( int_miss[z]           ),
+        .multi_o            ( int_multi[z]          ),
+        .prot_o             ( int_prot[z]           ),
+        .prefetch_o         ( int_prefetch[z]       ),
+        .in_addr_i          ( int_addr_min[z]       ),
+        .in_id_i            ( int_id[z]             ),
+        .in_user_i          ( int_user[z]           ),
+        .in_addr_o          ( int_axaddr_o[z]       ),
+        .in_id_o            ( int_axid_o[z]         ),
+        .in_user_o          ( int_axuser_o[z]       )
+      );
+  end
   endgenerate
 
 endmodule

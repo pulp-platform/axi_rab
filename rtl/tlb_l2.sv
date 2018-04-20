@@ -1,120 +1,113 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 `include "ulpsoc_defines.sv"
 
 import CfMath::log2;
 
-//`define TLB_MULTIHIT
-module tlb_l2
+//`define FULL_MULTI_HIT_DETECT
+module l2_tlb
   #(
     parameter AXI_S_ADDR_WIDTH       = 32,
     parameter AXI_M_ADDR_WIDTH       = 40,
     parameter AXI_LITE_DATA_WIDTH    = 64,
     parameter AXI_LITE_ADDR_WIDTH    = 32,
-    parameter SET                    = 32,
-    parameter NUM_OFFSET             = 4, //per port. There are 2 ports.
+    parameter N_SETS                 = 32,
+    parameter N_OFFSETS              = 4, //per port. There are 2 ports.
     parameter PAGE_SIZE              = 4096, // 4kB
-    parameter PARALLEL_NUM           = 4,
+    parameter N_PAR_VA_RAMS          = 4,
     parameter HIT_OFFSET_STORE_WIDTH = 2 // Num of bits of VA RAM offset stored. This should not be greater than OFFSET_WIDTH
     )
    (
     input  logic                           clk_i,
     input  logic                           rst_ni,
-    input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr,
-    input  logic                           rw_type, //1 => write, 0=> read 
-    input  logic                           l1_miss,
-    input  logic                           we,
-    input  logic [AXI_LITE_ADDR_WIDTH-1:0] waddr,
-    input  logic [AXI_LITE_DATA_WIDTH-1:0] wdata,
-    input  logic                           l2_trans_sent,
-    output logic                           miss_l2,
-    output logic                           hit_l2,
-    output logic                           multiple_hit_l2,
-    output logic                           prot_l2,
-    output logic                           l2_busy, 
-    output logic                           l2_cache_coherent,
-    output logic    [AXI_M_ADDR_WIDTH-1:0] out_addr   
+
+    input  logic                           we_i,
+    input  logic [AXI_LITE_ADDR_WIDTH-1:0] waddr_i,
+    input  logic [AXI_LITE_DATA_WIDTH-1:0] wdata_i,
+
+    input  logic                           start_i,
+    output logic                           busy_o,
+    input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
+    input  logic                           rw_type_i, //1 => write, 0=> read
+
+    input  logic                           out_ready_i,
+    output logic                           out_valid_o,
+    output logic                           hit_o,
+    output logic                           miss_o,
+    output logic                           prot_o,
+    output logic                           multi_o,
+    output logic                           cache_coherent_o,
+    output logic    [AXI_M_ADDR_WIDTH-1:0] out_addr_o
     );
 
-   localparam VA_RAM_DEPTH      = SET * NUM_OFFSET * 2;
-   localparam PA_RAM_DEPTH      = VA_RAM_DEPTH * PARALLEL_NUM;
+   localparam VA_RAM_DEPTH      = N_SETS * N_OFFSETS * 2;
+   localparam PA_RAM_DEPTH      = VA_RAM_DEPTH * N_PAR_VA_RAMS;
    localparam VA_RAM_ADDR_WIDTH = log2(VA_RAM_DEPTH);
    localparam PA_RAM_ADDR_WIDTH = log2(PA_RAM_DEPTH);
-   localparam SET_WIDTH         = log2(SET);
-   localparam OFFSET_WIDTH      = log2(NUM_OFFSET);
-   localparam LL_WIDTH          = log2(PARALLEL_NUM);
+   localparam SET_WIDTH         = log2(N_SETS);
+   localparam OFFSET_WIDTH      = log2(N_OFFSETS);
+   localparam LL_WIDTH          = log2(N_PAR_VA_RAMS);
    localparam IGNORE_LSB        = log2(PAGE_SIZE);
 
    localparam VA_RAM_DATA_WIDTH = AXI_S_ADDR_WIDTH - IGNORE_LSB + 4;
    localparam PA_RAM_DATA_WIDTH = AXI_M_ADDR_WIDTH - IGNORE_LSB;
 
-   logic [PARALLEL_NUM-1:0]                                hit, prot, multi_hit;
-   logic [PARALLEL_NUM-1:0]                                ram_we;
-   logic                                                   last_search;
-   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    ram_waddr;
-   logic [PARALLEL_NUM-1:0] [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
-   logic                                                   pa_ram_we, read_pa;
-   logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr,pa_port0_waddr; // PA RAM read, Write addr;
-   logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_raddr_reg_SN, pa_port0_raddr_reg_SP; // registered addresses, needed for WAIT_ON_WRITE;
-   logic [PA_RAM_ADDR_WIDTH-1:0]                           pa_port0_addr; // PA RAM addr
-   logic [PA_RAM_DATA_WIDTH-1:0]                           pa_port0_data_o;
-   logic [PA_RAM_DATA_WIDTH-1:0]                           pa_port0_data_reg, pa_port0_data_saved;
-   logic                                                   prot_top;
-   logic                                                   first_hit_top, hit_top;
-   logic                                                   send_outputs; 
+   logic                               [N_PAR_VA_RAMS-1:0] hit, prot, multi_hit, cache_coherent;
+   logic                               [N_PAR_VA_RAMS-1:0] ram_we;
+   logic                                                   last_search, last_search_next;
+   logic                                                   first_search, first_search_next;
+   logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] ram_waddr;
+   logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
+   logic                                                   pa_ram_we;
+   logic                           [PA_RAM_ADDR_WIDTH-1:0] pa_port0_raddr, pa_port0_waddr; // PA RAM read, Write addr;
+   logic                           [PA_RAM_ADDR_WIDTH-1:0] pa_port0_raddr_reg_SN, pa_port0_raddr_reg_SP; // registered addresses, needed for WAIT_ON_WRITE;
+   logic                           [PA_RAM_ADDR_WIDTH-1:0] pa_port0_addr; // PA RAM addr
+   logic                           [PA_RAM_DATA_WIDTH-1:0] pa_port0_data, pa_data, pa_port0_data_reg; // PA RAM data
+   logic                                                   pa_ram_store_data_SN, pa_ram_store_data_SP;
+   logic                                                   hit_top, prot_top, multi_hit_top, first_hit_top;
+   logic                                                   output_sent;
    int                                                     hit_block_num;
-   logic                                                   multi_hit_top;
-   logic [PARALLEL_NUM-1:0]                                cache_coherent;
-      
-   logic                                                   searching, search_done;
-   logic [OFFSET_WIDTH-1:0]                                offset_addr, offset_addr_d;
-   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    port0_addr, port0_raddr; // VA RAM port0 addr
-   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    port1_addr; // VA RAM port1 addr
-   logic [SET_WIDTH-1:0]                                   set_num;
-   logic [AXI_S_ADDR_WIDTH-1:0]                            in_addr_reg, in_addr_saved;
-   logic                                                   rw_type_saved;
-      
-   genvar                                                  z;
 
+   logic                                                   searching, search_done;
+   logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr, port0_raddr; // VA RAM port0 addr
+   logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr; // VA RAM port1 addr
+   logic                                [OFFSET_WIDTH-1:0] offset_addr, offset_addr_d;
+   logic                                [OFFSET_WIDTH-1:0] offset_start_addr, offset_end_addr;
+   logic                                   [SET_WIDTH-1:0] set_num;
+
+   logic                                                   va_output_valid;
+   logic                                                   searching_q;
+
+   genvar                                                  z;
    logic                                                   multi_hit_disabled;
-   logic                                                   l2_busy_next, last_search_next;
-   
-   // Control FSM
-   typedef enum                                            logic[1:0] {IDLE, START, SEARCH, DONE} cntrl_state_t;
-   cntrl_state_t                                           cntrl_SP; // Present state
-   cntrl_state_t                                           cntrl_SN; // Next State
+
+   // Search FSM
+   typedef enum logic                                [1:0] {IDLE, SEARCH, DONE} search_state_t;
+   search_state_t                                          search_SP; // Present state
+   search_state_t                                          search_SN; // Next State
 
    // Output FSM
-   typedef enum                                            logic[1:0] {OUT_IDLE, SEND_OUTPUT, WAIT_ON_WRITE, OUT_SENT} out_state_t;
+   typedef enum logic                                [1:0] {OUT_IDLE, SEND_OUTPUT, WAIT_ON_WRITE} out_state_t;
    out_state_t                                             out_SP; // Present state
    out_state_t                                             out_SN; // Next State
-   
-   logic                                                   miss_l2_next;
-   logic                                                   hit_l2_next;
-   logic                                                   prot_l2_next;
-   logic                                                   multiple_hit_l2_next;
-   logic                                                   l2_cache_coherent_next;
-   logic                                                   l2_cache_coherent_next_reg_SP,
-   l2_cache_coherent_next_reg_SN;
 
-   logic [OFFSET_WIDTH-1:0]                                offset_start_addr, offset_end_addr;
+   logic                                                   miss_next;
+   logic                                                   hit_next;
+   logic                                                   prot_next;
+   logic                                                   multi_next;
+   logic                                                   cache_coherent_next;
 
    // Generate the VA Block rams and their surrounding logic
    generate
-      for (z = 0; z < PARALLEL_NUM; z++) begin
+      for (z = 0; z < N_PAR_VA_RAMS; z++) begin : VA_RAMS
          check_ram
            #(
              .ADDR_WIDTH     ( AXI_S_ADDR_WIDTH  ),
@@ -125,28 +118,27 @@ module tlb_l2
              )
          u_check_ram
              (
-              .clk_i         ( clk_i                        ),
-              .rst_ni        ( rst_ni                       ),
-              .in_addr       ( in_addr_saved                ),
-              .rw_type       ( rw_type_saved                ),
-              .ram_we        ( ram_we[z]                    ),
-              .port0_addr    ( port0_addr                   ),
-              .port1_addr    ( port1_addr                   ),
-              .ram_wdata     ( wdata[VA_RAM_DATA_WIDTH-1:0] ),
-              .send_outputs  ( send_outputs                 ),
-              .searching     ( searching                    ),
-              .offset_addr_d ( offset_addr_d                ),
-              .start_search  ( l1_miss                      ),
-              .hit_addr      ( hit_addr[z]                  ),
-              .master        ( cache_coherent[z]            ),
-              .hit           ( hit[z]                       ),
-              .multi_hit     ( multi_hit[z]                 ),
-              .prot          ( prot[z]                      )
+              .clk_i         ( clk_i                          ),
+              .rst_ni        ( rst_ni                         ),
+              .in_addr       ( in_addr_i                      ),
+              .rw_type       ( rw_type_i                      ),
+              .ram_we        ( ram_we[z]                      ),
+              .port0_addr    ( port0_addr                     ),
+              .port1_addr    ( port1_addr                     ),
+              .ram_wdata     ( wdata_i[VA_RAM_DATA_WIDTH-1:0] ),
+              .output_sent   ( output_sent                    ),
+              .output_valid  ( va_output_valid                ),
+              .offset_addr_d ( offset_addr_d                  ),
+              .hit_addr      ( hit_addr[z]                    ),
+              .master        ( cache_coherent[z]              ),
+              .hit           ( hit[z]                         ),
+              .multi_hit     ( multi_hit[z]                   ),
+              .prot          ( prot[z]                        )
               );
       end // for (z = 0; z < N_PORTS; z++)
    endgenerate
-        
-`ifdef TLB_MULTIHIT
+
+`ifdef FULL_MULTI_HIT_DETECT
    assign multi_hit_disabled = 1'b0;
 `else
    assign multi_hit_disabled = 1'b1;
@@ -156,108 +148,114 @@ module tlb_l2
    // FSM
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
-         cntrl_SP <= IDLE;
+         search_SP <= IDLE;
       end else begin
-         cntrl_SP <= cntrl_SN;
+         search_SP <= search_SN;
       end
-   end   
+   end
 
-   always_comb begin
-      cntrl_SN          = cntrl_SP;
-      l2_busy_next      = 1'b1;
+   always_comb begin : SEARCH_FSM
+      search_SN         = search_SP;
+      busy_o            = 1'b0;
       searching         = 1'b0;
       search_done       = 1'b0;
       last_search_next  = 1'b0;
-      unique case (cntrl_SP)
+      first_search_next = first_search;
+
+      unique case (search_SP)
         IDLE : begin
-          if (l1_miss) begin
-             cntrl_SN          = START;
-          end else if (!l1_miss) begin
-             l2_busy_next      = 1'b0;
+          if (start_i) begin
+            search_SN         = SEARCH;
+            first_search_next = 1'b1;
           end
         end
 
-        START : begin
-          cntrl_SN = SEARCH;
-          if (offset_addr == offset_end_addr)
-             last_search_next = 1'b1;
-        end
-
         SEARCH : begin
-          // Terminate search if prot or multi is encountered.
-          // If multi hit is disabled, terminate search when hit is encountered, else, search till last offset addr.
-          if (offset_addr == offset_end_addr)
-             last_search_next = 1'b1;
-          if ( (|ram_we) )
-             searching = 1'b0;
-          else begin
-             searching = 1'b1;
-             if (last_search || (hit_top && multi_hit_disabled) || prot_top || multi_hit_top) begin
-                cntrl_SN    = DONE;
-                search_done = 1'b1;
+          busy_o = 1'b1;
+
+          // detect last search cycle
+          if ( (first_search == 1'b0) && (offset_addr == offset_end_addr) )
+             last_search_next  = 1'b1;
+
+          // pause search during VA RAM reconfigration
+          if (|ram_we) begin
+             searching         = 1'b0;
+          end else begin
+             searching         = 1'b1;
+             first_search_next = 1'b0;
+          end
+
+          if (va_output_valid) begin
+             // stop search
+             if (last_search | (hit_top & multi_hit_disabled) | prot_top | multi_hit_top) begin
+                search_SN      = DONE;
+                search_done    = 1'b1;
              end
           end
         end
 
         DONE : begin
-          if (l2_trans_sent || miss_l2 || prot_l2 || multiple_hit_l2)
-            cntrl_SN = IDLE;
+          busy_o = 1'b1;
+          if (out_valid_o & out_ready_i)
+            search_SN = IDLE;
         end
 
         default : begin
-          cntrl_SN = IDLE;
+          search_SN = IDLE;
         end
       endcase // case (prot_SP)
    end // always_comb begin
 
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
-         last_search <= 1'b0;
+         last_search  <= 1'b0;
+         first_search <= 1'b0;
       end else begin
-         last_search <= last_search_next;
+         last_search  <= last_search_next;
+         first_search <= first_search_next;
       end
    end
 
-   // Indicate L2 is busy
-   always_ff @(posedge clk_i) begin
-      if (rst_ni == 0) begin
-         l2_busy <= 1'b0;
-      end else begin
-         l2_busy <= l2_busy_next;
-      end
-   end
+   /*
+    * VA RAM address generation
+    *
+    * The input address and set number, and thus the offset start address, are available in the
+    * cycle after the start signal. The buffered offset_addr becomes available one cycle later.
+    * During the first search cycle, we therefore directly use offset_addr_start for the lookup.
+    */
+   assign set_num = in_addr_i[SET_WIDTH+IGNORE_LSB -1 : IGNORE_LSB];
 
-   // address to search, rw_type
-   always_ff @(posedge clk_i) begin
-      if (rst_ni == 0) begin
-         in_addr_reg   <= 0;
-         rw_type_saved <= 1'b0;
-      end else if (l1_miss) begin
-         in_addr_reg   <= in_addr;
-         rw_type_saved <= rw_type;
-      end
-   end
-   assign in_addr_saved = l1_miss ? in_addr : in_addr_reg;
-   assign set_num       = in_addr_saved[SET_WIDTH+IGNORE_LSB -1 : IGNORE_LSB];
-   
    assign port0_raddr[OFFSET_WIDTH] = 1'b0;
    assign port1_addr [OFFSET_WIDTH] = 1'b1;
-   
-   assign port0_raddr[OFFSET_WIDTH-1:0] = offset_addr;
-   assign port1_addr [OFFSET_WIDTH-1:0] = offset_addr;
-   
+
+   assign port0_raddr[OFFSET_WIDTH-1:0] = first_search ? offset_start_addr : offset_addr;
+   assign port1_addr [OFFSET_WIDTH-1:0] = first_search ? offset_start_addr : offset_addr;
+
    assign port0_raddr[SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num;
    assign port1_addr [SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num;
 
    assign port0_addr = ram_we ? ram_waddr : port0_raddr;
 
+   // The outputs of the BRAMs are only valid if in the previous cycle:
+   // 1. the inputs were valid, and
+   // 2. the BRAMs were not written to.
+   // Otherwise, the outputs must be ignored.
+   always_ff @(posedge clk_i) begin
+      if (rst_ni == 0) begin
+         searching_q <= 1'b0;
+      end else begin
+         searching_q <= searching;
+      end
+   end
+   assign va_output_valid = searching_q;
+
    // Address offset for looking up the VA RAMs
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          offset_addr   <= 0;
-      end else if (l1_miss) begin
-         offset_addr <= offset_start_addr;
-      end else if (searching)  begin
+      end else if (first_search) begin
+         offset_addr <= offset_start_addr + 1'b1;
+      end else if (searching) begin
          offset_addr <= offset_addr + 1'b1;
       end
    end
@@ -266,20 +264,20 @@ module tlb_l2
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          offset_addr_d <= 0;
-      end else if (l1_miss) begin
+      end else if (first_search) begin
          offset_addr_d <= offset_start_addr;
       end else if (searching) begin
-         offset_addr_d <= offset_addr;
+         offset_addr_d <= offset_addr_d + 1'b1;
       end
    end
 
    // Store the offset addr for hit to reduce latency for next search.
    generate
-      if (HIT_OFFSET_STORE_WIDTH > 0) begin
-`ifndef TLB_MULTIHIT 
-         logic [SET-1:0][HIT_OFFSET_STORE_WIDTH-1:0]             hit_offset_addr; // Contains offset addr for previous hit for every SET.
-         logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]                    hit_addr_reg;
-         
+      if (HIT_OFFSET_STORE_WIDTH > 0) begin : OFFSET_STORE
+`ifndef FULL_MULTI_HIT_DETECT
+         logic [N_SETS-1:0][HIT_OFFSET_STORE_WIDTH-1:0] hit_offset_addr; // Contains offset addr for previous hit for every SET.
+         logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]           hit_addr_reg;
+
          assign offset_start_addr = { hit_offset_addr[set_num] , {{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH}{1'b0}} };
          assign offset_end_addr   =   hit_offset_addr[set_num]-1'b1;
 
@@ -287,119 +285,139 @@ module tlb_l2
          always_ff @(posedge clk_i) begin
             if (rst_ni == 0) begin
                hit_addr_reg <= 0;
-            end else begin
+            end else if (hit_top) begin
                hit_addr_reg <= hit_addr[hit_block_num];
             end
          end
-         
+
          // Store hit addr for each set. The next search in the same set will start from the saved addr.
          always_ff @(posedge clk_i) begin
             if (rst_ni == 0) begin
                hit_offset_addr <= 0;
-            end else if (hit_l2) begin
+            end else if (hit_o) begin
                hit_offset_addr[set_num][HIT_OFFSET_STORE_WIDTH-1:0] <= hit_addr_reg[OFFSET_WIDTH-1 : (OFFSET_WIDTH - HIT_OFFSET_STORE_WIDTH)];
             end
          end
-`else // No need to store offset if multihit is enabled because the entire SET is searched.
+`else // No need to store offset if full multi hit detection is enabled because the entire SET is searched.
          assign offset_start_addr = 0;
          assign offset_end_addr   = {OFFSET_WIDTH{1'b1}};
-`endif         
+`endif
       end else begin // if (HIT_OFFSET_STORE_WIDTH > 0)
          assign offset_start_addr = 0;
          assign offset_end_addr   = {OFFSET_WIDTH{1'b1}};
       end
    endgenerate
-      
-   //////////////////////////////////////////////////////////////////////////////////////
 
-   
+   //////////////////////////////////////////////////////////////////////////////////////
    // check for hit, multi hit, prot
-   always_comb begin
+   always_comb begin : HIT_CHECK
       first_hit_top = 1'b0;
       multi_hit_top = 1'b0;
-      hit_top       = 1'b0;      
+      hit_top       = 1'b0;
       hit_block_num = 0;
-      prot_top = |prot;
-      hit_top  = |hit;
-      for (int i=0; i<PARALLEL_NUM; i++) begin
+      prot_top      = |prot;
+      hit_top       = |hit;
+      for (int i=0; i<N_PAR_VA_RAMS; i++) begin
          if (hit[i] == 1'b1) begin
             if (multi_hit[i] || multi_hit_top || first_hit_top == 1'b1) begin
                multi_hit_top = 1'b1;
                first_hit_top = 1'b0;
-            end else begin                 
+            end else begin
                first_hit_top = 1'b1;
                hit_block_num = i;
             end
          end
-      end // for (int i=0; i<PARALLEL_NUM; i++)
+      end // for (int i=0; i<N_PAR_VA_RAMS; i++)
    end // always_comb begin
-   
 
    ///////////////////// ------------- Outputs ------------ //////////////////////////////////
    //// FSM
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
-         out_SP                        <= OUT_IDLE;
-         l2_cache_coherent_next_reg_SP <= '0;
-         pa_port0_raddr_reg_SP         <= '0;
+         out_SP                     <= OUT_IDLE;
+         pa_ram_store_data_SP       <= 1'b0;
+         pa_port0_raddr_reg_SP      <=  'b0;
       end else begin
-         out_SP                        <= out_SN;
-         l2_cache_coherent_next_reg_SP <= l2_cache_coherent_next_reg_SN;
-         pa_port0_raddr_reg_SP         <= pa_port0_raddr_reg_SN;
+         out_SP                     <= out_SN;
+         pa_ram_store_data_SP       <= pa_ram_store_data_SN;
+         pa_port0_raddr_reg_SP      <= pa_port0_raddr_reg_SN;
       end
    end
-   
-   always_comb begin
-      out_SN                        = out_SP;
-      l2_cache_coherent_next        = l2_cache_coherent;
-      l2_cache_coherent_next_reg_SN = l2_cache_coherent_next_reg_SP;
-      pa_port0_raddr_reg_SN         = pa_port0_raddr_reg_SP;
-      send_outputs                  = 1'b0;
-      hit_l2_next                   = 1'b0;
-      miss_l2_next                  = 1'b0;
-      prot_l2_next                  = 1'b0;
-      multiple_hit_l2_next          = 1'b0;
-      pa_port0_raddr                = 0;
+
+   always_comb begin : OUTPUT_FSM
+      out_SN                   = out_SP;
+
+      miss_next                = miss_o;
+      prot_next                = prot_o;
+      multi_next               = multi_o;
+      hit_next                 = hit_o;
+      cache_coherent_next      = cache_coherent_o;
+      pa_port0_raddr_reg_SN    = pa_port0_raddr_reg_SP;
+
+      pa_port0_raddr           =  'b0;
+      pa_ram_store_data_SN     = 1'b0;
+
+      out_valid_o              = 1'b0;
+      output_sent              = 1'b0;
+
       unique case (out_SP)
         OUT_IDLE : begin
-          if (multi_hit_top || prot_top || (search_done && ~hit_top)) begin // No Hit
-             out_SN                 = SEND_OUTPUT;
-             if (multi_hit_top)
-               multiple_hit_l2_next = 1'b1;
-             if (prot_top)
-               prot_l2_next         = 1'b1;
-             if (search_done && ~hit_top)
-               miss_l2_next         = 1'b1;
-          end else if (search_done && hit_top && !(pa_ram_we)) begin // Hit
-             out_SN         = SEND_OUTPUT;
-             //pa_port0_raddr = (VA_RAM_DEPTH * hit_block_num) + hit_addr[hit_block_num];
-             pa_port0_raddr = (PARALLEL_NUM * hit_addr[hit_block_num]) + hit_block_num;
-             hit_l2_next    = 1'b1;
-             l2_cache_coherent_next = cache_coherent[hit_block_num];
-          end else if (search_done && hit_top && pa_ram_we) begin // Hit and write
-             out_SN                        = WAIT_ON_WRITE;
-             pa_port0_raddr_reg_SN         = (PARALLEL_NUM * hit_addr[hit_block_num]) + hit_block_num;
-             l2_cache_coherent_next_reg_SN = cache_coherent[hit_block_num];
+           hit_next            = 1'b0;
+           miss_next           = 1'b0;
+           prot_next           = 1'b0;
+           multi_next          = 1'b0;
+           cache_coherent_next = 1'b0;
+
+          // abort transaction
+          if         ((search_done & ~hit_top) | prot_top | multi_hit_top) begin
+             out_SN = SEND_OUTPUT;
+
+             if (search_done & ~hit_top) begin
+                miss_next  = 1'b1;
+             end
+             if (prot_top) begin
+                prot_next  = 1'b1;
+                hit_next   = 1'b1;
+             end
+             if (multi_hit_top) begin
+                multi_next = 1'b1;
+                hit_next   = 1'b1;
+             end
+
+          // read PA RAM
+          end else if (search_done & hit_top) begin
+             hit_next              = 1'b1;
+             cache_coherent_next   = cache_coherent[hit_block_num];
+             pa_port0_raddr        = (N_PAR_VA_RAMS * hit_addr[hit_block_num]) + hit_block_num;
+             pa_port0_raddr_reg_SN = pa_port0_raddr;
+
+             // read PA RAM now
+             if (~pa_ram_we) begin
+                out_SN               = SEND_OUTPUT;
+                pa_ram_store_data_SN = 1'b1;
+
+             // read PA RAM after PA RAM reconfiguration
+             end else begin // pa_ram_we
+                out_SN               = WAIT_ON_WRITE;
+
+             end
           end
         end
 
         WAIT_ON_WRITE : begin
-          if ( !(pa_ram_we) ) begin
-             out_SN                 = SEND_OUTPUT;
-             hit_l2_next            = 1'b1;
-             pa_port0_raddr         = pa_port0_raddr_reg_SP;
-             l2_cache_coherent_next = l2_cache_coherent_next_reg_SP;
+          if ( ~pa_ram_we ) begin
+             out_SN               = SEND_OUTPUT;
+             pa_port0_raddr       = pa_port0_raddr_reg_SP;
+             pa_ram_store_data_SN = 1'b1;
           end
         end
-        
+
         SEND_OUTPUT : begin
-           out_SN       = OUT_SENT;
-           send_outputs = 1'b1;
-        end
-               
-        OUT_SENT : begin
-          if (l1_miss)
-            out_SN = OUT_IDLE;
+           out_valid_o  = 1'b1;
+           if (out_ready_i) begin
+              out_SN      = OUT_IDLE;
+              output_sent = 1'b1;
+           end
         end
 
         default : begin
@@ -412,52 +430,53 @@ module tlb_l2
    //// Output signals
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
-         miss_l2           <= 1'b0;
-         prot_l2           <= 1'b0;
-         multiple_hit_l2   <= 1'b0;
-         hit_l2            <= 1'b0;
-         l2_cache_coherent <= 1'b0;
+         miss_o           <= 1'b0;
+         prot_o           <= 1'b0;
+         multi_o          <= 1'b0;
+         hit_o            <= 1'b0;
+         cache_coherent_o <= 1'b0;
       end else begin
-         miss_l2           <= miss_l2_next;
-         prot_l2           <= prot_l2_next;
-         multiple_hit_l2   <= multiple_hit_l2_next;
-         hit_l2            <= hit_l2_next;
-         l2_cache_coherent <= l2_cache_coherent_next;
+         miss_o           <= miss_next;
+         prot_o           <= prot_next;
+         multi_o          <= multi_next;
+         hit_o            <= hit_next;
+         cache_coherent_o <= cache_coherent_next;
       end
    end
-   
+
    ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 
   ///////////////////// --------------- Physical Address -------------- ////////////////////////////
-  
+
   /// PA Block RAM
-  ram #(
+  ram_tp_no_change #(
         .ADDR_WIDTH( PA_RAM_ADDR_WIDTH ),
         .DATA_WIDTH( PA_RAM_DATA_WIDTH )
         )
   pa_ram
     (
-      .clk   ( clk_i                        ),
-      .we    ( pa_ram_we                    ),
-      .addr0 ( pa_port0_addr                ),
-      .addr1 ( '0                           ),
-      .d_i   ( wdata[PA_RAM_DATA_WIDTH-1:0] ),
-      .d0_o  ( pa_port0_data_o              ),
-      .d1_o  (                              )
+      .clk   ( clk_i                          ),
+      .we    ( pa_ram_we                      ),
+      .addr0 ( pa_port0_addr                  ),
+      .addr1 ( '0                             ),
+      .d_i   ( wdata_i[PA_RAM_DATA_WIDTH-1:0] ),
+      .d0_o  ( pa_port0_data                  ),
+      .d1_o  (                                )
     );
 
-   assign out_addr[IGNORE_LSB-1:0]                = in_addr_saved[IGNORE_LSB-1:0];
-   assign out_addr[AXI_M_ADDR_WIDTH-1:IGNORE_LSB] = pa_port0_data_saved;
+   assign out_addr_o[IGNORE_LSB-1:0]                = in_addr_i[IGNORE_LSB-1:0];
+   assign out_addr_o[AXI_M_ADDR_WIDTH-1:IGNORE_LSB] = pa_data;
 
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          pa_port0_data_reg <= 0;
-      end else if (hit_l2) begin
-         pa_port0_data_reg <= pa_port0_data_o[PA_RAM_DATA_WIDTH-1:0];
+      end else if (pa_ram_store_data_SP) begin
+         pa_port0_data_reg <= pa_port0_data;
       end
    end
-   assign pa_port0_data_saved = hit_l2 ? pa_port0_data_o[PA_RAM_DATA_WIDTH-1:0] : pa_port0_data_reg;
+
+   assign pa_data = pa_ram_store_data_SP ? pa_port0_data : pa_port0_data_reg;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -465,24 +484,23 @@ module tlb_l2
 generate if (LL_WIDTH != 0) begin
    always_comb begin
       var reg[LL_WIDTH:0] para;
-      var int             para_int;      
-      for (para = 0; para < PARALLEL_NUM; para=para+1'b1) begin
+      var int             para_int;
+      for (para = 0; para < N_PAR_VA_RAMS; para=para+1'b1) begin
         para_int         = int'(para);
-        //ram_we[para_int] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH:VA_RAM_ADDR_WIDTH] == para);
-        ram_we[para_int] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr[LL_WIDTH-1:0] == para);
+        ram_we[para_int] = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr_i[LL_WIDTH-1:0] == para);
       end
    end
 end else begin
-   assign ram_we[0] = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
+   assign ram_we[0] = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
 end
 
-endgenerate  
+endgenerate
 
 // Addresses are word, not byte addresses
-assign pa_ram_we      = we && (waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
-assign ram_waddr      = waddr[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
-assign pa_port0_waddr = waddr[PA_RAM_ADDR_WIDTH-1:0];             
-assign pa_port0_addr  = pa_ram_we? pa_port0_waddr : pa_port0_raddr;          
+assign pa_ram_we      = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
+assign ram_waddr      = waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
+assign pa_port0_waddr = waddr_i[PA_RAM_ADDR_WIDTH-1:0];
+assign pa_port0_addr  = pa_ram_we ? pa_port0_waddr : pa_port0_raddr;
 
 endmodule
 

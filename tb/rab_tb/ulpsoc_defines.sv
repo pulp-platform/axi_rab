@@ -1,17 +1,12 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished 
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 `ifndef ULPSOC_DEFINES_SV
 `define ULPSOC_DEFINES_SV
@@ -19,21 +14,14 @@
 // define if the 0x0000_0000 to 0x0040_0000 is the alias of the current cluster address space (eg cluster 0 is from  0x1000_0000 to 0x1040_0000)
 `define CLUSTER_ALIAS
 
-
-
-
 // To use new icache use this define
 //`define USE_ICACHE_NEW
-
-
 
 // Hardware Accelerator selection
 //`define HWCRYPT
 
-
 // Uncomment if the SCM is not present (it will still be in the memory map)
 `define NO_SCM
-
 
 // uncomment if you want to place the DEMUX peripherals (EU, MCHAN) rigth before the Test and set region. 
 // This will steal 16KB from the 1MB TCDM reegion. 
@@ -42,39 +30,18 @@
 // remember to change the defines in the pulp.h as well to be coherent with this approach
 //`define DEM_PER_BEFORE_TCDM_TS
 
-
-
 // uncomment if FPGA emulator
 // `define PULP_FPGA_EMUL 1
 // uncomment if using Vivado for ulpcluster synthesis
 `define VIVADO
 
-
 // Enables memory mapped register and counters to extract statistic on instruction cache
 `define FEATURE_ICACHE_STAT
-
-
-
 
 `ifdef PULP_FPGA_EMUL
   // `undef  FEATURE_ICACHE_STAT
   `define SCM_BASED_ICACHE
 `endif
-
-
-//Choose the technology (ASIC synthesis Only) --> 8T : CMOS28FDSOI_8T    or 12T UWVR : CMOS28FDSOI_12T_UWVR
-//`define CMOS28FDSOI_12T_UWVR
-//`define CMOS28FDSOI_8T
-
-
-// PE selection (only for non-FPGA - otherwise selected via PULP_CORE env variable)
-// -> define RISCV for RISC-V processor
-//`define RISCV
-`ifndef PULP_FPGA_EMUL
-//  `define RISCV
-`endif
-
-
 
 //PARAMETRES
 `ifndef PULP_FPGA_EMUL
@@ -103,7 +70,6 @@
 `define SPER_HWCE_ID     6
 `define SPER_EXT_ID      7
 
-
 `define RVT 0
 `define LVT 1
 
@@ -116,33 +82,6 @@
  `define SCM_IMPLEMENTED
  `define SCM_BASED_ICACHE
 `endif
-//////////////////////
-// MMU DEFINES
-//
-// switch for including implementation of MMUs
-//`define MMU_IMPLEMENTED
-// number of logical TCDM banks (regarding interleaving)
-`define MMU_TCDM_BANKS 8
-// switch to enable local copy registers of
-// the control signals in every MMU
-//`define MMU_LOCAL_COPY_REGS
-//
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished 
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
-
-//////////////////////
 
 // Width of byte enable for a given data width
 `define EVAL_BE_WIDTH(DATAWIDTH) (DATAWIDTH/8)
@@ -152,10 +91,10 @@
 `include "fp_defines.sv"
 
 // RAB defines
-`define EN_L2TLB_ARRAY {1}  // Port 1, Port 0
-`define N_SLICES_ARRAY {32}
-`define N_SLICES_MAX   32
-`define EN_ACP         1
+`define EN_L2TLB_ARRAY          {1}  // Port 1, Port 0
+`define N_SLICES_ARRAY         {32}
+`define N_SLICES_MAX            32
+`define EN_ACP                   1
 
 `define RAB_N_PORTS              2
 `define RAB_L2_N_SETS           32

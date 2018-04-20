@@ -1,21 +1,16 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 import CfMath::log2;
 
-//`define TLB_MULTIHIT
+//`define FULL_MULTI_HIT_DETECT
 module check_ram
   #(
     parameter ADDR_WIDTH     = 32,
@@ -28,15 +23,14 @@ module check_ram
    input  logic                                clk_i,
    input  logic                                rst_ni,
    input  logic [ADDR_WIDTH-1:0]               in_addr,
-   input  logic                                rw_type, //1 => write, 0=> read 
+   input  logic                                rw_type, // 1 => write, 0=> read
    input  logic                                ram_we,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr,
    input  logic [RAM_DATA_WIDTH-1:0]           ram_wdata,
-   input  logic                                send_outputs,
-   input  logic                                searching,
+   input  logic                                output_sent,
+   input  logic                                output_valid,
    input  logic [OFFSET_WIDTH-1:0]             offset_addr_d,
-   input  logic                                start_search,
    output logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr,
    output logic                                master,
    output logic                                hit,
@@ -46,47 +40,52 @@ module check_ram
 
    localparam IGNORE_LSB = log2(PAGE_SIZE); // 12
 
-   logic [RAM_DATA_WIDTH-1:0]           port0_data_i; // RAM write data input
    logic [RAM_DATA_WIDTH-1:0]           port0_data_o, port1_data_o; // RAM read data outputs
    logic                                port0_hit, port1_hit; // Ram output matches in_addr
-      
+
    // Hit FSM Signals
    typedef enum                         logic {SEARCH, HIT} hit_state_t;
    hit_state_t                          hit_SP; // Hit FSM state
    hit_state_t                          hit_SN; // Hit FSM next state
 
    // Multi Hit FSM signals
-`ifdef TLB_MULTIHIT
+`ifdef FULL_MULTI_HIT_DETECT
    typedef enum                         logic[1:0] {NO_HITS, ONE_HIT, MULTI_HIT} multi_state_t;
    multi_state_t                        multi_SP; // Multi Hit FSM state
    multi_state_t                        multi_SN; // Multi Hit FSM next state
 
-   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr_saved; 
+   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr_saved;
    logic                                master_saved;
-`endif   
-   
+`endif
+
   //// --------------- Block RAM (Dual Port) -------------- ////
-   ram #(
-         .ADDR_WIDTH( SET_WIDTH+OFFSET_WIDTH+1 ),
-         .DATA_WIDTH( RAM_DATA_WIDTH           )
-         )
-   ram_0
-     (
-             .clk   (clk_i)        ,
-             .we    (ram_we)       ,
-             .addr0 (port0_addr)   ,
-             .addr1 (port1_addr)   ,
-             .d_i   (ram_wdata)    ,
-             .d0_o  (port0_data_o) ,
-             .d1_o  (port1_data_o)
-             );
+
+  // The outputs of the BRAMs are only valid if in the previous cycle:
+  // 1. the inputs were valid, and
+  // 2. the BRAM was not written to.
+  // Otherwise, the outputs must be ignored which is controlled by the output_valid signal.
+  // This signal is driven by the uppler level L2 TLB module.
+  ram_tp_no_change #(
+      .ADDR_WIDTH( SET_WIDTH+OFFSET_WIDTH+1 ),
+      .DATA_WIDTH( RAM_DATA_WIDTH           )
+    )
+    ram_tp_no_change_0
+    (
+      .clk   ( clk_i         ),
+      .we    ( ram_we        ),
+      .addr0 ( port0_addr    ),
+      .addr1 ( port1_addr    ),
+      .d_i   ( ram_wdata     ),
+      .d0_o  ( port0_data_o  ),
+      .d1_o  ( port1_data_o  )
+    );
 
    //// Check Ram Outputs
    assign port0_hit = (port0_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port0_data_o[RAM_DATA_WIDTH-1:4]);
    assign port1_hit = (port1_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port1_data_o[RAM_DATA_WIDTH-1:4]);
    //// ----------------------------------------------------- /////
 
-   //// ------------------- Check if Hit ------------------------ ////  
+   //// ------------------- Check if Hit ------------------------ ////
    // FSM
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
@@ -103,7 +102,7 @@ module check_ram
       master   = 1'b0;
       unique case(hit_SP)
         SEARCH :
-          if (searching)
+          if (output_valid)
             if (port0_hit || port1_hit) begin
                hit_SN   = HIT;
                hit      = 1'b1;
@@ -116,14 +115,14 @@ module check_ram
             end
 
         HIT : begin
-`ifdef TLB_MULTIHIT // Since the search continues after the first hit, it needs to be saved to be accessed later.
+`ifdef FULL_MULTI_HIT_DETECT // Since the search continues after the first hit, it needs to be saved to be accessed later.
            hit      = 1'b1;
            hit_addr = hit_addr_saved;
            master   = master_saved;
-`endif           
-           if (send_outputs)
+`endif
+           if (output_sent)
              hit_SN = SEARCH;
-        end        
+        end
 
         default : begin
            hit_SN = SEARCH;
@@ -131,25 +130,25 @@ module check_ram
       endcase // case (hit_SP)
    end // always_comb begin
 
-   //// ------------------------------------------- ////      
+   //// ------------------------------------------- ////
 
-   assign prot = searching && port0_hit ? ((~port0_data_o[2] && rw_type) || (~port0_data_o[1] && ~rw_type)) :
-                 searching && port1_hit ? ((~port1_data_o[2] && rw_type) || (~port1_data_o[1] && ~rw_type)) :
-                 1'b0;                   
+   assign prot = output_valid && port0_hit ? ((~port0_data_o[2] && rw_type) || (~port0_data_o[1] && ~rw_type)) :
+                 output_valid && port1_hit ? ((~port1_data_o[2] && rw_type) || (~port1_data_o[1] && ~rw_type)) :
+                 1'b0;
 
    //// ------------------- Multi ------------------- ////
-`ifdef TLB_MULTIHIT
-   
+`ifdef FULL_MULTI_HIT_DETECT
+
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
          hit_addr_saved <= 0;
-         master_saved <= 1'b0;
-      end else if (searching) begin
+         master_saved   <= 1'b0;
+      end else if (output_valid) begin
          hit_addr_saved <= hit_addr;
-         master_saved <= master;
+         master_saved   <= master;
       end
    end
-   
+
    // FSM
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
@@ -164,33 +163,31 @@ module check_ram
       multi_hit = 1'b0;
       unique case(multi_SP)
         NO_HITS :
-          if(searching && (port0_hit && port1_hit)) begin
+          if(output_valid && (port0_hit && port1_hit)) begin
              multi_SN  = MULTI_HIT;
              multi_hit = 1'b1;
-          end else if(searching && (port0_hit || port1_hit))
+          end else if(output_valid && (port0_hit || port1_hit))
             multi_SN = ONE_HIT;
 
         ONE_HIT :
-          if(searching && (port0_hit || port1_hit)) begin
+          if(output_valid && (port0_hit || port1_hit)) begin
              multi_SN  = MULTI_HIT;
              multi_hit = 1'b1;
-          end else if (send_outputs)
+          end else if (output_sent)
             multi_SN = NO_HITS;
-        
+
         MULTI_HIT : begin
           multi_hit = 1'b1;
-           if (send_outputs)
+           if (output_sent)
              multi_SN = NO_HITS;
         end
-      
+
       endcase // case (multi_SP)
    end // always_comb begin
-      
-`else // !`ifdef TLB_MULTIHIT
-   assign multi_hit = searching && port0_hit && port1_hit;
-`endif // !`ifdef TLB_MULTIHIT
-   //// ------------------------------------------- ////      
-           
-endmodule
 
-   
+`else // !`ifdef FULL_MULTI_HIT_DETECT
+   assign multi_hit = output_valid && port0_hit && port1_hit;
+`endif // !`ifdef FULL_MULTI_HIT_DETECT
+   //// ------------------------------------------- ////
+
+endmodule

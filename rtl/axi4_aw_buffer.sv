@@ -1,80 +1,50 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
-module axi4_aw_buffer (axi4_aclk,
-                       axi4_arstn,
-                       s_axi4_awid,
-                       s_axi4_awaddr,
-                       s_axi4_awvalid,
-                       s_axi4_awready,
-                       s_axi4_awlen,
-                       s_axi4_awsize,
-                       s_axi4_awburst,
-                       s_axi4_awlock,
-                       s_axi4_awprot,
-                       s_axi4_awcache,
-                       s_axi4_awregion,
-                       s_axi4_awqos,
-                       s_axi4_awuser,
-                       m_axi4_awid,
-                       m_axi4_awaddr,
-                       m_axi4_awvalid,
-                       m_axi4_awready,
-                       m_axi4_awlen,
-                       m_axi4_awsize,
-                       m_axi4_awburst,
-                       m_axi4_awlock,
-                       m_axi4_awprot,
-                       m_axi4_awcache,
-                       m_axi4_awregion,
-                       m_axi4_awqos,
-                       m_axi4_awuser);
+module axi4_aw_buffer
+  #(
+    parameter AXI_ID_WIDTH   = 4,
+    parameter AXI_USER_WIDTH = 4
+  )
+  (
+    input  logic                      axi4_aclk,
+    input  logic                      axi4_arstn,
 
-  parameter AXI_ID_WIDTH = 4;
-  parameter AXI_USER_WIDTH = 4;
+    input  logic   [AXI_ID_WIDTH-1:0] s_axi4_awid,
+    input  logic               [31:0] s_axi4_awaddr,
+    input  logic                      s_axi4_awvalid,
+    output logic                      s_axi4_awready,
+    input  logic                [7:0] s_axi4_awlen,
+    input  logic                [2:0] s_axi4_awsize,
+    input  logic                [1:0] s_axi4_awburst,
+    input  logic                      s_axi4_awlock,
+    input  logic                [2:0] s_axi4_awprot,
+    input  logic                [3:0] s_axi4_awcache,
+    input  logic                [3:0] s_axi4_awregion,
+    input  logic                [3:0] s_axi4_awqos,
+    input  logic [AXI_USER_WIDTH-1:0] s_axi4_awuser,
 
-  input                       axi4_aclk;
-  input                       axi4_arstn;
-
-  input    [AXI_ID_WIDTH-1:0] s_axi4_awid;
-  input                [31:0] s_axi4_awaddr;
-  input       		            s_axi4_awvalid;
-  output        		          s_axi4_awready;
-  input       	        [7:0] s_axi4_awlen;
-  input       	        [2:0] s_axi4_awsize;
-  input                 [1:0] s_axi4_awburst;
-  input                       s_axi4_awlock;
-  input       	        [2:0] s_axi4_awprot;
-  input       	        [3:0] s_axi4_awcache;
-  input       	        [3:0] s_axi4_awregion;
-  input       	        [3:0] s_axi4_awqos;
-  input  [AXI_USER_WIDTH-1:0] s_axi4_awuser;
-
-  output   [AXI_ID_WIDTH-1:0] m_axi4_awid;
-  output               [31:0] m_axi4_awaddr;
-  output       		            m_axi4_awvalid;
-  input        		            m_axi4_awready;
-  output       	        [7:0] m_axi4_awlen;
-  output       	        [2:0] m_axi4_awsize;
-  output                [1:0] m_axi4_awburst;
-  output                      m_axi4_awlock;
-  output       	        [2:0] m_axi4_awprot;
-  output       	        [3:0] m_axi4_awcache;
-  output       	        [3:0] m_axi4_awregion;
-  output       	        [3:0] m_axi4_awqos;
-  output [AXI_USER_WIDTH-1:0] m_axi4_awuser;
+    output logic   [AXI_ID_WIDTH-1:0] m_axi4_awid,
+    output logic               [31:0] m_axi4_awaddr,
+    output logic                      m_axi4_awvalid,
+    input  logic                      m_axi4_awready,
+    output logic                [7:0] m_axi4_awlen,
+    output logic                [2:0] m_axi4_awsize,
+    output logic                [1:0] m_axi4_awburst,
+    output logic                      m_axi4_awlock,
+    output logic                [2:0] m_axi4_awprot,
+    output logic                [3:0] m_axi4_awcache,
+    output logic                [3:0] m_axi4_awregion,
+    output logic                [3:0] m_axi4_awqos,
+    output logic [AXI_USER_WIDTH-1:0] m_axi4_awuser
+  );
 
   wire [AXI_USER_WIDTH+AXI_ID_WIDTH+60:0] data_in;
   wire [AXI_USER_WIDTH+AXI_ID_WIDTH+60:0] data_out;
@@ -109,15 +79,13 @@ module axi4_aw_buffer (axi4_aclk,
     )
     u_buffer
     (
-      .clk(axi4_aclk), 
-      .rstn(axi4_arstn), 
-      .valid_out(m_axi4_awvalid), 
-      .data_out(data_out), 
-      .ready_in(m_axi4_awready), 
-      .valid_in(s_axi4_awvalid), 
-      .data_in(data_in), 
-      .ready_out(s_axi4_awready)
+      .clk       ( axi4_aclk      ),
+      .rstn      ( axi4_arstn     ),
+      .valid_out ( m_axi4_awvalid ),
+      .data_out  ( data_out       ),
+      .ready_in  ( m_axi4_awready ),
+      .valid_in  ( s_axi4_awvalid ),
+      .data_in   ( data_in        ),
+      .ready_out ( s_axi4_awready )
     );
 endmodule
-
-

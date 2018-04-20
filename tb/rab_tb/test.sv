@@ -1,17 +1,12 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished 
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
 `timescale 1ns/10ps
 `include "ulpsoc_defines.sv"
@@ -20,10 +15,6 @@ import AXI4LITE_M::*;
 import PACKET::*;
 typedef bit [7:0]    bit8;
 typedef bit [31:0]   bit32;
-
-
-  
-
 
 task bit32tobit8(bit32 in_data, output bit8 out_data[4] );
    out_data[0] = in_data[7:0];
@@ -39,7 +30,7 @@ task slice_cfg(AXI4Lite_m_env axi4lite_intf, int unsigned slice_num, bit [31:0] 
    bit32tobit8(high_addr,high_addr4);
    bit32tobit8(offset,offset4);
    bit32tobit8({29'h0,wen,ren,en},en4);
-   
+
    axi4lite_intf.writeData(wrRespPtr, slice_num*32, low_addr4);
    axi4lite_intf.getWrResp(wrRespPtr, wrRespOut);
    axi4lite_intf.writeData(wrRespPtr, slice_num*32+8, high_addr4);
@@ -48,7 +39,7 @@ task slice_cfg(AXI4Lite_m_env axi4lite_intf, int unsigned slice_num, bit [31:0] 
    axi4lite_intf.getWrResp(wrRespPtr, wrRespOut);
    axi4lite_intf.writeData(wrRespPtr, slice_num*32+24, en4);
    axi4lite_intf.getWrResp(wrRespPtr, wrRespOut);
-   
+
 endtask // slice_cfg
 
 task slice_acp_cfg(AXI4Lite_m_env axi4lite_intf, int unsigned slice_num, bit [31:0] low_addr, bit [31:0] high_addr, bit [31:0] offset, bit wen, bit ren, bit en);
@@ -58,7 +49,7 @@ task slice_acp_cfg(AXI4Lite_m_env axi4lite_intf, int unsigned slice_num, bit [31
    bit32tobit8(high_addr,high_addr4);
    bit32tobit8(offset,offset4);
    bit32tobit8({28'h0,1'b1,wen,ren,en},en4);
-   
+
    axi4lite_intf.writeData(wrRespPtr, slice_num*32, low_addr4);
    axi4lite_intf.getWrResp(wrRespPtr, wrRespOut);
    axi4lite_intf.writeData(wrRespPtr, slice_num*32+8, high_addr4);
@@ -93,21 +84,21 @@ endtask // l2_cfg
 
 
 
-program test 
-  #( 
+program test
+  #(
      parameter TEST_NAME = "reg_rd_wr",
      parameter A = 4,
      parameter integer A_ARRAY [3:0] = {10,20,30,40}
    );
-    
+
    initial begin
 
       bit8 dataIn[], dataOut[], wrRespOut[], wrRespExp[], rdRespOut[], rdRespExp[];
       int unsigned address, wrRespPtr, rdPtr;
       int x,error_buf=0,i, data;
-      
+
       Packet pkt = new();
-      
+
       //
       AXI4Lite_m_env axi4lite_m;
       //  Create AXI Lite master
@@ -135,7 +126,7 @@ program test
          	 axi4lite_m.writeData(wrRespPtr, address, dataIn);
          	 axi4lite_m.getWrResp(wrRespPtr, wrRespOut);
          end
-    
+
          // Read slice registers
          for (address=0; address < 32'h00000100; address+=4) begin
             axi4lite_m.readData(address, dataIn.size(), rdPtr);
@@ -153,13 +144,13 @@ program test
       if(TEST_NAME == "multi_hit") begin
          slice_cfg(axi4lite_m, 1, 32'h00000010, 32'h000000f0, 32'h100, '1, '1, '1); // Configure Slice regs
          slice_cfg(axi4lite_m, 2, 32'h00000010, 32'h000000f4, 32'h200, '1, '1, '1); // Configure Slice regs
-         slice_cfg(axi4lite_m, 3, 32'h00000010, 32'h000000f8, 32'h300, '1, '1, '1); // Configure Slice regs 
+         slice_cfg(axi4lite_m, 3, 32'h00000010, 32'h000000f8, 32'h300, '1, '1, '1); // Configure Slice regs
          slice_cfg(axi4lite_m, 4, 32'h00000010, 32'h000000fc, 32'h400, '1, '1, '1); // Configure Slice regs
          rab_tb.tgen2rab_fetch_en <= '1; // Start AXI transactions
          @(rab_tb.tgen2rab_eoc); // Wait till AXI transactions are completed
          repeat (10) @(posedge rab_tb.clk_i);
       end
-      
+
       if(TEST_NAME == "prot") begin
          slice_cfg(axi4lite_m, 1, 32'h00000000, 32'h000000f0, 32'h100, '1, '0, '0); // Configure Slice regs
          rab_tb.tgen2rab_fetch_en <= '1; // Start AXI transactions
@@ -172,17 +163,17 @@ program test
          for (address = 0; address<1024; address++) begin
             l2_cfg(axi4lite_m, "va", 0, address, 0);
             l2_cfg(axi4lite_m, "pa", 0, address, 0);
-         end         
-         l2_cfg(axi4lite_m, "va", 0, 32*8, 32'h003ec487); 
+         end
+         l2_cfg(axi4lite_m, "va", 0, 32*8, 32'h003ec487);
          l2_cfg(axi4lite_m, "pa", 0, 32*8, 32'h0001d8e4);
          repeat (100) @(posedge rab_tb.clk_i);
-         l2_cfg(axi4lite_m, "va", 0, 32*7, 32'h003ec497); 
+         l2_cfg(axi4lite_m, "va", 0, 32*7, 32'h003ec497);
          l2_cfg(axi4lite_m, "pa", 0, 32*7, 32'h0001d8f1);
          repeat (100) @(posedge rab_tb.clk_i);
          rab_tb.tgen2rab_fetch_en <= '1; // Start AXI transactions
          @(rab_tb.tgen2rab_eoc); // Wait till AXI transactions are completed
          repeat (10) @(posedge rab_tb.clk_i);
-      end      
+      end
 
       // L2 TLB test
       if(TEST_NAME == "l2") begin
@@ -199,7 +190,7 @@ program test
          slice_cfg(axi4lite_m, 3, 32'h00005000, 32'h00006000, 32'hF000, '1, '1, '1); // Configure Slice regs
          slice_cfg(axi4lite_m, 4, 32'h00005000, 32'h00006000, 32'hF100, '1, '1, '1); // Configure Slice regs
          slice_cfg(axi4lite_m, 5, 32'h00005000, 32'h00006000, 32'hF200, '1, '1, '1); // Configure Slice regs
-         
+
          l2_cfg(axi4lite_m, "va", .port_num(0), .ram_location(0), .data(32'h00000007)); // Page num=0
          l2_cfg(axi4lite_m, "va", 0, 32*4+31, 32'h00000047); // page num= 4
          l2_cfg(axi4lite_m, "pa", 0, 0, 32'h00000124);
@@ -211,7 +202,7 @@ program test
          l2_cfg(axi4lite_m, "va", 0, 32*6+1, 32'h0000006F); // page num = 6
          l2_cfg(axi4lite_m, "pa", 0, 32*6+1, 32'h0000058C);
         // l2_cfg(axi4lite_m, "va", 0, 32*6+15, 32'h00000067); // page num = 6
-        // l2_cfg(axi4lite_m, "pa", 0, 32*6+15, 32'h00000500); 
+        // l2_cfg(axi4lite_m, "pa", 0, 32*6+15, 32'h00000500);
 
          repeat (100) @(posedge rab_tb.clk_i);
          rab_tb.tgen2rab_fetch_en <= '1; // Start AXI transactions
@@ -224,7 +215,7 @@ program test
          for (address = 0; address<1024; address++) begin
             l2_cfg(axi4lite_m, "va", 0, address, 0);
             l2_cfg(axi4lite_m, "pa", 0, address, 0);
-         end         
+         end
          for (i = 0; i<32; i++) begin
             address = (32*i) + ((i%2)*31);
             data = (i << 4)+ 7;
@@ -236,17 +227,84 @@ program test
          rab_tb.tgen2rab_fetch_en = '1; // Start AXI transactions
          @(rab_tb.tgen2rab_eoc); // Wait till AXI transactions are completed
          repeat (10) @(posedge rab_tb.clk_i);
-      end      
-      
+      end
+
+      if (TEST_NAME == "l1_and_l2" ) begin
+         // init L2
+         for (address = 0; address<1024; address++) begin
+            l2_cfg(axi4lite_m, "va", 0, address, 0);
+            l2_cfg(axi4lite_m, "pa", 0, address, 0);
+         end
+
+         // config L1
+         slice_acp_cfg(axi4lite_m, 1, 32'h00000000, 32'h00001000, 32'hF00000, '1, '1, '1);
+         slice_acp_cfg(axi4lite_m, 2, 32'h00001000, 32'h00002000, 32'hF01000, '1, '1, '1);
+         slice_acp_cfg(axi4lite_m, 3, 32'h00003000, 32'h00004000, 32'hF03000, '1, '1, '1);
+
+         slice_acp_cfg(axi4lite_m, 4, 32'h10000000, 32'h20000000, 32'hF00000, '1, '1, '1);
+
+         // config L2
+         // First entry per set
+         for (i = 0; i<32; i++) begin
+            address = 32*i;
+            data = (i << 4) + 4'hF;
+            l2_cfg(axi4lite_m, "va", 0, address, data);
+            data = 32'hF00 + i;
+            l2_cfg(axi4lite_m, "pa", 0, address, data);
+         end
+
+         // Last entry per set
+         for (i = 0; i<32; i++) begin
+            address = 32*i + 31;
+            data = (i << 4) + 4'hF + (32 << 4); // next VA in same set
+            l2_cfg(axi4lite_m, "va", 0, address, data);
+            data = 32'h4F00 + i;
+            l2_cfg(axi4lite_m, "pa", 0, address, data);
+         end
+
+         repeat (100) @(posedge rab_tb.clk_i);
+
+         // start AXI transactions
+         rab_tb.tgen2rab_fetch_en = '1;
+
+         // wait for reconfig test phase
+         wait (rab_tb.tgen2rab.ar_addr == 32'hF000);
+
+         repeat (16) @(posedge rab_tb.clk_i);
+
+         // re-config L2
+         // Fifth entry per set
+         i = 0;
+         address = (32*i) + 4;
+         data = (i << 4) + 4'hF + (2 << (4 + 5));
+         l2_cfg(axi4lite_m, "va", 0, address, data);
+         data = 32'h1F00 + i;
+         l2_cfg(axi4lite_m, "pa", 0, address, data);
+
+         repeat (16) @(posedge rab_tb.clk_i);
+
+         i = 1;
+         address = (32*i) + 4;
+         data = (i << 4) + 4'hF + (2 << (4 + 5));
+         l2_cfg(axi4lite_m, "va", 0, address, data);
+         data = 32'h1F00 + i;
+         l2_cfg(axi4lite_m, "pa", 0, address, data);
+
+         // wait for completion
+         @(rab_tb.tgen2rab_eoc);
+
+         repeat (10) @(posedge rab_tb.clk_i);
+      end
+
       if(TEST_NAME == "print") begin
          $display("Array size is %d. Elements are %d %d %d %d", A, A_ARRAY[0], A_ARRAY[1], A_ARRAY[2], A_ARRAY[3]);
          $display("Max element is %p",A_ARRAY.max);
-         
+
       end // if (TEST_NAME == "print")
-      
+
       repeat (50) @(posedge rab_tb.clk_i);
-      
-      
+
+
    // Make sure all buffers are empty
       if(rab_tb.addr_ptr != rab_tb.addr_check_ptr) begin
          $error("Input buffer not empty");
@@ -260,14 +318,11 @@ program test
          $error("L2 buffer not empty");
          error_buf+=1;
       end
-      $display(".........1345..............");      
-      
+      $display(".........1345..............");
 
-      $display("Number of miss errors = %d",rab_tb.error_miss);
-      $display("Number of errors = %d",rab_tb.error_num);
-      $display("Number of buffer errors = %d",error_buf);
-      
-      
+      $display("Number of miss errors   = %10d",rab_tb.error_miss);
+      $display("Number of errors        = %10d",rab_tb.error_num);
+      $display("Number of buffer errors = %10d",error_buf);
+
    end // initial begin
 endprogram // test
-   

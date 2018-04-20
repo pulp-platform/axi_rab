@@ -1,89 +1,78 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
-module axi4_r_buffer (axi4_aclk,
-                      axi4_arstn,
-                      s_axi4_rid,
-                      s_axi4_rdata,
-                      s_axi4_rlast,
-                      s_axi4_rresp,
-                      s_axi4_rvalid,
-                      s_axi4_ruser,
-                      s_axi4_rready,
-                      m_axi4_rid,
-                      m_axi4_rdata,
-                      m_axi4_rlast,
-                      m_axi4_rresp,
-                      m_axi4_rvalid,
-                      m_axi4_ruser,
-                      m_axi4_rready);
+module axi4_r_buffer
+  #(
+    parameter AXI_DATA_WIDTH = 32,
+    parameter AXI_ID_WIDTH   = 4,
+    parameter AXI_USER_WIDTH = 4
+  )
+  (
+    input  logic                      axi4_aclk,
+    input  logic                      axi4_arstn,
 
-  parameter  AXI_DATA_WIDTH = 32;
-  parameter  AXI_ID_WIDTH   = 4;
-  parameter  AXI_USER_WIDTH = 4;
+    output logic   [AXI_ID_WIDTH-1:0] s_axi4_rid,
+    output logic                [1:0] s_axi4_rresp,
+    output logic [AXI_DATA_WIDTH-1:0] s_axi4_rdata,
+    output logic                      s_axi4_rlast,
+    output logic                      s_axi4_rvalid,
+    output logic [AXI_USER_WIDTH-1:0] s_axi4_ruser,
+    input  logic                      s_axi4_rready,
 
-  input                       axi4_aclk;
-  input                       axi4_arstn;
+    input  logic   [AXI_ID_WIDTH-1:0] m_axi4_rid,
+    input  logic                [1:0] m_axi4_rresp,
+    input  logic [AXI_DATA_WIDTH-1:0] m_axi4_rdata,
+    input  logic                      m_axi4_rlast,
+    input  logic                      m_axi4_rvalid,
+    input  logic [AXI_USER_WIDTH-1:0] m_axi4_ruser,
+    output logic                      m_axi4_rready
+  );
 
-  output   [AXI_ID_WIDTH-1:0] s_axi4_rid;
-  output                [1:0] s_axi4_rresp;
-  output [AXI_DATA_WIDTH-1:0] s_axi4_rdata;
-  output                      s_axi4_rlast;
-  output                      s_axi4_rvalid;
-  output [AXI_USER_WIDTH-1:0] s_axi4_ruser;
-  input                       s_axi4_rready;
+  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3-1:0] data_in;
+  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3-1:0] data_out;
 
-  input    [AXI_ID_WIDTH-1:0] m_axi4_rid;
-  input                 [1:0] m_axi4_rresp;
-  input  [AXI_DATA_WIDTH-1:0] m_axi4_rdata;
-  input                       m_axi4_rlast;
-  input                       m_axi4_rvalid;
-  input  [AXI_USER_WIDTH-1:0] m_axi4_ruser;
-  output                      m_axi4_rready;
+  localparam ID_START   = 3;
+  localparam ID_END     = AXI_ID_WIDTH-1 + ID_START;
+  localparam DATA_START = ID_END + 1;
+  localparam DATA_END   = AXI_DATA_WIDTH-1 + DATA_START;
+  localparam USER_START = DATA_END + 1;
+  localparam USER_END   = AXI_USER_WIDTH-1 + USER_START;
 
-  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:0] data_in;
-  wire [AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:0] data_out;
+  assign data_in                [1:0] = m_axi4_rresp;
+  assign data_in                  [2] = m_axi4_rlast;
+  assign data_in    [ID_END:ID_START] = m_axi4_rid;
+  assign data_in[DATA_END:DATA_START] = m_axi4_rdata;
+  assign data_in[USER_END:USER_START] = m_axi4_ruser;
 
-  assign data_in                                                                       [1:0] = m_axi4_rresp;
-  assign data_in                                                                         [2] = m_axi4_rlast;
-  assign data_in                                                          [AXI_ID_WIDTH+2:3] = m_axi4_rid;
-  assign data_in                              [AXI_DATA_WIDTH+AXI_ID_WIDTH+3:AXI_ID_WIDTH+3] = m_axi4_rdata;
-  assign data_in[AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:AXI_DATA_WIDTH+AXI_ID_WIDTH+4] = m_axi4_ruser;
-
-  assign s_axi4_rresp  = data_out[1:0];
-  assign s_axi4_rlast  = data_out[2];
-  assign s_axi4_rid    = data_out[AXI_ID_WIDTH+2:3];
-  assign s_axi4_rdata  = data_out[AXI_DATA_WIDTH+AXI_ID_WIDTH+3:AXI_ID_WIDTH+3];
-  assign s_axi4_ruser  = data_out[AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3:AXI_DATA_WIDTH+AXI_ID_WIDTH+4];
+  assign s_axi4_rresp  = data_out                [1:0];
+  assign s_axi4_rlast  = data_out                  [2];
+  assign s_axi4_rid    = data_out    [ID_END:ID_START];
+  assign s_axi4_rdata  = data_out[DATA_END:DATA_START];
+  assign s_axi4_ruser  = data_out[USER_END:USER_START];
 
   axi_buffer_rab
   #(
-    .DATA_WIDTH ( AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+4 )
+    .DATA_WIDTH ( AXI_DATA_WIDTH+AXI_ID_WIDTH+AXI_USER_WIDTH+3 )
     )
   u_buffer
   (
-    .clk(axi4_aclk), 
-    .rstn(axi4_arstn), 
-    .valid_out(s_axi4_rvalid), 
-    .data_out(data_out), 
-    .ready_in(s_axi4_rready), 
-    .valid_in(m_axi4_rvalid), 
-    .data_in(data_in), 
-    .ready_out(m_axi4_rready)
+    .clk       ( axi4_aclk     ),
+    .rstn      ( axi4_arstn    ),
+    // Pop
+    .valid_out ( s_axi4_rvalid ),
+    .data_out  ( data_out      ),
+    .ready_in  ( s_axi4_rready ),
+    // Push
+    .valid_in  ( m_axi4_rvalid ),
+    .data_in   ( data_in       ),
+    .ready_out ( m_axi4_rready )
   );
 
 endmodule
-
-

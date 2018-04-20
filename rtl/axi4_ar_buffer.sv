@@ -1,72 +1,46 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
-module axi4_ar_buffer (axi4_aclk,
-                       axi4_arstn,
-                       s_axi4_arid,
-                       s_axi4_araddr,
-                       s_axi4_arvalid,
-                       s_axi4_arready,
-                       s_axi4_arlen,
-                       s_axi4_arsize,
-                       s_axi4_arburst,
-                       s_axi4_arlock,
-                       s_axi4_arprot,
-                       s_axi4_arcache,
-                       s_axi4_aruser,
-                       m_axi4_arid,
-                       m_axi4_araddr,
-                       m_axi4_arvalid,
-                       m_axi4_arready,
-                       m_axi4_arlen,
-                       m_axi4_arsize,
-                       m_axi4_arburst,
-                       m_axi4_arlock,
-                       m_axi4_arprot,
-                       m_axi4_arcache,
-                       m_axi4_aruser);
+module axi4_ar_buffer
+  #(
+    parameter AXI_ID_WIDTH   = 4,
+    parameter AXI_USER_WIDTH = 4
+  )
+  (
+    input  logic                      axi4_aclk,
+    input  logic                      axi4_arstn,
 
-  parameter AXI_ID_WIDTH   = 4;
-  parameter AXI_USER_WIDTH = 4;
+    input  logic   [AXI_ID_WIDTH-1:0] s_axi4_arid,
+    input  logic               [31:0] s_axi4_araddr,
+    input  logic                      s_axi4_arvalid,
+    output logic                      s_axi4_arready,
+    input  logic                [7:0] s_axi4_arlen,
+    input  logic                [2:0] s_axi4_arsize,
+    input  logic                [1:0] s_axi4_arburst,
+    input  logic                      s_axi4_arlock,
+    input  logic                [2:0] s_axi4_arprot,
+    input  logic                [3:0] s_axi4_arcache,
+    input  logic [AXI_USER_WIDTH-1:0] s_axi4_aruser,
 
-  input                           axi4_aclk;
-  input                           axi4_arstn;
-
-  input        [AXI_ID_WIDTH-1:0] s_axi4_arid;
-  input                    [31:0] s_axi4_araddr;
-  input                   		    s_axi4_arvalid;
-  output                  		    s_axi4_arready;
-  input             	      [7:0] s_axi4_arlen;
-  input             	      [2:0] s_axi4_arsize;
-  input                     [1:0] s_axi4_arburst;
-  input                           s_axi4_arlock;
-  input             	      [2:0] s_axi4_arprot;
-  input             	      [3:0] s_axi4_arcache;
-  input      [AXI_USER_WIDTH-1:0] s_axi4_aruser;
-
-  output       [AXI_ID_WIDTH-1:0] m_axi4_arid;
-  output                   [31:0] m_axi4_araddr;
-  output                  		    m_axi4_arvalid;
-  input              		          m_axi4_arready;
-  output             	      [7:0] m_axi4_arlen;
-  output             	      [2:0] m_axi4_arsize;
-  output                    [1:0] m_axi4_arburst;
-  output                          m_axi4_arlock;
-  output             	      [2:0] m_axi4_arprot;
-  output             	      [3:0] m_axi4_arcache;
-  output     [AXI_USER_WIDTH-1:0] m_axi4_aruser;
+    output logic   [AXI_ID_WIDTH-1:0] m_axi4_arid,
+    output logic               [31:0] m_axi4_araddr,
+    output logic                      m_axi4_arvalid,
+    input  logic                      m_axi4_arready,
+    output logic                [7:0] m_axi4_arlen,
+    output logic                [2:0] m_axi4_arsize,
+    output logic                [1:0] m_axi4_arburst,
+    output logic                      m_axi4_arlock,
+    output logic                [2:0] m_axi4_arprot,
+    output logic                [3:0] m_axi4_arcache,
+    output logic [AXI_USER_WIDTH-1:0] m_axi4_aruser
+  );
 
   wire [AXI_ID_WIDTH+AXI_USER_WIDTH+52:0] data_in;
   wire [AXI_ID_WIDTH+AXI_USER_WIDTH+52:0] data_out;
@@ -97,14 +71,14 @@ module axi4_ar_buffer (axi4_aclk,
       )
     u_buffer
     (
-      .clk(axi4_aclk), 
-      .rstn(axi4_arstn), 
-      .valid_out(m_axi4_arvalid), 
-      .data_out(data_out), 
-      .ready_in(m_axi4_arready), 
-      .valid_in(s_axi4_arvalid), 
-      .data_in(data_in), 
-      .ready_out(s_axi4_arready)
+      .clk       ( axi4_aclk      ),
+      .rstn      ( axi4_arstn     ),
+      .valid_out ( m_axi4_arvalid ),
+      .data_out  ( data_out       ),
+      .ready_in  ( m_axi4_arready ),
+      .valid_in  ( s_axi4_arvalid ),
+      .data_in   ( data_in        ),
+      .ready_out ( s_axi4_arready )
     );
 
 endmodule

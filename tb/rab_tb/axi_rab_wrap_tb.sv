@@ -3,7 +3,7 @@
  *
  * This code is under development and not yet released to the public.
  * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished 
+ * the University of Bologna, and may contain confidential and/or unpublished
  * work. Any reuse/redistribution is strictly forbidden without written
  * permission from ETH Zurich.
  *
@@ -15,13 +15,13 @@
 
 // --=========================================================================--
 //
-//  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗     ██╗    ██╗██████╗  █████╗ ██████╗ 
+//  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗     ██╗    ██╗██████╗  █████╗ ██████╗
 // ██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗██╔══██╗    ██║    ██║██╔══██╗██╔══██╗██╔══██╗
 // ███████║ ╚███╔╝ ██║    ██████╔╝███████║██████╔╝    ██║ █╗ ██║██████╔╝███████║██████╔╝
-// ██╔══██║ ██╔██╗ ██║    ██╔══██╗██╔══██║██╔══██╗    ██║███╗██║██╔══██╗██╔══██║██╔═══╝ 
-// ██║  ██║██╔╝ ██╗██║    ██║  ██║██║  ██║██████╔╝    ╚███╔███╔╝██║  ██║██║  ██║██║     
-// ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     
-//                                                                                     
+// ██╔══██║ ██╔██╗ ██║    ██╔══██╗██╔══██║██╔══██╗    ██║███╗██║██╔══██╗██╔══██║██╔═══╝
+// ██║  ██║██╔╝ ██╗██║    ██║  ██║██║  ██║██████╔╝    ╚███╔███╔╝██║  ██║██║  ██║██║
+// ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝      ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
+//
 // --=========================================================================--
 
 `include "ulpsoc_defines.sv"
@@ -34,7 +34,7 @@ module axi_rab_wrap
     parameter AXI_DATA_WIDTH         = 64,
     parameter AXI_USER_WIDTH         = 6,
     parameter AXI_LITE_ADDR_WIDTH    = 32,
-    parameter AXI_LITE_DATA_WIDTH    = 64, 
+    parameter AXI_LITE_DATA_WIDTH    = 64,
     parameter AXI_ID_EXT_S_WIDTH     = 6,
     parameter AXI_ID_EXT_S_ACP_WIDTH = 6,
     parameter AXI_ID_EXT_M_WIDTH     = 14,
@@ -45,7 +45,7 @@ module axi_rab_wrap
    (
     input  logic        clk_i,
     input  logic        rst_ni,
-    
+
     AXI_BUS.Master rab_to_socbus,
     AXI_BUS.Slave  socbus_to_rab,
 
@@ -57,12 +57,48 @@ module axi_rab_wrap
 
     AXI_LITE.Slave rab_lite,
 
-    output logic intr_miss_o , 
+    output logic intr_miss_o ,
     output logic intr_multi_o,
     output logic intr_prot_o,
     output logic intr_mhf_full_o
     );
-   
+
+  localparam AXI_ID_WIDTH = FUNC_MAX(AXI_ID_SOC_S_WIDTH,AXI_ID_SOC_M_WIDTH);
+
+  function int FUNC_MAX(int a, b);
+   if (a > b)
+     return a;
+   else
+     return b;
+  endfunction
+
+  AXI_BUS
+  #(
+    .AXI_ADDR_WIDTH ( AXI_ADDR_WIDTH ),
+    .AXI_DATA_WIDTH ( AXI_DATA_WIDTH ),
+    .AXI_ID_WIDTH   ( AXI_ID_WIDTH   ),
+    .AXI_USER_WIDTH ( AXI_USER_WIDTH )
+    )
+  rab_acp_id_remap();
+
+  axi_id_remap_wrap
+  #(
+    .AXI_ADDR_WIDTH   ( AXI_ADDR_WIDTH         ),
+    .AXI_DATA_WIDTH   ( AXI_DATA_WIDTH         ),
+    .AXI_USER_WIDTH   ( AXI_USER_WIDTH         ),
+    .AXI_ID_IN_WIDTH  ( AXI_ID_WIDTH           ),
+    .AXI_ID_OUT_WIDTH ( AXI_ID_EXT_S_ACP_WIDTH ),
+    .AXI_ID_SLOT      ( 1                      )
+  )
+  ext_s_acp_id_remap_wrap_i
+  (
+    .clk_i     ( clk_i            ),
+    .rst_ni    ( rst_ni           ),
+
+    .axi_slave ( rab_acp_id_remap ),
+    .axi_master( rab_acp          )
+  );
+
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
   // ██╔════╝██║██╔════╝ ████╗  ██║██╔══██╗██║     ██╔════╝
   // ███████╗██║██║  ███╗██╔██╗ ██║███████║██║     ███████╗
@@ -70,15 +106,6 @@ module axi_rab_wrap
   // ███████║██║╚██████╔╝██║ ╚████║██║  ██║███████╗███████║
   // ╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚══════╝
   //
-
-  localparam AXI_ID_WIDTH = FUNC_MAX(AXI_ID_SOC_S_WIDTH,AXI_ID_SOC_M_WIDTH);
-  
-  function int FUNC_MAX(int a, b);
-   if (a > b)
-     return a;
-   else
-     return b;     
-  endfunction
 
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] s_axi_awid;
   logic [N_PORTS-1:0]     [AXI_ADDR_WIDTH-1:0] s_axi_awaddr;
@@ -93,20 +120,20 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                    [3:0] s_axi_awregion;
   logic [N_PORTS-1:0]                    [3:0] s_axi_awqos;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi_awuser;
-      
+
   logic [N_PORTS-1:0]     [AXI_DATA_WIDTH-1:0] s_axi_wdata;
   logic [N_PORTS-1:0]                          s_axi_wvalid;
   logic [N_PORTS-1:0]                          s_axi_wready;
   logic [N_PORTS-1:0]   [AXI_DATA_WIDTH/8-1:0] s_axi_wstrb;
   logic [N_PORTS-1:0]                          s_axi_wlast;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi_wuser;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] s_axi_bid;
   logic [N_PORTS-1:0]                    [1:0] s_axi_bresp;
   logic [N_PORTS-1:0]                          s_axi_bvalid;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi_buser;
   logic [N_PORTS-1:0]                          s_axi_bready;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] s_axi_arid;
   logic [N_PORTS-1:0]     [AXI_ADDR_WIDTH-1:0] s_axi_araddr;
   logic [N_PORTS-1:0]                          s_axi_arvalid;
@@ -120,7 +147,7 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                    [3:0] s_axi_arregion;
   logic [N_PORTS-1:0]                    [3:0] s_axi_arqos;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi_aruser;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] s_axi_rid;
   logic [N_PORTS-1:0]     [AXI_DATA_WIDTH-1:0] s_axi_rdata;
   logic [N_PORTS-1:0]                    [1:0] s_axi_rresp;
@@ -128,7 +155,7 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                          s_axi_rready;
   logic [N_PORTS-1:0]                          s_axi_rlast;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] s_axi_ruser;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m_axi_awid;
   logic [N_PORTS-1:0] [AXI_EXT_ADDR_WIDTH-1:0] m_axi_awaddr;
   logic [N_PORTS-1:0]                          m_axi_awvalid;
@@ -142,20 +169,20 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                    [3:0] m_axi_awregion;
   logic [N_PORTS-1:0]                    [3:0] m_axi_awqos;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m_axi_awuser;
-      
+
   logic [N_PORTS-1:0]     [AXI_DATA_WIDTH-1:0] m_axi_wdata;
   logic [N_PORTS-1:0]                          m_axi_wvalid;
   logic [N_PORTS-1:0]                          m_axi_wready;
   logic [N_PORTS-1:0]   [AXI_DATA_WIDTH/8-1:0] m_axi_wstrb;
   logic [N_PORTS-1:0]                          m_axi_wlast;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m_axi_wuser;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m_axi_bid;
   logic [N_PORTS-1:0]                    [1:0] m_axi_bresp;
   logic [N_PORTS-1:0]                          m_axi_bvalid;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m_axi_buser;
   logic [N_PORTS-1:0]                          m_axi_bready;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m_axi_arid;
   logic [N_PORTS-1:0] [AXI_EXT_ADDR_WIDTH-1:0] m_axi_araddr;
   logic [N_PORTS-1:0]                          m_axi_arvalid;
@@ -169,7 +196,7 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                    [3:0] m_axi_arregion;
   logic [N_PORTS-1:0]                    [3:0] m_axi_arqos;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m_axi_aruser;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m_axi_rid;
   logic [N_PORTS-1:0]     [AXI_DATA_WIDTH-1:0] m_axi_rdata;
   logic [N_PORTS-1:0]                    [1:0] m_axi_rresp;
@@ -198,7 +225,7 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]   [AXI_DATA_WIDTH/8-1:0] m_axi_acp_wstrb;
   logic [N_PORTS-1:0]                          m_axi_acp_wlast;
   logic [N_PORTS-1:0]     [AXI_USER_WIDTH-1:0] m_axi_acp_wuser;
-      
+
   logic [N_PORTS-1:0]       [AXI_ID_WIDTH-1:0] m_axi_acp_bid;
   logic [N_PORTS-1:0]                    [1:0] m_axi_acp_bresp;
   logic [N_PORTS-1:0]                          m_axi_acp_bvalid;
@@ -231,7 +258,7 @@ module axi_rab_wrap
   logic [N_PORTS-1:0]                          intr_rab_multi;
   logic [N_PORTS-1:0]                          intr_rab_prot;
   logic                                        intr_mhf_full;
-      
+
   //  █████╗ ███████╗███████╗██╗ ██████╗ ███╗   ██╗███╗   ███╗███████╗███╗   ██╗████████╗███████╗
   // ██╔══██╗██╔════╝██╔════╝██║██╔════╝ ████╗  ██║████╗ ████║██╔════╝████╗  ██║╚══██╔══╝██╔════╝
   // ███████║███████╗███████╗██║██║  ███╗██╔██╗ ██║██╔████╔██║█████╗  ██╔██╗ ██║   ██║   ███████╗
@@ -340,59 +367,59 @@ module axi_rab_wrap
   assign  m_axi_ruser  = {rab_master.r_user   };
 
   //------------------------------   *******   ---------------------------------------
-  assign                     {rab_acp.aw_id    } = m_axi_acp_awid;
-  assign                     {rab_acp.aw_addr  } = m_axi_acp_awaddr;
-  assign                     {rab_acp.aw_valid } = m_axi_acp_awvalid;
-  assign m_axi_acp_awready = {rab_acp.aw_ready };
-  assign                     {rab_acp.aw_len   } = m_axi_acp_awlen;
-  assign                     {rab_acp.aw_size  } = m_axi_acp_awsize;
-  assign                     {rab_acp.aw_burst } = m_axi_acp_awburst;
-  assign                     {rab_acp.aw_lock  } = m_axi_acp_awlock;
-  assign                     {rab_acp.aw_prot  } = m_axi_acp_awprot;
-  // rab_acp.aw_cache is set later
-  assign                     {rab_acp.aw_region} = m_axi_acp_awregion;
-  assign                     {rab_acp.aw_qos   } = m_axi_acp_awqos;
-  assign                     {rab_acp.aw_user  } = m_axi_acp_awuser;
+  assign                     {rab_acp_id_remap.aw_id    } = m_axi_acp_awid;
+  assign                     {rab_acp_id_remap.aw_addr  } = m_axi_acp_awaddr;
+  assign                     {rab_acp_id_remap.aw_valid } = m_axi_acp_awvalid;
+  assign m_axi_acp_awready = {rab_acp_id_remap.aw_ready };
+  assign                     {rab_acp_id_remap.aw_len   } = m_axi_acp_awlen;
+  assign                     {rab_acp_id_remap.aw_size  } = m_axi_acp_awsize;
+  assign                     {rab_acp_id_remap.aw_burst } = m_axi_acp_awburst;
+  assign                     {rab_acp_id_remap.aw_lock  } = m_axi_acp_awlock;
+  assign                     {rab_acp_id_remap.aw_prot  } = m_axi_acp_awprot;
+  // rab_acp_id_remap.aw_cache is set later
+  assign                     {rab_acp_id_remap.aw_region} = m_axi_acp_awregion;
+  assign                     {rab_acp_id_remap.aw_qos   } = m_axi_acp_awqos;
+  assign                     {rab_acp_id_remap.aw_user  } = m_axi_acp_awuser;
 
-  assign                     {rab_acp.w_data   } = m_axi_acp_wdata;
-  assign                     {rab_acp.w_valid  } = m_axi_acp_wvalid;
-  assign m_axi_acp_wready  = {rab_acp.w_ready  };
-  assign                     {rab_acp.w_strb   } = m_axi_acp_wstrb;
-  assign                     {rab_acp.w_last   } = m_axi_acp_wlast;
-  assign                     {rab_acp.w_user   } = m_axi_acp_wuser;
+  assign                     {rab_acp_id_remap.w_data   } = m_axi_acp_wdata;
+  assign                     {rab_acp_id_remap.w_valid  } = m_axi_acp_wvalid;
+  assign m_axi_acp_wready  = {rab_acp_id_remap.w_ready  };
+  assign                     {rab_acp_id_remap.w_strb   } = m_axi_acp_wstrb;
+  assign                     {rab_acp_id_remap.w_last   } = m_axi_acp_wlast;
+  assign                     {rab_acp_id_remap.w_user   } = m_axi_acp_wuser;
 
-  assign m_axi_acp_bid     = {rab_acp.b_id     };
-  assign m_axi_acp_bresp   = {rab_acp.b_resp   };
-  assign m_axi_acp_bvalid  = {rab_acp.b_valid  };
-  assign m_axi_acp_buser   = {rab_acp.b_user   };
-  assign                     {rab_acp.b_ready  } = m_axi_acp_bready;
+  assign m_axi_acp_bid     = {rab_acp_id_remap.b_id     };
+  assign m_axi_acp_bresp   = {rab_acp_id_remap.b_resp   };
+  assign m_axi_acp_bvalid  = {rab_acp_id_remap.b_valid  };
+  assign m_axi_acp_buser   = {rab_acp_id_remap.b_user   };
+  assign                     {rab_acp_id_remap.b_ready  } = m_axi_acp_bready;
 
-  assign                     {rab_acp.ar_id    } = m_axi_acp_arid;
-  assign                     {rab_acp.ar_addr  } = m_axi_acp_araddr;
-  assign                     {rab_acp.ar_valid } = m_axi_acp_arvalid;
-  assign m_axi_acp_arready = {rab_acp.ar_ready };
-  assign                     {rab_acp.ar_len   } = m_axi_acp_arlen;
-  assign                     {rab_acp.ar_size  } = m_axi_acp_arsize;
-  assign                     {rab_acp.ar_burst } = m_axi_acp_arburst;
-  assign                     {rab_acp.ar_lock  } = m_axi_acp_arlock;
-  assign                     {rab_acp.ar_prot  } = m_axi_acp_arprot;
-  // rab_acp.ar_cache is set later
-  assign                     {rab_acp.ar_user  } = m_axi_acp_aruser;
+  assign                     {rab_acp_id_remap.ar_id    } = m_axi_acp_arid;
+  assign                     {rab_acp_id_remap.ar_addr  } = m_axi_acp_araddr;
+  assign                     {rab_acp_id_remap.ar_valid } = m_axi_acp_arvalid;
+  assign m_axi_acp_arready = {rab_acp_id_remap.ar_ready };
+  assign                     {rab_acp_id_remap.ar_len   } = m_axi_acp_arlen;
+  assign                     {rab_acp_id_remap.ar_size  } = m_axi_acp_arsize;
+  assign                     {rab_acp_id_remap.ar_burst } = m_axi_acp_arburst;
+  assign                     {rab_acp_id_remap.ar_lock  } = m_axi_acp_arlock;
+  assign                     {rab_acp_id_remap.ar_prot  } = m_axi_acp_arprot;
+  // rab_acp_id_remap.ar_cache is set later
+  assign                     {rab_acp_id_remap.ar_user  } = m_axi_acp_aruser;
 
-  assign m_axi_acp_rid     = {rab_acp.r_id     };
-  assign m_axi_acp_rdata   = {rab_acp.r_data   };
-  assign m_axi_acp_rresp   = {rab_acp.r_resp   };
-  assign m_axi_acp_rvalid  = {rab_acp.r_valid  };
-  assign                     {rab_acp.r_ready  } = m_axi_acp_rready;
-  assign m_axi_acp_rlast   = {rab_acp.r_last   };
-  assign m_axi_acp_ruser   = {rab_acp.r_user   };
+  assign m_axi_acp_rid     = {rab_acp_id_remap.r_id     };
+  assign m_axi_acp_rdata   = {rab_acp_id_remap.r_data   };
+  assign m_axi_acp_rresp   = {rab_acp_id_remap.r_resp   };
+  assign m_axi_acp_rvalid  = {rab_acp_id_remap.r_valid  };
+  assign                     {rab_acp_id_remap.r_ready  } = m_axi_acp_rready;
+  assign m_axi_acp_rlast   = {rab_acp_id_remap.r_last   };
+  assign m_axi_acp_ruser   = {rab_acp_id_remap.r_user   };
 
-  //------------------------------   *******   ---------------------------------------  
+  //------------------------------   *******   ---------------------------------------
   // use caches with Write Back and allocate on Read and Write
   // This tells the PS interconnect to route ACP to cache instead of memory
   // (See AXI Protocol Specification A4.4 Memory Types)
-  assign rab_acp.aw_cache = 4'b1111;
-  assign rab_acp.ar_cache = 4'b1111;
+  assign rab_acp_id_remap.aw_cache = 4'b1111;
+  assign rab_acp_id_remap.ar_cache = 4'b1111;
 
   //------------------------------   *******   ---------------------------------------
   assign intr_miss_o     = | intr_rab_miss;
@@ -403,18 +430,20 @@ module axi_rab_wrap
   //------------------------------   arregion, arqos ---------------------------------
   assign m_axi_arregion = 4'b0;
   assign m_axi_arqos    = 4'b0;
-  
-  //  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗     ████████╗ ██████╗ ██████╗ 
+
+  //  █████╗ ██╗  ██╗██╗    ██████╗  █████╗ ██████╗     ████████╗ ██████╗ ██████╗
   // ██╔══██╗╚██╗██╔╝██║    ██╔══██╗██╔══██╗██╔══██╗    ╚══██╔══╝██╔═══██╗██╔══██╗
   // ███████║ ╚███╔╝ ██║    ██████╔╝███████║██████╔╝       ██║   ██║   ██║██████╔╝
-  // ██╔══██║ ██╔██╗ ██║    ██╔══██╗██╔══██║██╔══██╗       ██║   ██║   ██║██╔═══╝ 
-  // ██║  ██║██╔╝ ██╗██║    ██║  ██║██║  ██║██████╔╝       ██║   ╚██████╔╝██║     
-  // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝        ╚═╝    ╚═════╝ ╚═╝     
-  //                                                                           
-  axi_rab_top  
+  // ██╔══██║ ██╔██╗ ██║    ██╔══██╗██╔══██║██╔══██╗       ██║   ██║   ██║██╔═══╝
+  // ██║  ██║██╔╝ ██╗██║    ██║  ██║██║  ██║██████╔╝       ██║   ╚██████╔╝██║
+  // ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝    ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝        ╚═╝    ╚═════╝ ╚═╝
+  //
+  axi_rab_top
     #(
       .N_PORTS             ( N_PORTS             ),
-      .AXI_DATA_WIDTH      ( AXI_DATA_WIDTH      ), 
+      .N_L2_SETS           ( 32                  ),
+      .N_L2_SET_ENTRIES    ( 32                  ),
+      .AXI_DATA_WIDTH      ( AXI_DATA_WIDTH      ),
       .AXI_S_ADDR_WIDTH    ( AXI_ADDR_WIDTH      ),
       .AXI_M_ADDR_WIDTH    ( AXI_EXT_ADDR_WIDTH  ),
       .AXI_LITE_DATA_WIDTH ( AXI_LITE_DATA_WIDTH ),
@@ -424,8 +453,9 @@ module axi_rab_wrap
       )
   axi_rab_top_i
     (
-      .Clk_CI      (clk_i),
-      .Rst_RBI     (rst_ni),
+      .Clk_CI         (clk_i),
+      .NonGatedClk_CI (clk_i),
+      .Rst_RBI        (rst_ni),
 
       .s_axi4_awid     (s_axi_awid),
       .s_axi4_awaddr   (s_axi_awaddr),

@@ -1,48 +1,34 @@
-/* Copyright (C) 2017 ETH Zurich, University of Bologna
- * All rights reserved.
- *
- * This code is under development and not yet released to the public.
- * Until it is released, the code is under the copyright of ETH Zurich and
- * the University of Bologna, and may contain confidential and/or unpublished
- * work. Any reuse/redistribution is strictly forbidden without written
- * permission from ETH Zurich.
- *
- * Bug fixes and contributions will eventually be released under the
- * SolderPad open hardware license in the context of the PULP platform
- * (http://www.pulp-platform.org), under the copyright of ETH Zurich and the
- * University of Bologna.
- */
+// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 0.51 (the "License"); you may not use this file except in
+// compliance with the License.  You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
 
-module axi4_b_buffer (axi4_aclk,
-                      axi4_arstn,
-                      s_axi4_bid,
-                      s_axi4_bresp,
-                      s_axi4_bvalid,
-                      s_axi4_buser,
-                      s_axi4_bready,
-                      m_axi4_bid,
-                      m_axi4_bresp,
-                      m_axi4_bvalid,
-                      m_axi4_buser,
-                      m_axi4_bready);
+module axi4_b_buffer
+  #(
+    parameter AXI_ID_WIDTH   = 4,
+    parameter AXI_USER_WIDTH = 4
+  )
+  (
+    input  logic                      axi4_aclk,
+    input  logic                      axi4_arstn,
 
-  parameter  AXI_ID_WIDTH   = 4;
-  parameter  AXI_USER_WIDTH = 4;
+    output logic   [AXI_ID_WIDTH-1:0] s_axi4_bid,
+    output logic                [1:0] s_axi4_bresp,
+    output logic                      s_axi4_bvalid,
+    output logic [AXI_USER_WIDTH-1:0] s_axi4_buser,
+    input  logic                      s_axi4_bready,
 
-  input                       axi4_aclk;
-  input                       axi4_arstn;
-
-  output   [AXI_ID_WIDTH-1:0] s_axi4_bid;
-  output                [1:0] s_axi4_bresp;
-  output         		          s_axi4_bvalid;
-  output [AXI_USER_WIDTH-1:0] s_axi4_buser;
-  input          		          s_axi4_bready;
-
-  input    [AXI_ID_WIDTH-1:0] m_axi4_bid;
-  input                 [1:0] m_axi4_bresp;
-  input         		          m_axi4_bvalid;
-  input  [AXI_USER_WIDTH-1:0] m_axi4_buser;
-  output          		        m_axi4_bready;
+    input  logic   [AXI_ID_WIDTH-1:0] m_axi4_bid,
+    input  logic                [1:0] m_axi4_bresp,
+    input  logic                      m_axi4_bvalid,
+    input  logic [AXI_USER_WIDTH-1:0] m_axi4_buser,
+    output logic                      m_axi4_bready
+  );
 
   wire [AXI_ID_WIDTH+AXI_USER_WIDTH+1:0] data_in;
   wire [AXI_ID_WIDTH+AXI_USER_WIDTH+1:0] data_out;
@@ -51,9 +37,9 @@ module axi4_b_buffer (axi4_aclk,
   assign data_in                            [AXI_ID_WIDTH+1:2] = m_axi4_bid;
   assign data_in[AXI_ID_WIDTH+AXI_USER_WIDTH+1:AXI_ID_WIDTH+2] = m_axi4_buser;
 
-  assign s_axi4_buser  = data_out[AXI_ID_WIDTH+AXI_USER_WIDTH+1:AXI_ID_WIDTH+2];
-  assign s_axi4_bid    = data_out[AXI_ID_WIDTH+1:2];
-  assign s_axi4_bresp  = data_out[1:0];
+  assign s_axi4_buser = data_out[AXI_ID_WIDTH+AXI_USER_WIDTH+1:AXI_ID_WIDTH+2];
+  assign s_axi4_bid   = data_out[AXI_ID_WIDTH+1:2];
+  assign s_axi4_bresp = data_out[1:0];
 
   axi_buffer_rab
   #(
@@ -61,14 +47,14 @@ module axi4_b_buffer (axi4_aclk,
     )
   u_buffer
   (
-    .clk(axi4_aclk), 
-    .rstn(axi4_arstn), 
-    .valid_out(s_axi4_bvalid), 
-    .data_out(data_out), 
-    .ready_in(s_axi4_bready), 
-    .valid_in(m_axi4_bvalid), 
-    .data_in(data_in), 
-    .ready_out(m_axi4_bready)
+    .clk      ( axi4_aclk     ),
+    .rstn     ( axi4_arstn    ),
+    .valid_out( s_axi4_bvalid ),
+    .data_out ( data_out      ),
+    .ready_in ( s_axi4_bready ),
+    .valid_in ( m_axi4_bvalid ),
+    .data_in  ( data_in       ),
+    .ready_out( m_axi4_bready )
   );
 
 endmodule
