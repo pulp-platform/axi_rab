@@ -472,6 +472,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           L1OutRwType_D, L1DropRwType_DP;
   logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] L1OutUser_D, L1DropUser_DP;
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] L1OutId_D, L1DropId_DP;
+  logic [N_PORTS-1:0]                     [7:0] L1OutLen_D, L1DropLen_DP;
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] L1OutAddr_D, L1DropAddr_DP;
   logic [N_PORTS-1:0]                           L1OutProt_D, L1DropProt_DP;
   logic [N_PORTS-1:0]                           L1OutMulti_D, L1DropMulti_DP;
@@ -484,6 +485,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           L2InRwType_DP;
   logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] L2InUser_DP;
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] L2InId_DP;
+  logic [N_PORTS-1:0]                     [7:0] L2InLen_DP;
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] L2InAddr_DP;
   logic [N_PORTS-1:0]                           L2InEn_S;
 
@@ -491,6 +493,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           L2OutRwType_DP;
   logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] L2OutUser_DP;
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] L2OutId_DP;
+  logic [N_PORTS-1:0]                     [7:0] L2OutLen_DP;
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] L2OutInAddr_DP;
 
   logic [N_PORTS-1:0]                           L2OutHit_SN, L2OutHit_SP;
@@ -578,6 +581,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           l2_m1_ar_done_SP;
 
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] l1_id_drop, lx_id_drop, b_id_drop;
+  logic [N_PORTS-1:0]                     [7:0] lx_len_drop;
   logic [N_PORTS-1:0]                           l1_prefetch_drop, lx_prefetch_drop, b_prefetch_drop;
   logic [N_PORTS-1:0]                           l1_hit_drop, lx_hit_drop, b_hit_drop;
 
@@ -1308,6 +1312,7 @@ module axi_rab_top
       .axi4_aclk     ( Clk_CI              ),
       .axi4_arstn    ( Rst_RBI             ),
       .drop_i        ( lx_r_drop[i]        ),
+      .drop_len_i    ( lx_len_drop[i]      ),
       .done_o        ( lx_r_done[i]        ),
       .id_i          ( lx_id_drop[i]       ),
       .prefetch_i    ( lx_prefetch_drop[i] ),
@@ -1563,6 +1568,7 @@ module axi_rab_top
       // L1 transaction info outputs -> L2 TLB arbitration
       .int_axaddr_o         ( L1OutAddr_D                ),
       .int_axid_o           ( L1OutId_D                  ),
+      .int_axlen_o          ( L1OutLen_D                 ),
       .int_axuser_o         ( L1OutUser_D                ),
 
       // Write Req IF
@@ -2122,6 +2128,7 @@ module axi_rab_top
         l1_r_drop[i]        = 1'b0;
 
         lx_id_drop[i]       =  'b0;
+        lx_len_drop[i]      =  'b0;
         lx_prefetch_drop[i] = 1'b0;
         lx_hit_drop[i]      = 1'b0;
 
@@ -2144,6 +2151,7 @@ module axi_rab_top
 
               l1_r_drop[i]        = 1'b1;
               lx_id_drop[i]       = L1DropId_DP[i];
+              lx_len_drop[i]      = L1DropLen_DP[i];
               lx_prefetch_drop[i] = L1DropPrefetch_S[i];
               lx_hit_drop[i]      = 1'b1; // there are no drops for L1 misses
 
@@ -2179,6 +2187,7 @@ module axi_rab_top
           end else begin
 
             lx_id_drop[i]       = L2OutId_DP[i];
+            lx_len_drop[i]      = L2OutLen_DP[i];
             lx_prefetch_drop[i] = L2OutPrefetch_S[i];
             lx_hit_drop[i]      = L2OutHit_SP[i];
 
@@ -2222,6 +2231,7 @@ module axi_rab_top
             L1DropRwType_DP[i] <= 1'b0;
             L1DropUser_DP[i]   <=  'b0;
             L1DropId_DP[i]     <=  'b0;
+            L1DropLen_DP[i]    <=  'b0;
             L1DropAddr_DP[i]   <=  'b0;
          end else if (L1DropEn_S[i] == 1'b1) begin
             L1DropProt_DP[i]   <= L1OutProt_D[i]  ;
@@ -2229,6 +2239,7 @@ module axi_rab_top
             L1DropRwType_DP[i] <= L1OutRwType_D[i];
             L1DropUser_DP[i]   <= L1OutUser_D[i]  ;
             L1DropId_DP[i]     <= L1OutId_D[i]    ;
+            L1DropLen_DP[i]    <= L1OutLen_D[i]   ;
             L1DropAddr_DP[i]   <= L1OutAddr_D[i]  ;
          end
       end // always_ff @ (posedge Clk_CI)
@@ -2243,11 +2254,13 @@ module axi_rab_top
             L2InRwType_DP[i] <= 1'b0;
             L2InUser_DP[i]   <=  'b0;
             L2InId_DP[i]     <=  'b0;
+            L2InLen_DP[i]    <=  'b0;
             L2InAddr_DP[i]   <=  'b0;
          end else if (L2InEn_S[i] == 1'b1) begin
             L2InRwType_DP[i] <= L1OutRwType_D[i];
             L2InUser_DP[i]   <= L1OutUser_D[i]  ;
             L2InId_DP[i]     <= L1OutId_D[i]    ;
+            L2InLen_DP[i]    <= L1OutLen_D[i]   ;
             L2InAddr_DP[i]   <= L1OutAddr_D[i]  ;
          end
       end // always_ff @ (posedge Clk_CI)
@@ -2299,6 +2312,7 @@ module axi_rab_top
          if (Rst_RBI == 0) begin
             L2OutRwType_DP[i] <= 1'b0;
             L2OutUser_DP[i]   <=  'b0;
+            L2OutLen_DP[i]    <=  'b0;
             L2OutId_DP[i]     <=  'b0;
             L2OutInAddr_DP[i] <=  'b0;
 
@@ -2311,6 +2325,7 @@ module axi_rab_top
          end else if (L2OutEn_S[i] == 1'b1) begin
             L2OutRwType_DP[i] <= L2InRwType_DP[i];
             L2OutUser_DP[i]   <= L2InUser_DP[i]  ;
+            L2OutLen_DP[i]    <= L2InLen_DP[i]   ;
             L2OutId_DP[i]     <= L2InId_DP[i]    ;
             L2OutInAddr_DP[i] <= L2InAddr_DP[i]  ;
 
@@ -2374,6 +2389,9 @@ module axi_rab_top
       assign lx_id_drop[i]        = int_wtrans_drop[i] ? int_awid[i] :
                                     int_rtrans_drop[i] ? int_arid[i] :
                                     '0;
+      assign lx_len_drop[i]       = int_wtrans_drop[i] ? int_awlen[i] :
+                                    int_rtrans_drop[i] ? int_arlen[i] :
+                                    '0;
       assign lx_prefetch_drop[i]  = rab_prefetch[i];
       assign lx_hit_drop[i]       = ~rab_miss[i];
 
@@ -2393,6 +2411,7 @@ module axi_rab_top
       assign L1DropRwType_DP[i]   = 1'b0;
       assign L1DropUser_DP[i]     =  'b0;
       assign L1DropId_DP[i]       =  'b0;
+      assign L1DropLen_DP[i]      =  'b0;
       assign L1DropAddr_DP[i]     =  'b0;
       assign L1DropProt_DP[i]     = 1'b0;
       assign L1DropMulti_DP[i]    = 1'b0;
@@ -2405,6 +2424,7 @@ module axi_rab_top
       assign L2InRwType_DP[i]     = 1'b0;
       assign L2InUser_DP[i]       =  'b0;
       assign L2InId_DP[i]         =  'b0;
+      assign L2InLen_DP[i]        =  'b0;
       assign L2InAddr_DP[i]       =  'b0;
 
       assign L2InEn_S[i]          = 1'b0;
@@ -2419,6 +2439,7 @@ module axi_rab_top
       assign L2OutRwType_DP[i]    = 1'b0;
       assign L2OutUser_DP[i]      =  'b0;
       assign L2OutId_DP[i]        =  'b0;
+      assign L2OutLen_DP[i]       =  'b0;
       assign L2OutInAddr_DP[i]    =  'b0;
       assign L2OutHit_SP[i]       = 1'b0;
       assign L2OutMiss_SP[i]      = 1'b0;
