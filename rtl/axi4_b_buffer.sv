@@ -43,7 +43,8 @@ module axi4_b_buffer
 
   axi_buffer_rab
   #(
-    .DATA_WIDTH( AXI_ID_WIDTH+AXI_USER_WIDTH+2 )
+    .DATA_WIDTH   ( AXI_ID_WIDTH+AXI_USER_WIDTH+2 ),
+    .BUFFER_DEPTH ( 4                             )
     )
   u_buffer
   (

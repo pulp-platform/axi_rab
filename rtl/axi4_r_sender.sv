@@ -44,7 +44,7 @@ module axi4_r_sender
     output logic                      m_axi4_rready
   );
 
-  localparam BUFFER_DEPTH = 8;
+  localparam BUFFER_DEPTH = 16;
 
   logic                    fifo_valid;
   logic                    fifo_pop;
@@ -64,9 +64,8 @@ module axi4_r_sender
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+8   ),
-      .BUFFER_DEPTH     ( BUFFER_DEPTH       ),
-      .LOG_BUFFER_DEPTH ( log2(BUFFER_DEPTH) )
+      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+8  ),
+      .BUFFER_DEPTH     ( BUFFER_DEPTH      )
       )
     u_fifo
       (

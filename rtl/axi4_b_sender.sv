@@ -48,7 +48,8 @@ module axi4_b_sender
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH ( 2+AXI_ID_WIDTH )
+      .DATA_WIDTH   ( 2+AXI_ID_WIDTH  ),
+      .BUFFER_DEPTH ( 4               )
       )
     u_fifo
       (

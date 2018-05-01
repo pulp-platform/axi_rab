@@ -8,11 +8,12 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+import CfMath::log2;
+
 module axi_buffer_rab
   #(
-    parameter DATA_WIDTH       = 32,
-    parameter BUFFER_DEPTH     = 4,
-    parameter LOG_BUFFER_DEPTH = 2
+    parameter DATA_WIDTH,
+    parameter BUFFER_DEPTH
   )
   (
     input logic                   clk,
@@ -28,6 +29,8 @@ module axi_buffer_rab
     input  logic [DATA_WIDTH-1:0] data_in,
     output logic                  ready_out
   );
+
+  localparam integer LOG_BUFFER_DEPTH = log2(BUFFER_DEPTH);
 
     // Internal data structures
     reg [LOG_BUFFER_DEPTH - 1 : 0] pointer_in;   // location to which we last wrote

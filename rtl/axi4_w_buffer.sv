@@ -160,9 +160,8 @@ module axi4_w_buffer
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH       ( BUFFER_WIDTH             ),
-      .BUFFER_DEPTH     ( INPUT_BUFFER_DEPTH       ),
-      .LOG_BUFFER_DEPTH ( log2(INPUT_BUFFER_DEPTH) )
+      .DATA_WIDTH       ( BUFFER_WIDTH        ),
+      .BUFFER_DEPTH     ( INPUT_BUFFER_DEPTH  )
       )
     u_input_buf
     (
@@ -180,9 +179,8 @@ module axi4_w_buffer
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH       ( L1_FIFO_WIDTH       ),
-      .BUFFER_DEPTH     ( L1_FIFO_DEPTH       ),
-      .LOG_BUFFER_DEPTH ( log2(L1_FIFO_DEPTH) )
+      .DATA_WIDTH       ( L1_FIFO_WIDTH ),
+      .BUFFER_DEPTH     ( L1_FIFO_DEPTH )
       )
     u_l1_fifo
     (
@@ -296,9 +294,8 @@ module axi4_w_buffer
 
     axi_buffer_rab
     #(
-      .DATA_WIDTH       ( L2_FIFO_WIDTH       ),
-      .BUFFER_DEPTH     ( L2_FIFO_DEPTH       ),
-      .LOG_BUFFER_DEPTH ( log2(L2_FIFO_DEPTH) )
+      .DATA_WIDTH       ( L2_FIFO_WIDTH ),
+      .BUFFER_DEPTH     ( L2_FIFO_DEPTH )
       )
     u_l2_fifo
     (
