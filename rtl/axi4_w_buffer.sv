@@ -116,18 +116,20 @@ module axi4_w_buffer
   logic                           hum_buf_valid_in;
   logic                           hum_buf_ready_in;
   logic                           hum_buf_valid_out;
+  logic                           hum_buf_underfull;
 
   logic      [AXI_DATA_WIDTH-1:0] hum_buf_wdata;
   logic    [AXI_DATA_WIDTH/8-1:0] hum_buf_wstrb;
   logic                           hum_buf_wlast;
   logic      [AXI_USER_WIDTH-1:0] hum_buf_wuser;
 
-  logic                           hum_buf_flush;
+  logic                           hum_buf_drop_req_SN, hum_buf_drop_req_SP;
+  logic                     [7:0] hum_buf_drop_len_SN, hum_buf_drop_len_SP;
   logic                           hum_buf_almost_full;
 
   logic                           stop_store;
   logic                           wlast_in, wlast_out;
-  logic                     [1:0] n_wlast_SP;
+  logic signed              [3:0] n_wlast_SN,          n_wlast_SP;
   logic                           block_forwarding;
 
   // Search FSM
@@ -135,8 +137,8 @@ module axi4_w_buffer
                                    WAIT_L1_BYPASS_YES,          WAIT_L2_BYPASS_YES,
                                    WAIT_L1_BYPASS_NO,           WAIT_L2_BYPASS_NO,
                                    FLUSH,                       DISCARD,
-                                   DISCARD_FINISH,              FLUSH_AND_DISCARD,
-                                   FLUSH_AND_DISCARD_FINISH} hum_buf_state_t;
+                                   DISCARD_FINISH}
+                                  hum_buf_state_t;
   hum_buf_state_t                 hum_buf_SP; // Present state
   hum_buf_state_t                 hum_buf_SN; // Next State
 
@@ -252,7 +254,9 @@ module axi4_w_buffer
       .ready_in      ( hum_buf_ready_in                                             ),
       // Clear
       .almost_full   ( hum_buf_almost_full                                          ),
-      .flush_entries ( hum_buf_flush                                                )
+      .underfull     ( hum_buf_underfull                                            ),
+      .drop_req      ( hum_buf_drop_req_SP                                          ),
+      .drop_len      ( hum_buf_drop_len_SP                                          )
     );
 
     axi_buffer_rab
@@ -281,28 +285,32 @@ module axi4_w_buffer
     assign wlast_in  =    axi4_wlast & hum_buf_valid_in  & hum_buf_ready_out;
     assign wlast_out = hum_buf_wlast & hum_buf_valid_out & hum_buf_ready_in;
 
-    // Count the number of wlast beats in the HUM buffer.
     always_ff @(posedge axi4_aclk or negedge axi4_arstn) begin
       if (axi4_arstn == 0) begin
-        n_wlast_SP <= '0;
-      end else if (hum_buf_flush) begin
-        n_wlast_SP <= '0;
-      end else if (wlast_in ^ wlast_out) begin
-        if (wlast_in) begin
-          n_wlast_SP <= n_wlast_SP + 1'b1;
-        end else if (wlast_out) begin
-          n_wlast_SP <= n_wlast_SP - 1'b1;
-        end
+        fifo_select_SP      <= 1'b0;
+        hum_buf_drop_len_SP <=  'b0;
+        hum_buf_drop_req_SP <= 1'b0;
+        hum_buf_SP          <= STORE;
+        n_wlast_SP          <=  'b0;
+      end else begin
+        fifo_select_SP      <= fifo_select_SN;
+        hum_buf_drop_len_SP <= hum_buf_drop_len_SN;
+        hum_buf_drop_req_SP <= hum_buf_drop_req_SN;
+        hum_buf_SP          <= hum_buf_SN;
+        n_wlast_SP          <= n_wlast_SN;
       end
     end
 
-    always_ff @(posedge axi4_aclk or negedge axi4_arstn) begin
-      if (axi4_arstn == 0) begin
-        fifo_select_SP  <= 1'b0;
-        hum_buf_SP      <= STORE;
-      end else begin
-        fifo_select_SP  <= fifo_select_SN;
-        hum_buf_SP      <= hum_buf_SN;
+    always_comb begin
+      n_wlast_SN = n_wlast_SP;
+      if (hum_buf_drop_req_SP) begin  // Happens exactly once per burst to be dropped.
+        n_wlast_SN -= 1;
+      end
+      if (wlast_in) begin
+        n_wlast_SN += 1;
+      end
+      if (wlast_out) begin
+        n_wlast_SN -= 1;
       end
     end
 
@@ -320,7 +328,8 @@ module axi4_w_buffer
       hum_buf_valid_in = 1'b0;
       hum_buf_ready_in = 1'b0;
 
-      hum_buf_flush    = 1'b0;
+      hum_buf_drop_req_SN = hum_buf_drop_req_SP;
+      hum_buf_drop_len_SN = hum_buf_drop_len_SP;
       master_select_o  = 1'b0;
 
       w_done           = 1'b0; // read from FIFO without handshake with B sender
@@ -339,8 +348,8 @@ module axi4_w_buffer
           hum_buf_valid_in = axi4_wvalid & hum_buf_ready_out;
           axi4_wready      = hum_buf_ready_out;
 
-          // We have got a full burst, thus stop storing.
-          if (wlast_in) begin
+          // We have got a full burst in the HUM buffer, thus stop storing.
+          if (wlast_in & !hum_buf_underfull | (n_wlast_SP > $signed(0))) begin
             hum_buf_SN = WAIT_L1_BYPASS_YES;
 
           // The buffer is full, thus wait for decision.
@@ -385,8 +394,10 @@ module axi4_w_buffer
 
             // L1 prefetch, prot, multi - drop data
             end else if (l1_drop_cur) begin
-              fifo_select_SN     = 1'b0; // L1
-              hum_buf_SN         = FLUSH;
+              fifo_select_SN      = 1'b0; // L1
+              hum_buf_drop_req_SN = 1'b1;
+              hum_buf_drop_len_SN = l1_len_cur;
+              hum_buf_SN          = FLUSH;
             end
           end
         end
@@ -416,8 +427,10 @@ module axi4_w_buffer
 
             // L2 miss/prefetch hit
             end else if (l2_drop_cur) begin
-              fifo_select_SN     = 1'b1; // L2
-              hum_buf_SN         = FLUSH;
+              fifo_select_SN      = 1'b1; // L2
+              hum_buf_drop_req_SN = 1'b1;
+              hum_buf_drop_len_SN = l2_len_cur;
+              hum_buf_SN          = FLUSH;
             end
 
           // While we wait for orders from L2 TLB, we can still drop and accept L1 transactions.
@@ -435,8 +448,8 @@ module axi4_w_buffer
         end
 
         FLUSH : begin
-          // Flush the HUM buffer.
-          hum_buf_flush    = 1'b1;
+          // Clear HUM buffer flush request.
+          hum_buf_drop_req_SN = 1'b0;
 
           // perform handshake with B sender
           fifo_select      = fifo_select_SP;
@@ -513,10 +526,8 @@ module axi4_w_buffer
 
               master_select_o    = l1_master_cur;
 
-              // Refill the HUM buffer. Stop when:
-              // 1. Buffer full,
-              // 2. Number of wlast beats in buffer > 1 (we already have the next transaction).
-              stop_store         = ~hum_buf_ready_out | (n_wlast_SP > 1);
+              // Refill the HUM buffer. Stop when buffer full.
+              stop_store         = ~hum_buf_ready_out;
               hum_buf_valid_in   = stop_store ? 1'b0 : axi4_wvalid      ;
               axi4_wready        = stop_store ? 1'b0 : hum_buf_ready_out;
 
@@ -524,9 +535,7 @@ module axi4_w_buffer
               if (wlast_out) begin
                 fifo_select      = 1'b0;
                 w_done           = 1'b1;
-                if (n_wlast_SP > 1) begin
-                  hum_buf_SN     = WAIT_L1_BYPASS_YES;
-                end else if (~hum_buf_ready_out | hum_buf_almost_full) begin
+                if (~hum_buf_ready_out | hum_buf_almost_full) begin
                   hum_buf_SN     = WAIT_L1_BYPASS_NO;
                 end else begin
                   hum_buf_SN     = STORE;
@@ -544,8 +553,10 @@ module axi4_w_buffer
 
             // L1 prefetch, prot, multi - drop data
             end else if (l1_drop_cur) begin
-              fifo_select_SN     = 1'b0; // L1
-              hum_buf_SN         = FLUSH_AND_DISCARD;
+              fifo_select_SN      = 1'b0; // L1
+              hum_buf_drop_req_SN = 1'b1;
+              hum_buf_drop_len_SN = l1_len_cur;
+              hum_buf_SN          = FLUSH;
 
               // Allow the forwarding of L1 hits.
               block_forwarding   = 1'b0;
@@ -573,10 +584,8 @@ module axi4_w_buffer
 
               master_select_o    = l2_master_cur;
 
-              // Refill the HUM buffer. Stop when:
-              // 1. Buffer full,
-              // 2. Number of wlast beats in buffer > 1 (we already have the next transaction).
-              stop_store         = ~hum_buf_ready_out | (n_wlast_SP > 1);
+              // Refill the HUM buffer. Stop when buffer full.
+              stop_store         = ~hum_buf_ready_out;
               hum_buf_valid_in   = stop_store ? 1'b0 : axi4_wvalid      ;
               axi4_wready        = stop_store ? 1'b0 : hum_buf_ready_out;
 
@@ -584,9 +593,7 @@ module axi4_w_buffer
               if (wlast_out) begin
                 fifo_select      = 1'b1;
                 w_done           = 1'b1;
-                if (n_wlast_SP > 1) begin
-                  hum_buf_SN     = WAIT_L1_BYPASS_YES;
-                end else if (~hum_buf_ready_out | hum_buf_almost_full) begin
+                if (~hum_buf_ready_out | hum_buf_almost_full) begin
                   hum_buf_SN     = WAIT_L1_BYPASS_NO;
                 end else begin
                   hum_buf_SN     = STORE;
@@ -598,8 +605,10 @@ module axi4_w_buffer
 
             // L2 miss/prefetch hit - drop data
             end else if (l2_drop_cur) begin
-              fifo_select_SN     = 1'b1; // L2
-              hum_buf_SN         = FLUSH_AND_DISCARD;
+              fifo_select_SN      = 1'b1; // L2
+              hum_buf_drop_req_SN = 1'b1;
+              hum_buf_drop_len_SN = l2_len_cur;
+              hum_buf_SN          = FLUSH;
 
               // Allow the forwarding of L1 hits.
               block_forwarding   = 1'b0;
@@ -607,33 +616,6 @@ module axi4_w_buffer
           end
         end
 
-        FLUSH_AND_DISCARD : begin
-          // Flush the HUM buffer and discard the rest of the transaction from the input buffer.
-          hum_buf_flush = 1'b1;
-          axi4_wready   = 1'b1;
-
-          // We have got a full transaction.
-          if (axi4_wlast & axi4_wready & axi4_wvalid) begin
-            // Try to perform handshake with B sender.
-            fifo_select      = fifo_select_SP;
-            b_drop_o         = 1'b1;
-            // We cannot wait here due to axi4_wready.
-            if (b_done_i) begin
-              hum_buf_SN     = STORE;
-            end else begin
-              hum_buf_SN     = FLUSH_AND_DISCARD_FINISH;
-            end
-          end
-        end
-
-        FLUSH_AND_DISCARD_FINISH : begin
-          // Perform handshake with B sender.
-          fifo_select   = fifo_select_SP;
-          b_drop_o      = 1'b1;
-          if (b_done_i) begin
-            hum_buf_SN  = STORE;
-          end
-        end
 
         default: begin
           hum_buf_SN = STORE;
@@ -710,7 +692,8 @@ module axi4_w_buffer
     assign hum_buf_wstrb       =  'b0;
     assign hum_buf_wlast       = 1'b0;
     assign hum_buf_wuser       =  'b0;
-    assign hum_buf_flush       = 1'b0;
+    assign hum_buf_drop_len_SN =  'b0;
+    assign hum_buf_drop_req_SN = 1'b0;
     assign hum_buf_almost_full = 1'b0;
 
     assign l2_fifo_valid_in    = 1'b0;

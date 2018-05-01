@@ -29,110 +29,108 @@ module axi_buffer_rab_bram
     input  logic [DATA_WIDTH-1:0] data_in,
     output logic                  ready_out,
 
-    // Status and flush control
+    // Status and drop control
     output logic                  almost_full,
-    input  logic                  flush_entries
+    output logic                  underfull,
+    input  logic                  drop_req,
+    // Number of items to drop.  As for AXI lengths, counting starts at zero, i.e., `drop_len == 0`
+    // and `drop_req` means drop one item.
+    input  logic [7:0]            drop_len
     );
 
   // The BRAM needs to be in "write-first" mode for first-word fall-through FIFO behavior.
   // To still push and pop simultaneously if the buffer is full, we internally increase the
   // buffer depth by 1.
   localparam ACT_BUFFER_DEPTH     = BUFFER_DEPTH+1;
-  localparam ACT_LOG_BUFFER_DEPTH = log2(ACT_BUFFER_DEPTH);
+  localparam ACT_LOG_BUFFER_DEPTH = log2(ACT_BUFFER_DEPTH+1);
 
-  // Internal data structures
-  logic [ACT_LOG_BUFFER_DEPTH-1:0] pointer_in;       // location to which we last wrote
-  logic [ACT_LOG_BUFFER_DEPTH-1:0] pointer_out;      // location from which we last sent
-  logic [ACT_LOG_BUFFER_DEPTH-1:0] pointer_out_bram; // required for first-word fall-through behavior
-  logic   [ACT_LOG_BUFFER_DEPTH:0] elements;         // number of elements in the buffer
+  /**
+    * Internal data structures
+    */
+  // Location to which we last wrote
+  logic        [ACT_LOG_BUFFER_DEPTH-1:0] ptr_in_d,                   ptr_in_q;
+  // Location from which we last sent
+  logic        [ACT_LOG_BUFFER_DEPTH-1:0] ptr_out_d,                  ptr_out_q;
+  // Required for fall-through behavior on the first word
+  logic        [ACT_LOG_BUFFER_DEPTH-1:0] ptr_out_bram;
+  // Number of elements in the buffer.  Can be negative if elements that have been dropped have not
+  // yet been written.
+  logic signed   [ACT_LOG_BUFFER_DEPTH:0] n_elems_d,                  n_elems_q;
 
-  logic           [DATA_WIDTH-1:0] data_out_bram, data_out_q;
-  logic                            valid_out_q;
+  logic           [DATA_WIDTH-1:0]        data_out_bram, data_out_q;
+  logic                                   valid_out_q;
 
   logic full;
 
-  assign almost_full = (elements == BUFFER_DEPTH-1);
-  assign full        = (elements == BUFFER_DEPTH);
+  assign almost_full = (n_elems_q == BUFFER_DEPTH-1);
+  assign full        = (n_elems_q == BUFFER_DEPTH);
 
-  always @(posedge clk)
-    begin: elements_sequential
-      if      ( rstn == 1'b0 )
-        elements <= 0;
-      else if ( flush_entries == 1'b1 )
-        elements <= 0;
-      begin
-        // ------------------
-        // Are we filling up?
-        // ------------------
-        // One out, none in
-        if (ready_in && valid_out && (!valid_in || full))
-          elements <= elements - 1;
-        // None out, one in
-        else if ((!valid_out || !ready_in) && valid_in && !full)
-          elements <= elements + 1;
-        // Else, either one out and one in, or none out and none in - stays unchanged
-      end
-    end
-
-  always @(posedge clk)
-    begin: sequential
-      if      ( rstn == 1'b0 )
-      begin
-        pointer_out <= 0;
-        pointer_in  <= 0;
-      end
-      else if ( flush_entries == 1'b1 )
-      begin
-        pointer_out <= 0;
-        pointer_in  <= 0;
-      end
-      else
-      begin
-        // ------------------------------------
-        // Check what to do with the input side
-        // ------------------------------------
-        // We have some input, increase by 1 the input pointer
-        if (valid_in && !full)
-        begin
-          if ( pointer_in == (ACT_BUFFER_DEPTH - 1) )
-            pointer_in <= 0;
-          else
-            pointer_in <= pointer_in + 1;
-        end
-        // Else we don't have any input, the input pointer stays the same
-
-        // -------------------------------------
-        // Check what to do with the output side
-        // -------------------------------------
-        // We had pushed one flit out, we can try to go for the next one
-        if (ready_in && valid_out)
-        begin
-          if ( pointer_out == (ACT_BUFFER_DEPTH - 1) )
-            pointer_out <= 0;
-          else
-            pointer_out <= pointer_out + 1;
-        end
-        // Else stay on the same output location
-      end
-    end
-
-  // Update output ports
-  assign valid_out = (elements != 0);
-  assign ready_out = ~full;
-
-  // The BRAM has a read latency of one cycle
-  // -> apply new address one cycle earlier for first-word fall-through FIFO behavior
-  always_comb begin
-    if (ready_in && valid_out) begin
-      if ( pointer_out == (ACT_BUFFER_DEPTH - 1) ) begin
-        pointer_out_bram <= 0;
-      end else begin
-        pointer_out_bram <= pointer_out + 1;
-      end
+  always_ff @(posedge clk, negedge rstn) begin
+    if (~rstn) begin
+      n_elems_q <= '0;
+      ptr_in_q  <= '0;
+      ptr_out_q <= '0;
     end else begin
-      pointer_out_bram   <= pointer_out;
+      n_elems_q <= n_elems_d;
+      ptr_in_q  <= ptr_in_d;
+      ptr_out_q <= ptr_out_d;
     end
   end
+
+  // Update the number of elements.
+  always_comb begin
+    n_elems_d = n_elems_q;
+    if (drop_req) begin
+      n_elems_d -= (drop_len + 1);
+    end
+    if (valid_in && ready_out) begin
+      n_elems_d += 1;
+    end
+    if (valid_out && ready_in) begin
+      n_elems_d -= 1;
+    end
+  end
+
+  // Update the output pointer.
+  always_comb begin
+    ptr_out_d = ptr_out_q;
+    if (drop_req) begin
+      if ((ptr_out_q + drop_len + 1) > (ACT_BUFFER_DEPTH - 1)) begin
+        ptr_out_d = drop_len + 1 - (ACT_BUFFER_DEPTH - ptr_out_q);
+      end else begin
+        ptr_out_d += (drop_len + 1);
+      end
+    end
+    if (valid_out && ready_in) begin
+      if (ptr_out_d == (ACT_BUFFER_DEPTH - 1)) begin
+        ptr_out_d = '0;
+      end else begin
+        ptr_out_d += 1;
+      end
+    end
+  end
+
+  // The BRAM has a read latency of one cycle, so apply the new address one cycle earlier for
+  // first-word fall-through FIFO behavior.
+  //assign ptr_out_bram = (ptr_out_q == (ACT_BUFFER_DEPTH-1)) ? '0 : (ptr_out_q + 1);
+  assign ptr_out_bram = ptr_out_d;
+
+  // Update the input pointer.
+  always_comb begin
+    ptr_in_d = ptr_in_q;
+    if (valid_in && ready_out) begin
+      if (ptr_in_d == (ACT_BUFFER_DEPTH - 1)) begin
+        ptr_in_d = '0;
+      end else begin
+        ptr_in_d += 1;
+      end
+    end
+  end
+
+  // Update output ports.
+  assign valid_out = (n_elems_q > $signed(0));
+  assign underfull = (n_elems_q < $signed(0));
+  assign ready_out = ~full;
 
   ram_tp_write_first #(
     .ADDR_WIDTH ( ACT_LOG_BUFFER_DEPTH ),
@@ -142,8 +140,8 @@ module axi_buffer_rab_bram
   (
     .clk   ( clk              ),
     .we    ( valid_in & ~full ),
-    .addr0 ( pointer_in       ),
-    .addr1 ( pointer_out_bram ),
+    .addr0 ( ptr_in_q         ),
+    .addr1 ( ptr_out_bram     ),
     .d_i   ( data_in          ),
     .d0_o  (                  ),
     .d1_o  ( data_out_bram    )
@@ -156,7 +154,7 @@ module axi_buffer_rab_bram
   always @(posedge clk) begin
     if (rstn == 1'b0) begin
       data_out_q <= 'b0;
-    end else if ( (pointer_out_bram == pointer_in) && (valid_in && !full) ) begin
+    end else if ( (ptr_out_bram == ptr_in_q) && (valid_in && !full) ) begin
       data_out_q <= data_in;
     end
   end
