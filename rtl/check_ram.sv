@@ -43,6 +43,8 @@ module check_ram
    logic [RAM_DATA_WIDTH-1:0]           port0_data_o, port1_data_o; // RAM read data outputs
    logic                                port0_hit, port1_hit; // Ram output matches in_addr
 
+    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr_saved, port1_addr_saved;
+
    // Hit FSM Signals
    typedef enum                         logic {SEARCH, HIT} hit_state_t;
    hit_state_t                          hit_SP; // Hit FSM state
@@ -95,6 +97,16 @@ module check_ram
       end
    end
 
+   always_ff @(posedge clk_i, negedge rst_ni) begin
+       if (!rst_ni) begin
+           port0_addr_saved <= '0;
+           port1_addr_saved <= '0;
+       end else begin
+           port0_addr_saved <= port0_addr;
+           port1_addr_saved <= port1_addr;
+       end
+   end
+
    always_comb begin
       hit_SN   = hit_SP;
       hit      = 1'b0;
@@ -106,8 +118,8 @@ module check_ram
             if (port0_hit || port1_hit) begin
                hit_SN   = HIT;
                hit      = 1'b1;
-               hit_addr = port0_hit ? {port0_addr[SET_WIDTH+OFFSET_WIDTH:OFFSET_WIDTH], offset_addr_d} :
-                          port1_hit ? {port1_addr[SET_WIDTH+OFFSET_WIDTH:OFFSET_WIDTH], offset_addr_d} :
+               hit_addr = port0_hit ? {port0_addr_saved[SET_WIDTH+OFFSET_WIDTH:OFFSET_WIDTH], offset_addr_d} :
+                          port1_hit ? {port1_addr_saved[SET_WIDTH+OFFSET_WIDTH:OFFSET_WIDTH], offset_addr_d} :
                           0;
                master   = port0_hit ? port0_data_o[3] :
                           port1_hit ? port1_data_o[3] :
