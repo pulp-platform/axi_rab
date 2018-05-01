@@ -12,8 +12,8 @@ import CfMath::log2;
 
 module axi_buffer_rab_bram
   #(
-    parameter DATA_WIDTH       =  32,
-    parameter BUFFER_DEPTH     = 512
+    parameter DATA_WIDTH,
+    parameter BUFFER_DEPTH
     )
    (
     input logic                   clk,
