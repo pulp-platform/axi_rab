@@ -298,17 +298,11 @@ module axi4_w_buffer
 
     always_ff @(posedge axi4_aclk or negedge axi4_arstn) begin
       if (axi4_arstn == 0) begin
-        fifo_select_SP <= 1'b0;
+        fifo_select_SP  <= 1'b0;
+        hum_buf_SP      <= STORE;
       end else begin
-        fifo_select_SP <= fifo_select_SN;
-      end
-    end
-
-    always_ff @(posedge axi4_aclk or negedge axi4_arstn) begin
-      if (axi4_arstn == 0) begin
-        hum_buf_SP <= STORE;
-      end else begin
-        hum_buf_SP <= hum_buf_SN;
+        fifo_select_SP  <= fifo_select_SN;
+        hum_buf_SP      <= hum_buf_SN;
       end
     end
 
