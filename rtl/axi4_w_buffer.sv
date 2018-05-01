@@ -274,9 +274,8 @@ module axi4_w_buffer
 
     axi_buffer_rab_bram
     #(
-      .DATA_WIDTH       ( BUFFER_WIDTH           ),
-      .BUFFER_DEPTH     ( HUM_BUFFER_DEPTH       ),
-      .LOG_BUFFER_DEPTH ( log2(HUM_BUFFER_DEPTH) )
+      .DATA_WIDTH       ( BUFFER_WIDTH      ),
+      .BUFFER_DEPTH     ( HUM_BUFFER_DEPTH  )
       )
     u_hum_buf
     (
