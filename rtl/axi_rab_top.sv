@@ -614,7 +614,7 @@ module axi_rab_top
   localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
 
   // L2TLB parameters
-  localparam integer HUM_BUFFER_DEPTH = (N_L2_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS)+3;
+  localparam integer HUM_BUFFER_DEPTH = (N_L2_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS)+13;
 
   // }}}
 
