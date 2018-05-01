@@ -298,7 +298,7 @@ module axi4_w_buffer
 
     always_ff @(posedge axi4_aclk or negedge axi4_arstn) begin
       if (axi4_arstn == 0) begin
-        fifo_select_SP <= STORE;
+        fifo_select_SP <= 1'b0;
       end else begin
         fifo_select_SP <= fifo_select_SN;
       end
