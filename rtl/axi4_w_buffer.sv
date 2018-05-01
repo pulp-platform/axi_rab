@@ -174,7 +174,7 @@ module axi4_w_buffer
       .ready_in  ( l1_fifo_ready_in                                                                                 )
     );
 
-    // Push upon receiving new reqeusts from the TLB.
+    // Push upon receiving new requests from the TLB.
     assign l1_req           = l1_accept_i | l1_save_i | l1_drop_i;
     assign l1_fifo_valid_in = l1_req & l1_fifo_ready_out;
 
@@ -350,7 +350,7 @@ module axi4_w_buffer
             hum_buf_SN = WAIT_L1_BYPASS_NO;
           end
 
-          // Avoid the forwarding of L1 hits untill we know whether we can bypass.
+          // Avoid the forwarding of L1 hits until we know whether we can bypass.
           if (l1_fifo_valid_out & l1_save_cur) begin
             block_forwarding = 1'b1;
           end
