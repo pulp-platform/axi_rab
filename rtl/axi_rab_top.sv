@@ -581,7 +581,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]                           l2_m1_ar_done_SP;
 
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] l1_id_drop, lx_id_drop, b_id_drop;
-  logic [N_PORTS-1:0]                     [7:0] lx_len_drop;
+  logic [N_PORTS-1:0]                     [7:0] l1_len_drop, lx_len_drop;
   logic [N_PORTS-1:0]                           l1_prefetch_drop, lx_prefetch_drop, b_prefetch_drop;
   logic [N_PORTS-1:0]                           l1_hit_drop, lx_hit_drop, b_hit_drop;
 
@@ -857,6 +857,7 @@ module axi_rab_top
       .l1_drop_i       ( l1_w_drop[i]          ),
       .l1_master_i     ( int_wmaster_select[i] ),
       .l1_id_i         ( l1_id_drop[i]         ),
+      .l1_len_i        ( l1_len_drop[i]        ),
       .l1_prefetch_i   ( l1_prefetch_drop[i]   ),
       .l1_hit_i        ( l1_hit_drop[i]        ),
 
@@ -866,6 +867,7 @@ module axi_rab_top
       .l2_drop_i       ( l2_w_drop[i]          ),
       .l2_master_i     ( l2_master_select[i]   ),
       .l2_id_i         ( lx_id_drop[i]         ),
+      .l2_len_i        ( lx_len_drop[i]        ),
       .l2_prefetch_i   ( lx_prefetch_drop[i]   ),
       .l2_hit_i        ( lx_hit_drop[i]        ),
 
@@ -2080,6 +2082,7 @@ module axi_rab_top
         l1_xw_save[i]       = 1'b0;
 
         l1_id_drop[i]       = L1OutId_D[i];
+        l1_len_drop[i]      = L1OutLen_D[i];
         l1_prefetch_drop[i] = rab_prefetch[i];
         l1_hit_drop[i]      = 1'b1; // there are no drops for L1 misses
 
@@ -2382,6 +2385,9 @@ module axi_rab_top
 
       assign l1_id_drop[i]        = int_wtrans_drop[i] ? int_awid[i] :
                                     int_rtrans_drop[i] ? int_arid[i] :
+                                    '0;
+      assign l1_len_drop[i]       = int_wtrans_drop[i] ? int_awlen[i] :
+                                    int_rtrans_drop[i] ? int_arlen[i] :
                                     '0;
       assign l1_prefetch_drop[i]  = rab_prefetch[i];
       assign l1_hit_drop[i]       = ~rab_miss[i];

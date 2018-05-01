@@ -29,6 +29,7 @@ module axi4_w_buffer
     input  logic                        l1_drop_i,
     input  logic                        l1_master_i,
     input  logic     [AXI_ID_WIDTH-1:0] l1_id_i,
+    input  logic                  [7:0] l1_len_i,
     input  logic                        l1_prefetch_i,
     input  logic                        l1_hit_i,
 
@@ -37,6 +38,7 @@ module axi4_w_buffer
     input  logic                        l2_drop_i,
     input  logic                        l2_master_i,
     input  logic     [AXI_ID_WIDTH-1:0] l2_id_i,
+    input  logic                  [7:0] l2_len_i,
     input  logic                        l2_prefetch_i,
     input  logic                        l2_hit_i,
 
@@ -89,6 +91,7 @@ module axi4_w_buffer
   logic                           l1_accept_cur, l1_save_cur, l1_drop_cur;
   logic                           l1_master_cur;
   logic        [AXI_ID_WIDTH-1:0] l1_id_cur;
+  logic                     [7:0] l1_len_cur;
   logic                           l1_hit_cur, l1_prefetch_cur;
   logic [log2(L1_FIFO_DEPTH)-1:0] n_l1_save_SP;
 
@@ -101,6 +104,7 @@ module axi4_w_buffer
   logic                           l2_accept_cur, l2_drop_cur;
   logic                           l2_master_cur;
   logic        [AXI_ID_WIDTH-1:0] l2_id_cur;
+  logic                     [7:0] l2_len_cur;
   logic                           l2_hit_cur, l2_prefetch_cur;
 
   logic                           fifo_select, fifo_select_SN, fifo_select_SP;
@@ -157,21 +161,21 @@ module axi4_w_buffer
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+4  ),
-      .BUFFER_DEPTH     ( L1_FIFO_DEPTH     )
+      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+8+4  ),
+      .BUFFER_DEPTH     ( L1_FIFO_DEPTH       )
       )
     u_l1_fifo
     (
-      .clk       ( axi4_aclk                                                                                        ),
-      .rstn      ( axi4_arstn                                                                                       ),
+      .clk       ( axi4_aclk                                                                                                    ),
+      .rstn      ( axi4_arstn                                                                                                   ),
       // Push
-      .data_in   ( {l1_prefetch_i,   l1_hit_i,   l1_id_i,   l1_master_i,   l1_accept_i,   l1_save_i,   l1_drop_i}   ),
-      .valid_in  ( l1_fifo_valid_in                                                                                 ),
-      .ready_out ( l1_fifo_ready_out                                                                                ),
+      .data_in   ( {l1_prefetch_i,   l1_hit_i,   l1_id_i,   l1_len_i,   l1_master_i,   l1_accept_i,   l1_save_i,   l1_drop_i}   ),
+      .valid_in  ( l1_fifo_valid_in                                                                                             ),
+      .ready_out ( l1_fifo_ready_out                                                                                            ),
       // Pop
-      .data_out  ( {l1_prefetch_cur, l1_hit_cur, l1_id_cur, l1_master_cur, l1_accept_cur, l1_save_cur, l1_drop_cur} ),
-      .valid_out ( l1_fifo_valid_out                                                                                ),
-      .ready_in  ( l1_fifo_ready_in                                                                                 )
+      .data_out  ( {l1_prefetch_cur, l1_hit_cur, l1_id_cur, l1_len_cur, l1_master_cur, l1_accept_cur, l1_save_cur, l1_drop_cur} ),
+      .valid_out ( l1_fifo_valid_out                                                                                            ),
+      .ready_in  ( l1_fifo_ready_in                                                                                             )
     );
 
     // Push upon receiving new requests from the TLB.
@@ -253,21 +257,21 @@ module axi4_w_buffer
 
     axi_buffer_rab
     #(
-      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+3  ),
-      .BUFFER_DEPTH     ( L2_FIFO_DEPTH     )
+      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+8+3  ),
+      .BUFFER_DEPTH     ( L2_FIFO_DEPTH       )
       )
     u_l2_fifo
     (
-      .clk       ( axi4_aclk                                                                            ),
-      .rstn      ( axi4_arstn                                                                           ),
+      .clk       ( axi4_aclk                                                                                        ),
+      .rstn      ( axi4_arstn                                                                                       ),
       // Push
-      .data_in   ( {l2_prefetch_i,   l2_hit_i,   l2_id_i,   l2_master_i,   l2_accept_i,   l2_drop_i}    ),
-      .valid_in  ( l2_fifo_valid_in                                                                     ),
-      .ready_out ( l2_fifo_ready_out                                                                    ),
+      .data_in   ( {l2_prefetch_i,   l2_hit_i,   l2_id_i,   l2_len_i,   l2_master_i,   l2_accept_i,   l2_drop_i}    ),
+      .valid_in  ( l2_fifo_valid_in                                                                                 ),
+      .ready_out ( l2_fifo_ready_out                                                                                ),
       // Pop
-      .data_out  ( {l2_prefetch_cur, l2_hit_cur, l2_id_cur, l2_master_cur, l2_accept_cur, l2_drop_cur}  ),
-      .valid_out ( l2_fifo_valid_out                                                                    ),
-      .ready_in  ( l2_fifo_ready_in                                                                     )
+      .data_out  ( {l2_prefetch_cur, l2_hit_cur, l2_id_cur, l2_len_cur, l2_master_cur, l2_accept_cur, l2_drop_cur}  ),
+      .valid_out ( l2_fifo_valid_out                                                                                ),
+      .ready_in  ( l2_fifo_ready_in                                                                                 )
     );
 
     // Push upon receiving new result from TLB.
@@ -720,6 +724,7 @@ module axi4_w_buffer
     assign l2_prefetch_cur     = 1'b0;
     assign l2_hit_cur          = 1'b0;
     assign l2_id_cur           =  'b0;
+    assign l2_len_cur          =  'b0;
     assign l2_master_cur       = 1'b0;
     assign l2_accept_cur       = 1'b0;
     assign l2_drop_cur         = 1'b0;
