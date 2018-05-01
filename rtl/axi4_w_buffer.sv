@@ -68,8 +68,6 @@ module axi4_w_buffer
   );
 
   localparam BUFFER_WIDTH  = AXI_DATA_WIDTH+AXI_USER_WIDTH+AXI_DATA_WIDTH/8+1;
-  localparam L1_FIFO_WIDTH = 2+AXI_ID_WIDTH+4;
-  localparam L2_FIFO_WIDTH = 2+AXI_ID_WIDTH+3;
 
   localparam INPUT_BUFFER_DEPTH = 4;
   localparam L1_FIFO_DEPTH      = 8;
@@ -82,11 +80,6 @@ module axi4_w_buffer
   logic                           axi4_wlast;
   logic      [AXI_USER_WIDTH-1:0] axi4_wuser;
 
-  logic        [BUFFER_WIDTH-1:0] data_in;
-  logic        [BUFFER_WIDTH-1:0] data_out;
-
-  logic       [L1_FIFO_WIDTH-1:0] l1_fifo_in;
-  logic       [L1_FIFO_WIDTH-1:0] l1_fifo_out;
   logic                           l1_fifo_valid_out;
   logic                           l1_fifo_ready_in;
   logic                           l1_fifo_valid_in;
@@ -99,8 +92,6 @@ module axi4_w_buffer
   logic                           l1_hit_cur, l1_prefetch_cur;
   logic [log2(L1_FIFO_DEPTH)-1:0] n_l1_save_SP;
 
-  logic       [L2_FIFO_WIDTH-1:0] l2_fifo_in;
-  logic       [L2_FIFO_WIDTH-1:0] l2_fifo_out;
   logic                           l2_fifo_valid_out;
   logic                           l2_fifo_ready_in;
   logic                           l2_fifo_valid_in;
@@ -127,9 +118,6 @@ module axi4_w_buffer
   logic                           hum_buf_wlast;
   logic      [AXI_USER_WIDTH-1:0] hum_buf_wuser;
 
-  logic        [BUFFER_WIDTH-1:0] hum_buf_in;
-  logic        [BUFFER_WIDTH-1:0] hum_buf_out;
-
   logic                           hum_buf_flush;
   logic                           hum_buf_almost_full;
 
@@ -148,16 +136,6 @@ module axi4_w_buffer
   hum_buf_state_t                 hum_buf_SP; // Present state
   hum_buf_state_t                 hum_buf_SN; // Next State
 
-  assign data_in                                                                               [0] = s_axi4_wlast;
-  assign data_in                                                                [AXI_DATA_WIDTH:1] = s_axi4_wdata;
-  assign data_in                                [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+1] = s_axi4_wstrb;
-  assign data_in[AXI_DATA_WIDTH+AXI_USER_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+1] = s_axi4_wuser;
-
-  assign axi4_wlast  = data_out[0];
-  assign axi4_wdata  = data_out[AXI_DATA_WIDTH:1];
-  assign axi4_wstrb  = data_out[AXI_DATA_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+1];
-  assign axi4_wuser  = data_out[AXI_DATA_WIDTH+AXI_USER_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+1];
-
   axi_buffer_rab
     #(
       .DATA_WIDTH       ( BUFFER_WIDTH        ),
@@ -165,45 +143,36 @@ module axi4_w_buffer
       )
     u_input_buf
     (
-      .clk       ( axi4_aclk     ),
-      .rstn      ( axi4_arstn    ),
-      // Pop
-      .valid_out ( axi4_wvalid   ),
-      .data_out  ( data_out      ),
-      .ready_in  ( axi4_wready   ),
+      .clk       ( axi4_aclk                                                ),
+      .rstn      ( axi4_arstn                                               ),
       // Push
-      .valid_in  ( s_axi4_wvalid ),
-      .data_in   ( data_in       ),
-      .ready_out ( s_axi4_wready )
+      .data_in   ( {s_axi4_wuser, s_axi4_wstrb, s_axi4_wdata, s_axi4_wlast} ),
+      .valid_in  ( s_axi4_wvalid                                            ),
+      .ready_out ( s_axi4_wready                                            ),
+      // Pop
+      .data_out  ( {axi4_wuser,   axi4_wstrb,   axi4_wdata,   axi4_wlast}   ),
+      .valid_out ( axi4_wvalid                                              ),
+      .ready_in  ( axi4_wready                                              )
     );
 
   axi_buffer_rab
     #(
-      .DATA_WIDTH       ( L1_FIFO_WIDTH ),
-      .BUFFER_DEPTH     ( L1_FIFO_DEPTH )
+      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+4  ),
+      .BUFFER_DEPTH     ( L1_FIFO_DEPTH     )
       )
     u_l1_fifo
     (
-      .clk       ( axi4_aclk         ),
-      .rstn      ( axi4_arstn        ),
-      // Pop
-      .data_out  ( l1_fifo_out       ),
-      .valid_out ( l1_fifo_valid_out ),
-      .ready_in  ( l1_fifo_ready_in  ),
+      .clk       ( axi4_aclk                                                                                        ),
+      .rstn      ( axi4_arstn                                                                                       ),
       // Push
-      .valid_in  ( l1_fifo_valid_in  ),
-      .data_in   ( l1_fifo_in        ),
-      .ready_out ( l1_fifo_ready_out )
+      .data_in   ( {l1_prefetch_i,   l1_hit_i,   l1_id_i,   l1_master_i,   l1_accept_i,   l1_save_i,   l1_drop_i}   ),
+      .valid_in  ( l1_fifo_valid_in                                                                                 ),
+      .ready_out ( l1_fifo_ready_out                                                                                ),
+      // Pop
+      .data_out  ( {l1_prefetch_cur, l1_hit_cur, l1_id_cur, l1_master_cur, l1_accept_cur, l1_save_cur, l1_drop_cur} ),
+      .valid_out ( l1_fifo_valid_out                                                                                ),
+      .ready_in  ( l1_fifo_ready_in                                                                                 )
     );
-
-    assign l1_fifo_in      = {l1_prefetch_i, l1_hit_i, l1_id_i, l1_master_i, l1_accept_i, l1_save_i, l1_drop_i};
-    assign l1_prefetch_cur = l1_fifo_out[2+AXI_ID_WIDTH+3];
-    assign l1_hit_cur      = l1_fifo_out[1+AXI_ID_WIDTH+3];
-    assign l1_id_cur       = l1_fifo_out[AXI_ID_WIDTH+3:4];
-    assign l1_master_cur   = l1_fifo_out[3];
-    assign l1_accept_cur   = l1_fifo_out[2];
-    assign l1_save_cur     = l1_fifo_out[1];
-    assign l1_drop_cur     = l1_fifo_out[0];
 
     // Push upon receiving new reqeusts from the TLB.
     assign l1_req           = l1_accept_i | l1_save_i | l1_drop_i;
@@ -260,16 +229,6 @@ module axi4_w_buffer
   generate
   if (ENABLE_L2TLB == 1) begin : HUM_BUFFER
 
-    assign hum_buf_in                                                                               [0] = axi4_wlast;
-    assign hum_buf_in                                                                [AXI_DATA_WIDTH:1] = axi4_wdata;
-    assign hum_buf_in                                [AXI_DATA_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+1] = axi4_wstrb;
-    assign hum_buf_in[AXI_DATA_WIDTH+AXI_USER_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+1] = axi4_wuser;
-
-    assign hum_buf_wlast = hum_buf_out[0];
-    assign hum_buf_wdata = hum_buf_out[AXI_DATA_WIDTH:1];
-    assign hum_buf_wstrb = hum_buf_out[AXI_DATA_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+1];
-    assign hum_buf_wuser = hum_buf_out[AXI_DATA_WIDTH+AXI_USER_WIDTH+AXI_DATA_WIDTH/8:AXI_DATA_WIDTH+AXI_DATA_WIDTH/8+1];
-
     axi_buffer_rab_bram
     #(
       .DATA_WIDTH       ( BUFFER_WIDTH      ),
@@ -277,47 +236,39 @@ module axi4_w_buffer
       )
     u_hum_buf
     (
-      .clk           ( axi4_aclk           ),
-      .rstn          ( axi4_arstn          ),
-      // Pop
-      .data_out      ( hum_buf_out         ),
-      .valid_out     ( hum_buf_valid_out   ),
-      .ready_in      ( hum_buf_ready_in    ),
+      .clk           ( axi4_aclk                                                    ),
+      .rstn          ( axi4_arstn                                                   ),
       // Push
-      .valid_in      ( hum_buf_valid_in    ),
-      .data_in       ( hum_buf_in          ),
-      .ready_out     ( hum_buf_ready_out   ),
+      .data_in       ( {axi4_wuser,    axi4_wstrb,    axi4_wdata,    axi4_wlast}    ),
+      .valid_in      ( hum_buf_valid_in                                             ),
+      .ready_out     ( hum_buf_ready_out                                            ),
+      // Pop
+      .data_out      ( {hum_buf_wuser, hum_buf_wstrb, hum_buf_wdata, hum_buf_wlast} ),
+      .valid_out     ( hum_buf_valid_out                                            ),
+      .ready_in      ( hum_buf_ready_in                                             ),
       // Clear
-      .almost_full   ( hum_buf_almost_full ),
-      .flush_entries ( hum_buf_flush       )
+      .almost_full   ( hum_buf_almost_full                                          ),
+      .flush_entries ( hum_buf_flush                                                )
     );
 
     axi_buffer_rab
     #(
-      .DATA_WIDTH       ( L2_FIFO_WIDTH ),
-      .BUFFER_DEPTH     ( L2_FIFO_DEPTH )
+      .DATA_WIDTH       ( 2+AXI_ID_WIDTH+3  ),
+      .BUFFER_DEPTH     ( L2_FIFO_DEPTH     )
       )
     u_l2_fifo
     (
-      .clk       ( axi4_aclk         ),
-      .rstn      ( axi4_arstn        ),
-      // Pop
-      .data_out  ( l2_fifo_out       ),
-      .valid_out ( l2_fifo_valid_out ),
-      .ready_in  ( l2_fifo_ready_in  ),
+      .clk       ( axi4_aclk                                                                            ),
+      .rstn      ( axi4_arstn                                                                           ),
       // Push
-      .valid_in  ( l2_fifo_valid_in  ),
-      .data_in   ( l2_fifo_in        ),
-      .ready_out ( l2_fifo_ready_out )
+      .data_in   ( {l2_prefetch_i,   l2_hit_i,   l2_id_i,   l2_master_i,   l2_accept_i,   l2_drop_i}    ),
+      .valid_in  ( l2_fifo_valid_in                                                                     ),
+      .ready_out ( l2_fifo_ready_out                                                                    ),
+      // Pop
+      .data_out  ( {l2_prefetch_cur, l2_hit_cur, l2_id_cur, l2_master_cur, l2_accept_cur, l2_drop_cur}  ),
+      .valid_out ( l2_fifo_valid_out                                                                    ),
+      .ready_in  ( l2_fifo_ready_in                                                                     )
     );
-
-    assign l2_fifo_in      = {l2_prefetch_i, l2_hit_i, l2_id_i, l2_master_i, l2_accept_i, l2_drop_i};
-    assign l2_prefetch_cur = l2_fifo_out[2+AXI_ID_WIDTH+2];
-    assign l2_hit_cur      = l2_fifo_out[1+AXI_ID_WIDTH+2];
-    assign l2_id_cur       = l2_fifo_out[AXI_ID_WIDTH+2:3];
-    assign l2_master_cur   = l2_fifo_out[2];
-    assign l2_accept_cur   = l2_fifo_out[1];
-    assign l2_drop_cur     = l2_fifo_out[0];
 
     // Push upon receiving new result from TLB.
     assign l2_req           = l2_accept_i | l2_drop_i;
@@ -761,13 +712,9 @@ module axi4_w_buffer
     assign hum_buf_wstrb       =  'b0;
     assign hum_buf_wlast       = 1'b0;
     assign hum_buf_wuser       =  'b0;
-    assign hum_buf_in          =  'b0;
-    assign hum_buf_out         =  'b0;
     assign hum_buf_flush       = 1'b0;
     assign hum_buf_almost_full = 1'b0;
 
-    assign l2_fifo_in          =  'b0;
-    assign l2_fifo_out         =  'b0;
     assign l2_fifo_valid_in    = 1'b0;
     assign l2_fifo_valid_out   = 1'b0;
     assign l2_prefetch_cur     = 1'b0;
