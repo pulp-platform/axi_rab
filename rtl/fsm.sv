@@ -46,9 +46,11 @@ module fsm
     output logic                        prefetch_o,
     input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
     input  logic     [AXI_ID_WIDTH-1:0] in_id_i,
+    input  logic                  [7:0] in_len_i,
     input  logic   [AXI_USER_WIDTH-1:0] in_user_i,
     output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_o,
     output logic     [AXI_ID_WIDTH-1:0] in_id_o,
+    output logic                  [7:0] in_len_o,
     output logic   [AXI_USER_WIDTH-1:0] in_user_o
   );
 
@@ -164,6 +166,7 @@ module fsm
       out_addr_o       =   '0;
       in_addr_o        =   '0;
       in_id_o          =   '0;
+      in_len_o         =   '0;
       in_user_o        =   '0;
     end else if (out_reg_en_S == 1'b1) begin
       port1_accept_o   = port1_accept_SN;
@@ -180,6 +183,7 @@ module fsm
       out_addr_o       = out_addr_DN;
       in_addr_o        = in_addr_i;
       in_id_o          = in_id_i;
+      in_len_o         = in_len_i;
       in_user_o        = in_user_i;
     end
   end // block: OUTPUT_SEQ

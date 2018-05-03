@@ -73,6 +73,7 @@ module rab_core
 
     output logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] int_axaddr_o,
     output logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] int_axid_o,
+    output logic [N_PORTS-1:0]                     [7:0] int_axlen_o,
     output logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] int_axuser_o,
 
     input  logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] port1_addr,
@@ -152,6 +153,7 @@ module rab_core
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] int_addr_min;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] int_addr_max;
   logic [N_PORTS-1:0]          [AXI_ID_WIDTH-1:0] int_id;
+  logic [N_PORTS-1:0]                       [7:0] int_len;
   logic [N_PORTS-1:0]        [AXI_USER_WIDTH-1:0] int_user;
 
   logic [N_PORTS-1:0]                             hit;
@@ -247,6 +249,7 @@ module rab_core
         int_addr_max[idx] = select[idx] ? p1_max_addr[idx] : p2_max_addr[idx];
         int_rw[idx]       = select[idx] ? port1_type[idx]  : port2_type[idx];
         int_id[idx]       = select[idx] ? port1_id[idx]    : port2_id[idx];
+        int_len[idx]      = select[idx] ? port1_len[idx]   : port2_len[idx];
         int_user[idx]     = select[idx] ? port1_user[idx]  : port2_user[idx];
         prefetch[idx]     = select[idx] ? p1_prefetch[idx] : p2_prefetch[idx];
 
@@ -454,9 +457,11 @@ module rab_core
         .prefetch_o         ( int_prefetch[z]       ),
         .in_addr_i          ( int_addr_min[z]       ),
         .in_id_i            ( int_id[z]             ),
+        .in_len_i           ( int_len[z]            ),
         .in_user_i          ( int_user[z]           ),
         .in_addr_o          ( int_axaddr_o[z]       ),
         .in_id_o            ( int_axid_o[z]         ),
+        .in_len_o           ( int_axlen_o[z]        ),
         .in_user_o          ( int_axuser_o[z]       )
       );
   end
