@@ -14,9 +14,9 @@
  * This code implements a parameterizable two-port memory. Port 0 can read and
  * write while Port 1 can read only. The Xilinx tools will infer a BRAM with
  * Port 0 in "no change" mode, i.e., during a write, it retains the last read
- * value on the output. Port 1 (read-only) is in "write first" mode. It outputs
- * the old during the write cycle. Note: Port 1 outputs invalid data in the
- * cycle after the write when reading the same address.
+ * value on the output. Port 1 (read-only) is in "write first" mode. Still, it
+ * outputs the old data during the write cycle. Note: Port 1 outputs invalid
+ * data in the cycle after the write when reading the same address.
  *
  * For more information, see Xilinx PG058 Block Memory Generator Product Guide.
  */
