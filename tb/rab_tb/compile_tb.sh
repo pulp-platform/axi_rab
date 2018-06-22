@@ -10,16 +10,16 @@ set LIB=rtl
 set DESIGN=rab
 set LOG=${DESIGN}.log
 
-set ULPSOC_DEFINES_PATH=
+set PULP_SOC_DEFINES_PATH=
 set PULP_INTERFACE_PATH=${PULP_BASE_PATH}/fe/rtl/components
 set FP_DEFINES_PATH=${PULP_BASE_PATH}/fe/rtl/includes
 
 # Path for all RAB components
 set IPS_SOURCE_PATH=${PULP_BASE_PATH}/fe/ips
-set ULPSOC_SOURCE_PATH=${PULP_BASE_PATH}/fe/rtl/ulpsoc
+set PULP_SOC_SOURCE_PATH=${PULP_BASE_PATH}/fe/rtl/pulp_soc
 set FPGA_IPS_SOURCE_PATH=${PULP_BASE_PATH}/fpga/ips
 
-set INC_PATHS=${ULPSOC_DEFINES_PATH}+${PULP_INTERFACE_PATH}+${IPS_SOURCE_PATH}/axi/axi_rab+${FP_DEFINES_PATH}
+set INC_PATHS=${PULP_SOC_DEFINES_PATH}+${PULP_INTERFACE_PATH}+${IPS_SOURCE_PATH}/axi/axi_rab+${FP_DEFINES_PATH}
 
 ## Clean up the log before recompiling
 if (-e $LOG) then
@@ -51,7 +51,7 @@ vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_rema
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_16.sv     >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/ID_Gen_64.sv     >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_id_remap/axi_id_remap.sv  >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${ULPSOC_SOURCE_PATH}/axi_id_remap_wrap.sv           >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${PULP_SOC_SOURCE_PATH}/axi_id_remap_wrap.sv         >> ${LOG}
 
 # RAB
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/rab_slice.sv                           >> ${LOG}
@@ -76,7 +76,7 @@ vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram_tp_no_change.sv                    >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/ram_tp_write_first.sv                  >> ${LOG}
 vlog-${VER}  -work $LIB  ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/check_ram.sv                           >> ${LOG}
-vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/tlb_l2.sv         >> ${LOG}
+vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/axi/axi_rab/rtl/l2_tlb.sv         >> ${LOG}
 
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/BramPort.sv      >> ${LOG}
 vlog-${VER}  -work $LIB  +incdir+${INC_PATHS} ${IPS_SOURCE_PATH}/fpga-support/rtl/TdpBramArray.sv  >> ${LOG}
@@ -103,11 +103,11 @@ vlog-${VER}  -work $LIB ${IPS_SOURCE_PATH}/axi/axi_slice/axi_b_buffer.sv  >> ${L
 vlog-${VER}  -work $LIB ${IPS_SOURCE_PATH}/axi/axi_slice/axi_r_buffer.sv  >> ${LOG}
 vlog-${VER}  -work $LIB ${IPS_SOURCE_PATH}/axi/axi_slice/axi_w_buffer.sv  >> ${LOG}
 
-vlog-${VER}  -work $LIB ${PULP_BASE_PATH}/fe/rtl/components/memory_models.sv
+vlog-${VER}  -work $LIB ${PULP_BASE_PATH}/fe/rtl/components/generic_memory.sv
 vlog-${VER}  -work $LIB ${IPS_SOURCE_PATH}/axi/axi_mem_if/axi_mem_if.sv
-vlog-${VER}  -work $LIB ${ULPSOC_SOURCE_PATH}/axi_mem_if_wrap.sv
-vlog-${VER}  -work $LIB +incdir+${INC_PATHS} ${PULP_BASE_PATH}/fpga/rtl/l2_generic.sv
-vlog-${VER}  -work $LIB +define+PULP_HSA_SIM=1 ${ULPSOC_SOURCE_PATH}/l2_ram.sv
+vlog-${VER}  -work $LIB ${PULP_SOC_SOURCE_PATH}/axi_mem_if_wrap.sv
+vlog-${VER}  -work $LIB +incdir+${INC_PATHS} ${PULP_SOC_SOURCE_PATH}/l2_generic.sv
+vlog-${VER}  -work $LIB +define+PULP_FPGA_SIM=1 ${PULP_SOC_SOURCE_PATH}/l2_mem.sv
 
 # testbench
 vlog-${VER}  -work $LIB +incdir+${INC_PATHS}  ./test.sv         >> ${LOG}

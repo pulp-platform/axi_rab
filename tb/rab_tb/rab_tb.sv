@@ -18,7 +18,7 @@
  * Pirmin Vogel <vogelpi@iis.ee.ethz.ch>
  */
 
-`include "ulpsoc_defines.sv"
+`include "pulp_soc_defines.sv"
 
 //`define TLB_MULTIHIT
 
@@ -36,9 +36,9 @@ module rab_tb
    parameter C_AXICFG_DATA_WIDTH = 32,
    parameter C_AXI_ID_WIDTH      = 8,
    parameter C_AXI_USER_WIDTH    = 6,
-   parameter BUFFER_SIZE = 8,
-   parameter SRC_ID = 8,
-   parameter TEST_NAME = "reg_rd_wr"
+   parameter BUFFER_SIZE         = 8,
+   parameter SRC_ID              = 8,
+   parameter TEST_NAME           = "reg_rd_wr"
   )
 ;
 
@@ -242,7 +242,7 @@ module rab_tb
     .mem_master ( mem_if_acp )
   );
 
-  l2_ram
+  l2_mem
   #(
     .MEM_ADDR_WIDTH ( MEM_ADDR_WIDTH )
    )
@@ -254,7 +254,7 @@ module rab_tb
     .test_en_i ( 1'b0   )
   );
 
-  l2_ram
+  l2_mem
   #(
     .MEM_ADDR_WIDTH ( MEM_ADDR_WIDTH )
   )

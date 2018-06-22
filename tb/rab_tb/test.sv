@@ -9,7 +9,7 @@
 // specific language governing permissions and limitations under the License.
 
 `timescale 1ns/10ps
-`include "ulpsoc_defines.sv"
+`include "pulp_soc_defines.sv"
 
 import AXI4LITE_M::*;
 import PACKET::*;
