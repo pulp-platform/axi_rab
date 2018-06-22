@@ -19,7 +19,7 @@
 //
 // --=========================================================================--
 
-`include "ulpsoc_defines.sv"
+`include "pulp_soc_defines.sv"
 
 import CfMath::log2;
 
