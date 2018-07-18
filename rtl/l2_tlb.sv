@@ -13,7 +13,7 @@
 import CfMath::log2;
 
 //`define MULTI_HIT_FULL_SET  // Enable full multi hit detection. Always the entire set is searched.
-`define MULTI_HIT_CUR_CYCLE // Enable partial multi hit detection. Only multi hits in the same search cycle are detected.
+//`define MULTI_HIT_CUR_CYCLE // Enable partial multi hit detection. Only multi hits in the same search cycle are detected.
 
 `ifdef MULTI_HIT_FULL_SET
   `ifndef MULTI_HIT_CUR_CYCLE
