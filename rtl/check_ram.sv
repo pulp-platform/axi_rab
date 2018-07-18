@@ -10,7 +10,8 @@
 
 import CfMath::log2;
 
-//`define FULL_MULTI_HIT_DETECT
+//`define MULTI_HIT_FULL_SET
+
 module check_ram
   #(
     parameter ADDR_WIDTH     = 32,
@@ -51,7 +52,7 @@ module check_ram
    hit_state_t                          hit_SN; // Hit FSM next state
 
    // Multi Hit FSM signals
-`ifdef FULL_MULTI_HIT_DETECT
+`ifdef MULTI_HIT_FULL_SET
    typedef enum                         logic[1:0] {NO_HITS, ONE_HIT, MULTI_HIT} multi_state_t;
    multi_state_t                        multi_SP; // Multi Hit FSM state
    multi_state_t                        multi_SN; // Multi Hit FSM next state
@@ -127,7 +128,7 @@ module check_ram
             end
 
         HIT : begin
-`ifdef FULL_MULTI_HIT_DETECT // Since the search continues after the first hit, it needs to be saved to be accessed later.
+`ifdef MULTI_HIT_FULL_SET // Since the search continues after the first hit, it needs to be saved to be accessed later.
            hit      = 1'b1;
            hit_addr = hit_addr_saved;
            master   = master_saved;
@@ -149,7 +150,7 @@ module check_ram
                  1'b0;
 
    //// ------------------- Multi ------------------- ////
-`ifdef FULL_MULTI_HIT_DETECT
+`ifdef MULTI_HIT_FULL_SET
 
    always_ff @(posedge clk_i) begin
       if (rst_ni == 0) begin
@@ -197,9 +198,9 @@ module check_ram
       endcase // case (multi_SP)
    end // always_comb begin
 
-`else // !`ifdef FULL_MULTI_HIT_DETECT
+`else // !`ifdef MULTI_HIT_FULL_SET
    assign multi_hit = output_valid && port0_hit && port1_hit;
-`endif // !`ifdef FULL_MULTI_HIT_DETECT
+`endif // !`ifdef MULTI_HIT_FULL_SET
    //// ------------------------------------------- ////
 
 endmodule

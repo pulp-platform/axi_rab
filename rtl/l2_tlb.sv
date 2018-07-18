@@ -12,7 +12,8 @@
 
 import CfMath::log2;
 
-//`define FULL_MULTI_HIT_DETECT
+//`define MULTI_HIT_FULL_SET  // Enable full multi hit detection. Always the entire set is searched.
+
 module l2_tlb
   #(
     parameter AXI_S_ADDR_WIDTH       = 32,
@@ -87,7 +88,6 @@ module l2_tlb
    logic                                                   searching_q;
 
    genvar                                                  z;
-   logic                                                   multi_hit_disabled;
 
    // Search FSM
    typedef enum logic                                [1:0] {IDLE, SEARCH, DONE} search_state_t;
@@ -138,12 +138,6 @@ module l2_tlb
       end // for (z = 0; z < N_PORTS; z++)
    endgenerate
 
-`ifdef FULL_MULTI_HIT_DETECT
-   assign multi_hit_disabled = 1'b0;
-`else
-   assign multi_hit_disabled = 1'b1;
-`endif
-
    ////////////////// ---------------- Control and Address --------------- ////////////////////////
    // FSM
    always_ff @(posedge clk_i) begin
@@ -186,11 +180,15 @@ module l2_tlb
           end
 
           if (va_output_valid) begin
-             // stop search
-             if (last_search | (hit_top & multi_hit_disabled) | prot_top | multi_hit_top) begin
-                search_SN      = DONE;
-                search_done    = 1'b1;
-             end
+            // stop search
+`ifdef MULTI_HIT_FULL_SET
+            if (last_search | prot_top | multi_hit_top) begin
+`else
+            if (last_search | prot_top | multi_hit_top | hit_top ) begin
+`endif
+              search_SN      = DONE;
+              search_done    = 1'b1;
+            end
           end
         end
 
@@ -274,7 +272,7 @@ module l2_tlb
    // Store the offset addr for hit to reduce latency for next search.
    generate
       if (HIT_OFFSET_STORE_WIDTH > 0) begin : OFFSET_STORE
-`ifndef FULL_MULTI_HIT_DETECT
+`ifndef MULTI_HIT_FULL_SET
          logic [N_SETS-1:0][HIT_OFFSET_STORE_WIDTH-1:0] hit_offset_addr; // Contains offset addr for previous hit for every SET.
          logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]           hit_addr_reg;
 
