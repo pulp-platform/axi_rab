@@ -13,6 +13,13 @@
 import CfMath::log2;
 
 //`define MULTI_HIT_FULL_SET  // Enable full multi hit detection. Always the entire set is searched.
+`define MULTI_HIT_CUR_CYCLE // Enable partial multi hit detection. Only multi hits in the same search cycle are detected.
+
+`ifdef MULTI_HIT_FULL_SET
+  `ifndef MULTI_HIT_CUR_CYCLE
+    `define MULTI_HIT_CUR_CYCLE
+  `endif
+`endif
 
 module l2_tlb
   #(
@@ -306,25 +313,27 @@ module l2_tlb
       end
    endgenerate
 
+   assign prot_top = |prot;
+
    //////////////////////////////////////////////////////////////////////////////////////
-   // check for hit, multi hit, prot
+   // check for hit, multi hit
+   // In case of a multi hit, the hit_block_num indicates the lowest VA RAM with a hit.
+   // In case of a multi hit in the same VA RAM, Port 0 is given priority.
    always_comb begin : HIT_CHECK
+      hit_top       = |hit;
+      hit_block_num = 0;
       first_hit_top = 1'b0;
       multi_hit_top = 1'b0;
-      hit_top       = 1'b0;
-      hit_block_num = 0;
-      prot_top      = |prot;
-      hit_top       = |hit;
-      for (int i=0; i<N_PAR_VA_RAMS; i++) begin
-         if (hit[i] == 1'b1) begin
-            if (multi_hit[i] || multi_hit_top || first_hit_top == 1'b1) begin
-               multi_hit_top = 1'b1;
-               first_hit_top = 1'b0;
-            end else begin
-               first_hit_top = 1'b1;
-               hit_block_num = i;
-            end
-         end
+      for (int i=N_PAR_VA_RAMS-1; i>=0; i--) begin
+        if (hit[i] == 1'b1) begin
+`ifdef MULTI_HIT_CUR_CYCLE
+          if (multi_hit[i] | first_hit_top ) begin
+            multi_hit_top = 1'b1;
+          end
+`endif
+          first_hit_top = 1'b1;
+          hit_block_num = i;
+        end
       end // for (int i=0; i<N_PAR_VA_RAMS; i++)
    end // always_comb begin
 
