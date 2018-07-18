@@ -142,10 +142,65 @@ program test
       end
 
       if(TEST_NAME == "multi_hit") begin
-         slice_cfg(axi4lite_m, 1, 32'h00000010, 32'h000000f0, 32'h100, '1, '1, '1); // Configure Slice regs
-         slice_cfg(axi4lite_m, 2, 32'h00000010, 32'h000000f4, 32'h200, '1, '1, '1); // Configure Slice regs
-         slice_cfg(axi4lite_m, 3, 32'h00000010, 32'h000000f8, 32'h300, '1, '1, '1); // Configure Slice regs
-         slice_cfg(axi4lite_m, 4, 32'h00000010, 32'h000000fc, 32'h400, '1, '1, '1); // Configure Slice regs
+
+         slice_cfg(axi4lite_m, 1, 32'h10000000, 32'h20000000, 32'hF00000, '1, '1, '1);
+
+         // L1
+         slice_cfg(axi4lite_m, 2, 32'h00000010, 32'h000000f0, 32'h100, '1, '1, '1); // Configure Slice regs
+         slice_cfg(axi4lite_m, 3, 32'h00000010, 32'h000000f4, 32'h200, '1, '1, '1); // Configure Slice regs
+         slice_cfg(axi4lite_m, 4, 32'h00000010, 32'h000000f8, 32'h300, '1, '1, '1); // Configure Slice regs
+         slice_cfg(axi4lite_m, 5, 32'h00000010, 32'h000000fc, 32'h400, '1, '1, '1); // Configure Slice regs
+
+         // L2
+         //Initialize RAMs to zero
+         for (address = 0; address<1024; address++) begin
+            l2_cfg(axi4lite_m, "va", 0, address, 0);
+            l2_cfg(axi4lite_m, "pa", 0, address, 0);
+         end
+
+         // First entry per set
+         for (i = 0; i<32; i++) begin
+            address = 32*i;
+            data = (i << 4) + 4'hF;
+            l2_cfg(axi4lite_m, "va", 0, address, data);
+            data = 32'hF00 + i;
+            l2_cfg(axi4lite_m, "pa", 0, address, data);
+         end
+
+         // Second entry per set
+         for (i = 0; i<32; i++) begin
+            address = 32*i + 1;
+            data = (i << 4) + 4'hF; // same VA -> multi_hit
+            l2_cfg(axi4lite_m, "va", 0, address, data);
+            data = 32'h1F00 + i;
+            l2_cfg(axi4lite_m, "pa", 0, address, data);
+         end
+
+         // Third entry per set
+         for (i = 0; i<32; i++) begin
+            address = 32*i + 2;
+            data = (i << 4) + 4'hF; // same VA -> multi_hit
+            l2_cfg(axi4lite_m, "va", 0, address, data);
+            data = 32'h2F00 + i;
+            l2_cfg(axi4lite_m, "pa", 0, address, data);
+         end
+
+         // Fourth entry per set
+         for (i = 0; i<32; i++) begin
+            address = 32*i + 3;
+            data = (i << 4) + 4'hF; // same VA -> multi_hit
+            l2_cfg(axi4lite_m, "va", 0, address, data);
+            data = 32'h2F00 + i;
+            l2_cfg(axi4lite_m, "pa", 0, address, data);
+         end
+
+         // 17th entry of Set 0 - will be on Port 1
+         address = 16;
+         data    = (0 << 4) + 4'hF;
+         l2_cfg(axi4lite_m, "va", 0, address, data);
+         data = 32'hF00;
+         l2_cfg(axi4lite_m, "pa", 0, address, data);
+
          rab_tb.tgen2rab_fetch_en <= '1; // Start AXI transactions
          @(rab_tb.tgen2rab_eoc); // Wait till AXI transactions are completed
          repeat (10) @(posedge rab_tb.clk_i);

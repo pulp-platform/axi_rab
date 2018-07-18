@@ -8,7 +8,8 @@ set LIB=rtl
 set VER=10.6b
 
 ## Tests
-vsim-${VER} -voptargs="+acc" -gTEST_NAME="l1_and_l2" -gSRC_ID=9 ${LIB}.${TB}
+#vsim-${VER} -voptargs="+acc" -gTEST_NAME="l1_and_l2" -gSRC_ID=9 ${LIB}.${TB}
+vsim-${VER} -voptargs="+acc" -gTEST_NAME="multi_hit" -gSRC_ID=10 ${LIB}.${TB}
 #vsim-${VER} -voptargs="+acc" -gTEST_NAME="l2" -gSRC_ID=0 ${LIB}.${TB}
 #vsim-${VER} -voptargs="+acc" -gTEST_NAME="reg_rd_wr" ${LIB}.${TB}
 #vsim-${VER} -voptargs="+acc" -gTEST_NAME="all_l2" ${LIB}.${TB}
