@@ -65,6 +65,7 @@ module axi_rab_cfg
 
     // Slice configuration
     output logic [N_REGS-1:0][63:0]                 L1Cfg_DO,
+    output logic                                    L1AllowMultiHit_SO,
 
     // Miss handling
     input  logic [ADDR_WIDTH_VIRT-1:0]              MissAddr_DI,
@@ -501,12 +502,13 @@ module axi_rab_cfg
 
   logic                       FifosDisabled_S;
   logic                       ConfRegWen_S;
-  logic                       ConfRegDN;
-  logic                       ConfRegDP;
+  logic                 [1:0] ConfReg_DN;
+  logic                 [1:0] ConfReg_DP;
 
   logic [AXI_DATA_WIDTH-1:0] wdata_reg_vec;
 
-  assign FifosDisabled_S = ConfRegDP;
+  assign FifosDisabled_S    = ConfReg_DP[0];
+  assign L1AllowMultiHit_SO = ConfReg_DP[1];
 
   assign AddrFifoEmpty_S = ~AddrFifoEmpty_SB;
   assign MetaFifoEmpty_S = ~MetaFifoEmpty_SB;
@@ -521,7 +523,7 @@ module axi_rab_cfg
        assign wdata_reg_vec[(j+1)*8-1:j*8] = wdata_reg[j];
   endgenerate
 
-  // write Address FIFO
+  // write address FIFO
   always_comb
     begin
        AddrFifoWen_S = 1'b0;
@@ -538,7 +540,7 @@ module axi_rab_cfg
          end
     end
 
-  // write ID FIFO
+  // write meta FIFO
   always_comb
     begin
        MetaFifoWen_S = 1'b0;
@@ -555,15 +557,15 @@ module axi_rab_cfg
          end
     end
 
-  // write FIFO CONF
+  // write configuration register
   always_comb
     begin
        ConfRegWen_S = 1'b0;
-       ConfRegDN = 1'b0;
+       ConfReg_DN   = 1'b0;
        if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) ) // write request from AXI interface
          begin
             ConfRegWen_S = 1'b1;
-            ConfRegDN = wdata_reg_vec[0];
+            ConfReg_DN   = wdata_reg_vec[$high(ConfReg_DN):0];
          end
     end
 
@@ -575,7 +577,7 @@ module axi_rab_cfg
        MetaFifoRen_S = 1'b0;
        if ( rvalid == 1'b1 )
          begin
-            // read Addr FIFO
+            // read address FIFO
             if ( araddr_reg[ADDR_MSB:0] == 'b0 )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
@@ -583,7 +585,7 @@ module axi_rab_cfg
                 if ( AddrFifoEmpty_S == 1'b0 )
                   AddrFifoRen_S <= 1'b1;
               end
-            // read Meta FIFO
+            // read meta FIFO
             else if ( araddr_reg[ADDR_MSB:0] == 4'h8 )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
@@ -592,24 +594,24 @@ module axi_rab_cfg
                 if ( MetaFifoEmpty_S == 1'b0 )
                   MetaFifoRen_S <= 1'b1;
               end
-            // read FIFO CONF
+            // read configuration register
             else if ( araddr_reg[ADDR_MSB:0] == 8'h10 )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
-                s_axi_rdata[0]                   = FifosDisabled_S;
+                s_axi_rdata[$high(ConfReg_DP):0] = ConfReg_DP;
               end
          end // if ( rvalid == 1'b1 )
     end // always_comb begin
 
-  // Configuration Register to hold Fifo State (active/disabled)
+  // configuration register
   always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
     if (Rst_RBI == 1'b0)
       begin
-        ConfRegDP <= 1'b0;
+        ConfReg_DP <= 'b0;
       end
     else if (ConfRegWen_S == 1'b1)
       begin
-        ConfRegDP <= ConfRegDN;
+        ConfReg_DP <= ConfReg_DN;
       end
   end
 

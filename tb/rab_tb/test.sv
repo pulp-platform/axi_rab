@@ -151,6 +151,11 @@ program test
          slice_cfg(axi4lite_m, 4, 32'h00000010, 32'h000000f8, 32'h300, '1, '1, '1); // Configure Slice regs
          slice_cfg(axi4lite_m, 5, 32'h00000010, 32'h000000fc, 32'h400, '1, '1, '1); // Configure Slice regs
 
+         // // Allow L1 multi hits
+         // bit32tobit8(32'b10, dataIn);
+         // axi4lite_m.writeData(wrRespPtr, 16, dataIn);
+         // axi4lite_m.getWrResp(wrRespPtr, wrRespOut);
+
          // L2
          //Initialize RAMs to zero
          for (address = 0; address<1024; address++) begin

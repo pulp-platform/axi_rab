@@ -20,15 +20,15 @@ module slice_top
     input   logic                       int_rw,
     input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_min,
     input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_max,
+    input   logic                       multi_hit_allow,
+    output  logic                       multi_hit,
     output  logic        [N_SLICES-1:0] prot,
     output  logic        [N_SLICES-1:0] hit,
-    output  logic                       multiple_hit,
     output  logic                       cache_coherent,
     output  logic [ADDR_WIDTH_PHYS-1:0] out_addr
   );
 
   logic first_hit;
-  logic second_hit;
 
   genvar  i;
   integer j;
@@ -61,37 +61,26 @@ module slice_top
      end
   endgenerate
 
-  always_comb
-    begin
-      first_hit       = 0;
-      second_hit      = 0;
-      multiple_hit    = 0;
-      out_addr        = '0;
-      cache_coherent  = 0;
-        for (j = 0; j < N_SLICES; j++)
-        begin
-          if (hit[j] == 1'b1)
-            begin
-              if (first_hit)
-                begin
-                  second_hit = 1'b1;
-                  first_hit  = 1'b0;
-                end
-              else if (second_hit)
-                begin
-                  multiple_hit    = 1'b1;
-                  out_addr        = '0;
-                  cache_coherent  = 0;
-                end
-              else
-                begin
-                  first_hit       = 1'b1;
-                  out_addr        = slice_out_addr[ADDR_WIDTH_PHYS*j +: ADDR_WIDTH_PHYS];
-                  cache_coherent  = int_cfg_regs[4*j+3][3];
-                end
-            end
+  // In case of a multi hit, the lowest slice with a hit is selected.
+  always_comb begin : HIT_CHECK
+    first_hit      =  0;
+    multi_hit      =  0;
+    out_addr       = '0;
+    cache_coherent =  0;
+    for (j = 0; j < N_SLICES; j++) begin
+      if (hit[j] == 1'b1) begin
+        if (first_hit == 1'b1) begin
+          if (multi_hit_allow == 1'b0) begin
+            multi_hit = 1'b1;
+          end
+        end else begin
+          first_hit       = 1'b1;
+          out_addr        = slice_out_addr[ADDR_WIDTH_PHYS*j +: ADDR_WIDTH_PHYS];
+          cache_coherent  = int_cfg_regs[4*j+3][3];
         end
+      end
     end
+  end
 
 endmodule
 

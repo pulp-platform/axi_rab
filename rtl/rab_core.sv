@@ -175,7 +175,7 @@ module rab_core
   logic [N_PORTS-1:0]                             select;
   reg   [N_PORTS-1:0]                             curr_priority;
 
-  reg   [N_PORTS-1:0]                             multiple_hit;
+  reg   [N_PORTS-1:0]                             multi_hit;
 
   logic [N_PORTS-1:0]                             miss_valid_mhf;
   logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] miss_addr_mhf;
@@ -183,6 +183,8 @@ module rab_core
 
   logic [N_REGS-1:0]                       [63:0] int_cfg_regs;
   logic [N_PORTS-1:0] [4*N_SLICES_MAX-1:0] [63:0] int_cfg_regs_slices;
+
+  logic                                           L1AllowMultiHit_S;
 
   genvar z;
 
@@ -334,33 +336,34 @@ module rab_core
     )
     u_axi_rab_cfg
     (
-      .Clk_CI        ( Clk_CI                    ),
-      .Rst_RBI       ( Rst_RBI                   ),
-      .s_axi_awaddr  ( s_axi_awaddr              ),
-      .s_axi_awvalid ( s_axi_awvalid             ),
-      .s_axi_wdata   ( s_axi_wdata               ),
-      .s_axi_wstrb   ( s_axi_wstrb               ),
-      .s_axi_wvalid  ( s_axi_wvalid              ),
-      .s_axi_bready  ( s_axi_bready              ),
-      .s_axi_araddr  ( s_axi_araddr              ),
-      .s_axi_arvalid ( s_axi_arvalid             ),
-      .s_axi_rready  ( s_axi_rready              ),
-      .s_axi_arready ( s_axi_arready             ),
-      .s_axi_rdata   ( s_axi_rdata               ),
-      .s_axi_rresp   ( s_axi_rresp               ),
-      .s_axi_rvalid  ( s_axi_rvalid              ),
-      .s_axi_wready  ( s_axi_wready              ),
-      .s_axi_bresp   ( s_axi_bresp               ),
-      .s_axi_bvalid  ( s_axi_bvalid              ),
-      .s_axi_awready ( s_axi_awready             ),
-      .L1Cfg_DO      ( int_cfg_regs              ),
-      .MissAddr_DI   ( miss_addr_mhf[PortIdx_D]  ),
-      .MissMeta_DI   ( miss_meta_mhf[PortIdx_D]  ),
-      .Miss_SI       ( miss_valid_mhf[PortIdx_D] ),
-      .MhFifoFull_SO ( int_mhf_full              ),
-      .wdata_l2      ( wdata_l2_o                ),
-      .waddr_l2      ( waddr_l2_o                ),
-      .wren_l2       ( wren_l2_o                 )
+      .Clk_CI             ( Clk_CI                    ),
+      .Rst_RBI            ( Rst_RBI                   ),
+      .s_axi_awaddr       ( s_axi_awaddr              ),
+      .s_axi_awvalid      ( s_axi_awvalid             ),
+      .s_axi_wdata        ( s_axi_wdata               ),
+      .s_axi_wstrb        ( s_axi_wstrb               ),
+      .s_axi_wvalid       ( s_axi_wvalid              ),
+      .s_axi_bready       ( s_axi_bready              ),
+      .s_axi_araddr       ( s_axi_araddr              ),
+      .s_axi_arvalid      ( s_axi_arvalid             ),
+      .s_axi_rready       ( s_axi_rready              ),
+      .s_axi_arready      ( s_axi_arready             ),
+      .s_axi_rdata        ( s_axi_rdata               ),
+      .s_axi_rresp        ( s_axi_rresp               ),
+      .s_axi_rvalid       ( s_axi_rvalid              ),
+      .s_axi_wready       ( s_axi_wready              ),
+      .s_axi_bresp        ( s_axi_bresp               ),
+      .s_axi_bvalid       ( s_axi_bvalid              ),
+      .s_axi_awready      ( s_axi_awready             ),
+      .L1Cfg_DO           ( int_cfg_regs              ),
+      .L1AllowMultiHit_SO ( L1AllowMultiHit_S         ),
+      .MissAddr_DI        ( miss_addr_mhf[PortIdx_D]  ),
+      .MissMeta_DI        ( miss_meta_mhf[PortIdx_D]  ),
+      .Miss_SI            ( miss_valid_mhf[PortIdx_D] ),
+      .MhFifoFull_SO      ( int_mhf_full              ),
+      .wdata_l2           ( wdata_l2_o                ),
+      .waddr_l2           ( waddr_l2_o                ),
+      .wren_l2            ( wren_l2_o                 )
     );
 
   generate for (z = 0; z < N_PORTS; z++) begin : MHF_TLB_SELECT
@@ -393,15 +396,16 @@ module rab_core
       )
       u_slice_top
       (
-        .int_cfg_regs   ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
-        .int_rw         ( int_rw[z]                                 ),
-        .int_addr_min   ( int_addr_min[z]                           ),
-        .int_addr_max   ( int_addr_max[z]                           ),
-        .out_addr       ( out_addr[z]                               ),
-        .multiple_hit   ( multiple_hit[z]                           ),
-        .prot           ( prot_slices[z][N_SLICES[z]-1:0]           ),
-        .hit            ( hit_slices [z][N_SLICES[z]-1:0]           ),
-        .cache_coherent ( cache_coherent[z]                         )
+        .int_cfg_regs    ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
+        .int_rw          ( int_rw[z]                                 ),
+        .int_addr_min    ( int_addr_min[z]                           ),
+        .int_addr_max    ( int_addr_max[z]                           ),
+        .multi_hit_allow ( L1AllowMultiHit_S                         ),
+        .multi_hit       ( multi_hit[z]                              ),
+        .prot            ( prot_slices[z][N_SLICES[z]-1:0]           ),
+        .hit             ( hit_slices [z][N_SLICES[z]-1:0]           ),
+        .cache_coherent  ( cache_coherent[z]                         ),
+        .out_addr        ( out_addr[z]                               )
       );
     // hit_slices [N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
     // prot_slices[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
@@ -438,7 +442,7 @@ module rab_core
         .port2_sent_i       ( port2_sent[z]         ),
         .select_i           ( select[z]             ),
         .no_hit_i           ( no_hit[z]             ),
-        .multiple_hit_i     ( multiple_hit[z]       ),
+        .multi_hit_i        ( multi_hit[z]          ),
         .no_prot_i          ( no_prot[z]            ),
         .prefetch_i         ( prefetch[z]           ),
         .out_addr_i         ( out_addr[z]           ),

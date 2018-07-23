@@ -27,7 +27,7 @@ module fsm
     input  logic                        port2_sent_i,
     input  logic                        select_i,
     input  logic                        no_hit_i,
-    input  logic                        multiple_hit_i,
+    input  logic                        multi_hit_i,
     input  logic                        no_prot_i,
     input  logic                        prefetch_i,
     input  logic [AXI_M_ADDR_WIDTH-1:0] out_addr_i,
@@ -103,8 +103,8 @@ module fsm
 
             // Select inputs for output registers
             if          (port1_addr_valid_i & select_i) begin
-              port1_accept_SN = ~(no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
-              port1_drop_SN   =  (no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
+              port1_accept_SN = ~(no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
+              port1_drop_SN   =  (no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
               port1_miss_SN   =   no_hit_i;
               port2_accept_SN = 1'b0;
               port2_drop_SN   = 1'b0;
@@ -113,13 +113,13 @@ module fsm
               port1_accept_SN = 1'b0;
               port1_drop_SN   = 1'b0;
               port1_miss_SN   = 1'b0;
-              port2_accept_SN = ~(no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
-              port2_drop_SN   =  (no_hit_i | multiple_hit_i | ~no_prot_i | prefetch_i);
+              port2_accept_SN = ~(no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
+              port2_drop_SN   =  (no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
               port2_miss_SN   =   no_hit_i;
             end
 
             miss_SN           = port1_miss_SN | port2_miss_SN;
-            multi_SN          = multiple_hit_i;
+            multi_SN          = multi_hit_i;
             prot_SN           = ~no_prot_i;
             prefetch_SN       = ~no_hit_i & prefetch_i;
 
