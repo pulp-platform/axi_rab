@@ -430,8 +430,10 @@ module axi_rab_cfg
                     wdata_l2[j][idx_byte*8 +: 8] <= wdata_reg[idx_byte+off_byte] & {8{wstrb_reg[idx_byte+off_byte]}};
                 wdata_l2[j][AXI_DATA_WIDTH-1:AXI_DATA_WIDTH/2] <= 'b0;
               end
+              // pragma translate_off
               else
                 $fatal(1, "Unsupported AXI_DATA_WIDTH!");
+              // pragma translate_on
             end
           else
             wren_l2[j] <= '0;
@@ -449,14 +451,17 @@ module axi_rab_cfg
                 waddr_l2[j][0] = 1'b1;
               end
             end
+            // pragma translate_off
             else if (AXI_DATA_WIDTH != 32) begin
               $fatal(1, "Unsupported AXI_DATA_WIDTH!");
             end
+            // pragma translate_on
           end
         end
 
         // Assert that only one 32-bit word is ever written at a time to VA RAMs on 64-bit data
         // systems.
+        // pragma translate_off
         always_ff @ (posedge Clk_CI) begin
           if (AXI_DATA_WIDTH == 64) begin
             if  (l2_addr_is_in_va_rams[j]) begin
@@ -471,6 +476,7 @@ module axi_rab_cfg
             end
           end
         end
+        // pragma translate_on
 
       end // for (j=0; j< N_PORTS; j++)
    endgenerate
