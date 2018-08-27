@@ -589,7 +589,7 @@ module axi_rab_cfg
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
                 s_axi_rdata[ADDR_WIDTH_VIRT-1:0] = AddrFifoDout_D;
                 if ( AddrFifoEmpty_S == 1'b0 )
-                  AddrFifoRen_S <= 1'b1;
+                  AddrFifoRen_S = 1'b1;
               end
             // read meta FIFO
             else if ( araddr_reg[ADDR_MSB:0] == 4'h8 )
@@ -598,7 +598,7 @@ module axi_rab_cfg
                 s_axi_rdata[31]                  = MetaFifoEmpty_S;
                 s_axi_rdata[MISS_META_WIDTH-1:0] = MetaFifoDout_D;
                 if ( MetaFifoEmpty_S == 1'b0 )
-                  MetaFifoRen_S <= 1'b1;
+                  MetaFifoRen_S = 1'b1;
               end
             // read configuration register
             else if ( araddr_reg[ADDR_MSB:0] == 8'h10 )
