@@ -93,6 +93,7 @@ module axi4_w_buffer
   logic        [AXI_ID_WIDTH-1:0] l1_id_cur;
   logic                     [7:0] l1_len_cur;
   logic                           l1_hit_cur, l1_prefetch_cur;
+  logic                           l1_save_in, l1_save_out;
   logic [log2(L1_FIFO_DEPTH)-1:0] n_l1_save_SP;
 
   logic                           l2_fifo_valid_out;
