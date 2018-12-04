@@ -568,7 +568,7 @@ module axi_rab_cfg
     begin
        ConfRegWen_S = 1'b0;
        ConfReg_DN   = 1'b0;
-       if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) ) // write request from AXI interface
+       if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h0C) ) // write request from AXI interface
          begin
             ConfRegWen_S = 1'b1;
             ConfReg_DN   = wdata_reg_vec[$high(ConfReg_DN):0];
@@ -601,7 +601,7 @@ module axi_rab_cfg
                   MetaFifoRen_S = 1'b1;
               end
             // read configuration register
-            else if ( araddr_reg[ADDR_MSB:0] == 8'h10 )
+            else if ( araddr_reg[ADDR_MSB:0] == 8'h0C )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
                 s_axi_rdata[$high(ConfReg_DP):0] = ConfReg_DP;
