@@ -76,7 +76,13 @@ module axi_rab_cfg
     // L2 TLB
     output logic [N_PORTS-1:0] [AXI_DATA_WIDTH-1:0] wdata_l2,
     output logic [N_PORTS-1:0] [AXI_ADDR_WIDTH-1:0] waddr_l2,
-    output logic [N_PORTS-1:0]                      wren_l2
+    output logic [N_PORTS-1:0]                      wren_l2,
+
+    //invalidate
+    input logic                                     l1_invalidate_done_i,
+    output logic                                    invalidate_addr_min_o,
+    output logic                                    invalidate_addr_max_o,
+    output logic                                    invalidate_addr_valid_o
   );
 
   localparam ADDR_LSB = log2(64/8); // 64 even if the AXI Lite interface is 32,
@@ -112,6 +118,7 @@ module axi_rab_cfg
 
   logic                             wresp_done_reg;
   logic                             wresp_running_reg;
+  logic                             wresp_block;
 
   logic [AXI_ADDR_WIDTH-1:0]        araddr_reg;
   logic                             araddr_done_reg;
@@ -212,7 +219,7 @@ module axi_rab_cfg
          end
        else
          begin
-            if (awaddr_done_reg && wdata_done_reg && !wresp_done_reg)
+            if (awaddr_done_reg && wdata_done_reg && !wresp_done_reg && !wresp_block)
               begin
                  if (!wresp_running_reg)
                    begin
@@ -326,6 +333,7 @@ module axi_rab_cfg
               end
             end
             else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin      // PHYS_ADDR
+              $display("write phys 0x%08x = 0x%08x", awaddr_reg, wdata_reg);
               for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
                 if ( (idx_byte < ADDR_WIDTH_PHYS/8) ) begin
                   if ( wstrb_reg[idx_byte] ) begin
@@ -656,6 +664,67 @@ module axi_rab_cfg
       .grant_i     ( MetaFifoRen_S                   ),
       .test_mode_i ( 1'b0                            )
     );
+
+
+  //
+  // INVALIDATE
+  //
+
+  logic invalidate_in_progress_q, invalidate_in_progress_d;
+  logic l1_invalidate_done_q, l1_invalidate_done_d;
+  logic l2_invalidate_done_q, l2_invalidate_done_d;
+  logic invalidate_addr_min_q, invalidate_addr_min_d;
+  logic invalidate_addr_max_q, invalidate_addr_max_d;
+
+  assign wresp_block = invalidate_in_progress_q; // FIXME: should this be set at the beginning
+
+  // write start invalidate register
+  always_comb
+    begin
+       invalidate_addr_min_d = invalidate_addr_min_q;
+       if ( (wren_l1 == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) && !invalidate_in_progress_q)
+         begin
+            invalidate_addr_min_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
+         end
+    end
+  // write end invalidate register
+  always_comb
+    begin
+       invalidate_addr_max_d = invalidate_addr_min_q;
+       invalidate_in_progress_d = invalidate_in_progress_q;
+       if ( (wren_l1 == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q)
+         begin
+            invalidate_addr_max_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
+            invalidate_in_progress_d = 'b1;
+         end
+       else if (l1_invalidate_done_q && l2_invalidate_done_q)
+         begin
+            invalidate_in_progress_d = 'b0;
+         end
+    end
+
+  assign l2_invalidate_done_d = 'b1; // FIXME: ignore l2 for now
+  assign l1_invalidate_done_d = (l1_invalidate_done_q & invalidate_in_progress_q) | l1_invalidate_done_i;
+
+  // store invalidation registers
+  always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
+    if (Rst_RBI == 'b0)
+      begin
+         invalidate_addr_min_q <= 'b0;
+         invalidate_addr_max_q <= 'b0;
+         invalidate_in_progress_q <= 'b0;
+         l1_invalidate_done_q <= 'b0;
+         l2_invalidate_done_q <= 'b0;
+      end
+    else
+      begin
+         invalidate_addr_min_q <= invalidate_addr_min_d;
+         invalidate_addr_max_q <= invalidate_addr_max_d;
+         invalidate_in_progress_q <= invalidate_in_progress_d;
+         l1_invalidate_done_q <= l1_invalidate_done_d;
+         l2_invalidate_done_q <= l2_invalidate_done_d;
+      end
+  end
 
 endmodule
 
