@@ -89,6 +89,7 @@ module axi_rab_cfg
                                     // because RAB slices are 64 bit wide.
   localparam ADDR_MSB = log2(N_REGS)+ADDR_LSB-1;
 
+  localparam CONFIG_SIZE = 'h20; // Addresses at start to use for config registers
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
 
   localparam integer N_L2_ENTRIES = N_L2_SETS * N_L2_SET_ENTRIES;
@@ -308,7 +309,7 @@ module axi_rab_cfg
   // ███████╗██║    ╚██████╗██║     ╚██████╔╝    ██║  ██║███████╗╚██████╔╝
   // ╚══════╝╚═╝     ╚═════╝╚═╝      ╚═════╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝
   //
-  assign wren_l1 = wren && (awaddr_reg < L2SINGLE_AMAP_SIZE);
+  assign wren_l1 = wren && (CONFIG_SIZE <= awaddr_reg) && (awaddr_reg < L2SINGLE_AMAP_SIZE);
 
   always @( posedge Clk_CI or negedge Rst_RBI )
     begin
@@ -516,12 +517,14 @@ module axi_rab_cfg
 
   logic                       FifosDisabled_S;
   logic                       ConfRegWen_S;
-  logic                 [1:0] ConfReg_DN;
-  logic                 [1:0] ConfReg_DP;
+  logic [1:0]                 ConfReg_DN;
+  logic [1:0]                 ConfReg_DP;
 
-  logic [AXI_DATA_WIDTH-1:0] wdata_reg_vec;
+  logic [AXI_DATA_WIDTH-1:0]  wdata_reg_vec;
 
-  assign FifosDisabled_S    = ConfReg_DP[0];
+  logic                       wren_config;
+
+  assign FifosDisabled_S = ConfReg_DP[0];
   assign L1AllowMultiHit_SO = ConfReg_DP[1];
 
   assign AddrFifoEmpty_S = ~AddrFifoEmpty_SB;
@@ -537,6 +540,8 @@ module axi_rab_cfg
        assign wdata_reg_vec[(j+1)*8-1:j*8] = wdata_reg[j];
   endgenerate
 
+  assign wren_config = wren && (awaddr_reg < CONFIG_SIZE);
+
   // write address FIFO
   always_comb
     begin
@@ -547,7 +552,7 @@ module axi_rab_cfg
             AddrFifoWen_S = 1'b1;
             AddrFifoDin_D = MissAddr_DI;
          end
-       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 'b0) && (FifosDisabled_S == 1'b0)) // write request from AXI interface
+       else if ( (wren_config == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 'b0) && (FifosDisabled_S == 1'b0)) // write request from AXI interface
          begin
             AddrFifoWen_S = 1'b1;
             AddrFifoDin_D = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
@@ -564,7 +569,7 @@ module axi_rab_cfg
             MetaFifoWen_S                      = 1'b1;
             MetaFifoDin_D[MISS_META_WIDTH-1:0] = MissMeta_DI;
          end
-       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'h8) && (FifosDisabled_S == 1'b0) ) // write request from AXI interface
+       else if ( (wren_config == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'h8) && (FifosDisabled_S == 1'b0) ) // write request from AXI interface
          begin
             MetaFifoWen_S = 1'b1;
             MetaFifoDin_D = wdata_reg_vec[MISS_META_WIDTH-1:0];
@@ -576,7 +581,7 @@ module axi_rab_cfg
     begin
        ConfRegWen_S = 1'b0;
        ConfReg_DN   = 1'b0;
-       if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h0C) ) // write request from AXI interface
+       if ( (wren_config == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'hC) ) // write request from AXI interface
          begin
             ConfRegWen_S = 1'b1;
             ConfReg_DN   = wdata_reg_vec[$high(ConfReg_DN):0];
@@ -609,7 +614,7 @@ module axi_rab_cfg
                   MetaFifoRen_S = 1'b1;
               end
             // read configuration register
-            else if ( araddr_reg[ADDR_MSB:0] == 8'h0C )
+            else if ( araddr_reg[ADDR_MSB:0] == 4'hC )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
                 s_axi_rdata[$high(ConfReg_DP):0] = ConfReg_DP;
@@ -682,7 +687,7 @@ module axi_rab_cfg
   always_comb
     begin
        invalidate_addr_min_d = invalidate_addr_min_q;
-       if ( (wren_l1 == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) && !invalidate_in_progress_q)
+       if ( (wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) && !invalidate_in_progress_q)
          begin
             invalidate_addr_min_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
          end
@@ -692,7 +697,7 @@ module axi_rab_cfg
     begin
        invalidate_addr_max_d = invalidate_addr_min_q;
        invalidate_in_progress_d = invalidate_in_progress_q;
-       if ( (wren_l1 == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q)
+       if ( (wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q)
          begin
             invalidate_addr_max_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
             invalidate_in_progress_d = 'b1;
