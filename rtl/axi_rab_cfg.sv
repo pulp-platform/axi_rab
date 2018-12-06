@@ -78,10 +78,10 @@ module axi_rab_cfg
     output logic [N_PORTS-1:0] [AXI_ADDR_WIDTH-1:0] waddr_l2,
     output logic [N_PORTS-1:0]                      wren_l2,
 
-    //invalidate
+    // Invalidation
     input logic                                     l1_invalidate_done_i,
-    output logic                                    invalidate_addr_min_o,
-    output logic                                    invalidate_addr_max_o,
+    output logic [AXI_DATA_WIDTH-1:0]               invalidate_addr_min_o,
+    output logic [AXI_DATA_WIDTH-1:0]               invalidate_addr_max_o,
     output logic                                    invalidate_addr_valid_o
   );
 

@@ -26,6 +26,7 @@ module fsm
     input  logic                        port1_sent_i,
     input  logic                        port2_sent_i,
     input  logic                        select_i,
+    input  logic                        invalidate_i,
     input  logic                        no_hit_i,
     input  logic                        multi_hit_i,
     input  logic                        no_prot_i,
@@ -97,7 +98,7 @@ module fsm
 
     unique case(state_SP)
         IDLE :
-          if ( (port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i) ) begin
+          if ( ~invalidate_i & ((port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i)) ) begin
             out_reg_en_S = 1'b1;
             state_SN     = WAIT;
 

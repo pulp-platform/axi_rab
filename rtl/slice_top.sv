@@ -20,6 +20,7 @@ module slice_top
     input   logic                       int_rw,
     input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_min,
     input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_max,
+    input   logic                       invalidate,
     input   logic                       multi_hit_allow,
     output  logic                       multi_hit,
     output  logic        [N_SLICES-1:0] prot,
@@ -54,6 +55,7 @@ module slice_top
             .in_trans_type ( int_rw                                                                ),
             .in_addr_min   ( int_addr_min                                                          ),
             .in_addr_max   ( int_addr_max                                                          ),
+            .in_invalidate ( invalidate                                                            ),
             .out_addr      ( slice_out_addr[ADDR_WIDTH_PHYS*i+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*i] ),
             .out_prot      ( prot[i]                                                               ),
             .out_hit       ( hit[i]                                                                )
