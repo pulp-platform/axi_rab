@@ -20,7 +20,7 @@ module slice_top
     input   logic                       int_rw,
     input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_min,
     input   logic [ADDR_WIDTH_VIRT-1:0] int_addr_max,
-    input   logic                       invalidate,
+    input   logic                       partial_match_allow,
     input   logic                       multi_hit_allow,
     output  logic                       multi_hit,
     output  logic        [N_SLICES-1:0] prot,
@@ -46,18 +46,19 @@ module slice_top
             )
           u_slice
           (
-            .cfg_min       ( int_cfg_regs[4*i]  [ADDR_WIDTH_VIRT-1:0]                              ),
-            .cfg_max       ( int_cfg_regs[4*i+1][ADDR_WIDTH_VIRT-1:0]                              ),
-            .cfg_offset    ( int_cfg_regs[4*i+2][ADDR_WIDTH_PHYS-1:0]                              ),
-            .cfg_wen       ( int_cfg_regs[4*i+3][2]                                                ),
-            .cfg_ren       ( int_cfg_regs[4*i+3][1]                                                ),
-            .cfg_en        ( int_cfg_regs[4*i+3][0]                                                ),
-            .in_trans_type ( int_rw                                                                ),
-            .in_addr_min   ( int_addr_min                                                          ),
-            .in_addr_max   ( int_addr_max                                                          ),
-            .out_addr      ( slice_out_addr[ADDR_WIDTH_PHYS*i+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*i] ),
-            .out_prot      ( prot[i]                                                               ),
-            .out_hit       ( hit[i]                                                                )
+            .cfg_min          ( int_cfg_regs[4*i]  [ADDR_WIDTH_VIRT-1:0]                              ),
+            .cfg_max          ( int_cfg_regs[4*i+1][ADDR_WIDTH_VIRT-1:0]                              ),
+            .cfg_offset       ( int_cfg_regs[4*i+2][ADDR_WIDTH_PHYS-1:0]                              ),
+            .cfg_wen          ( int_cfg_regs[4*i+3][2]                                                ),
+            .cfg_ren          ( int_cfg_regs[4*i+3][1]                                                ),
+            .cfg_en           ( int_cfg_regs[4*i+3][0]                                                ),
+            .in_partial_match ( partial_match_allow                                                   ),
+            .in_trans_type    ( int_rw                                                                ),
+            .in_addr_min      ( int_addr_min                                                          ),
+            .in_addr_max      ( int_addr_max                                                          ),
+            .out_addr         ( slice_out_addr[ADDR_WIDTH_PHYS*i+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*i] ),
+            .out_prot         ( prot[i]                                                               ),
+            .out_hit          ( hit[i]                                                                )
           );
      end
   endgenerate

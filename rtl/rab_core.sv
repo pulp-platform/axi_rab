@@ -433,17 +433,17 @@ module rab_core
       )
       u_slice_top
       (
-        .int_cfg_regs    ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
-        .int_rw          ( int_rw[z]                                 ),
-        .int_addr_min    ( int_addr_min[z]                           ),
-        .int_addr_max    ( int_addr_max[z]                           ),
-        .invalidate      ( invalidate_addr_valid                     ), // FIXME: currently unused but should enable weak matching
-        .multi_hit_allow ( L1AllowMultiHit_S                         ),
-        .multi_hit       ( multi_hit[z]                              ),
-        .prot            ( prot_slices[z][N_SLICES[z]-1:0]           ),
-        .hit             ( hit_slices [z][N_SLICES[z]-1:0]           ),
-        .cache_coherent  ( cache_coherent[z]                         ),
-        .out_addr        ( out_addr[z]                               )
+        .int_cfg_regs        ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
+        .int_rw              ( int_rw[z]                                 ),
+        .int_addr_min        ( int_addr_min[z]                           ),
+        .int_addr_max        ( int_addr_max[z]                           ),
+        .partial_match_allow ( invalidate_addr_valid                     ),
+        .multi_hit_allow     ( L1AllowMultiHit_S                         ),
+        .multi_hit           ( multi_hit[z]                              ),
+        .prot                ( prot_slices[z][N_SLICES[z]-1:0]           ),
+        .hit                 ( hit_slices [z][N_SLICES[z]-1:0]           ),
+        .cache_coherent      ( cache_coherent[z]                         ),
+        .out_addr            ( out_addr[z]                               )
       );
     // hit_slices [N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
     // prot_slices[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
