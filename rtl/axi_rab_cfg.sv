@@ -80,7 +80,7 @@ module axi_rab_cfg
     output logic [N_PORTS-1:0]                      wren_l2,
 
     // Invalidation
-    input logic                                     l1_invalidate_done_i,
+    input logic                                     l1_invalidate_ready_i,
     input logic  [N_SLICES_TOT-1:0]                 l1_invalidate_slices_i,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_min_o,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_max_o,
@@ -311,15 +311,25 @@ module axi_rab_cfg
   // ███████╗██║    ╚██████╗██║     ╚██████╔╝    ██║  ██║███████╗╚██████╔╝
   // ╚══════╝╚═╝     ╚═════╝╚═╝      ╚═════╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝
   //
+  logic invalidate_in_progress_q, invalidate_in_progress_d;
+
   assign wren_l1 = wren && (CONFIG_SIZE <= awaddr_reg) && (awaddr_reg < L2SINGLE_AMAP_SIZE);
 
   always @( posedge Clk_CI or negedge Rst_RBI )
     begin
-      var integer idx_reg, idx_byte;
+      var integer idx_reg, idx_byte, idx_slice;
       if ( Rst_RBI == 1'b0 )
         begin
           for ( idx_reg = 0; idx_reg < N_REGS; idx_reg++ )
             L1Cfg_DP[idx_reg] <= '0;
+        end
+      else if ( invalidate_in_progress_q && l1_invalidate_ready_i )
+        begin
+           for ( idx_slice = 0; idx_slice < N_SLICES_TOT; ++idx_slice ) begin
+              if ( l1_invalidate_slices_i[idx_slice] ) begin
+                 L1Cfg_DP[4*idx_slice+7] <= 'h0; // disable the slice that hit
+              end
+           end
         end
       else if ( wren_l1 )
           begin
@@ -336,7 +346,6 @@ module axi_rab_cfg
               end
             end
             else if ( awaddr_reg[ADDR_LSB+1:ADDR_LSB] == 2'b10 ) begin      // PHYS_ADDR
-              $display("write phys 0x%08x = 0x%08x", awaddr_reg, wdata_reg);
               for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
                 if ( (idx_byte < ADDR_WIDTH_PHYS/8) ) begin
                   if ( wstrb_reg[idx_byte] ) begin
@@ -677,7 +686,6 @@ module axi_rab_cfg
   // INVALIDATE
   //
 
-  logic invalidate_in_progress_q, invalidate_in_progress_d;
   logic l1_invalidate_done_q, l1_invalidate_done_d;
   logic l2_invalidate_done_q, l2_invalidate_done_d;
   logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_q;
@@ -691,65 +699,51 @@ module axi_rab_cfg
   assign invalidate_addr_valid_o = invalidate_in_progress_q;
 
   // write start invalidate register
-  always_comb
-    begin
-       invalidate_addr_min_d = invalidate_addr_min_q;
-       if ( (wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) && !invalidate_in_progress_q)
-         begin
-            invalidate_addr_min_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
-         end
-    end
+  always_comb begin
+     invalidate_addr_min_d = invalidate_addr_min_q;
+     if ( (wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) && !invalidate_in_progress_q) begin
+        invalidate_addr_min_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
+     end
+  end
   // write end invalidate register
-  always_comb
-    begin
-       invalidate_addr_max_d = invalidate_addr_min_q;
-       invalidate_in_progress_d = invalidate_in_progress_q;
-       if ( (wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q)
-         begin
-            invalidate_addr_max_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
-            invalidate_in_progress_d = 'b1;
-         end
-       else if (l1_invalidate_done_q && l2_invalidate_done_q)
-         begin
-            invalidate_in_progress_d = 'b0;
-         end
-    end
+  always_comb begin
+     invalidate_addr_max_d = invalidate_addr_max_q;
+     invalidate_in_progress_d = invalidate_in_progress_q;
+     if ((wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q) begin
+        invalidate_addr_max_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
+        invalidate_in_progress_d = 'b1;
+     end else if (l1_invalidate_done_q && l2_invalidate_done_q) begin
+        invalidate_in_progress_d = 'b0;
+     end
+  end
 
   assign l2_invalidate_done_d = 'b1; // FIXME: ignore l2 for now
 
   // handle invalidation of l1 registers that are hit
-  always_comb
-    begin
-       var integer idx;
-       l1_invalidate_done_d = l1_invalidate_done_q & invalidate_in_progress_q;
-       if (invalidate_in_progress_q & l1_invalidate_done_i) begin
-          for ( idx = 0; idx < N_SLICES_TOT; ++idx ) begin
-             if ( l1_invalidate_slices_i[idx] ) begin
-                L1Cfg_DP[4*idx+3] = 'b0; // disable the slice that hit
-             end
-          end
-       end
-    end
-  // assign l1_invalidate_done_d = (l1_invalidate_done_q & invalidate_in_progress_q) | l1_invalidate_valid_i;
+  always_comb begin
+     l1_invalidate_done_d = l1_invalidate_done_q;
+     if (invalidate_in_progress_q && l1_invalidate_ready_i) begin
+        l1_invalidate_done_d = 'b1;
+     end else if (!invalidate_in_progress_q) begin
+        l1_invalidate_done_d = 'b0;
+     end
+  end
 
   // store invalidation registers
   always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
-    if (Rst_RBI == 'b0)
-      begin
-         invalidate_addr_min_q <= 'b0;
-         invalidate_addr_max_q <= 'b0;
-         invalidate_in_progress_q <= 'b0;
-         l1_invalidate_done_q <= 'b0;
-         l2_invalidate_done_q <= 'b0;
-      end
-    else
-      begin
-         invalidate_addr_min_q <= invalidate_addr_min_d;
-         invalidate_addr_max_q <= invalidate_addr_max_d;
-         invalidate_in_progress_q <= invalidate_in_progress_d;
-         l1_invalidate_done_q <= l1_invalidate_done_d;
-         l2_invalidate_done_q <= l2_invalidate_done_d;
-      end
+     if (Rst_RBI == 'b0) begin
+        invalidate_addr_min_q <= 'b0;
+        invalidate_addr_max_q <= 'b0;
+        invalidate_in_progress_q <= 'b0;
+        l1_invalidate_done_q <= 'b0;
+        l2_invalidate_done_q <= 'b0;
+     end else begin
+        invalidate_addr_min_q <= invalidate_addr_min_d;
+        invalidate_addr_max_q <= invalidate_addr_max_d;
+        invalidate_in_progress_q <= invalidate_in_progress_d;
+        l1_invalidate_done_q <= l1_invalidate_done_d;
+        l2_invalidate_done_q <= l2_invalidate_done_d;
+     end
   end
 
 endmodule

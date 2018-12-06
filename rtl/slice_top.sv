@@ -55,7 +55,6 @@ module slice_top
             .in_trans_type ( int_rw                                                                ),
             .in_addr_min   ( int_addr_min                                                          ),
             .in_addr_max   ( int_addr_max                                                          ),
-            .in_invalidate ( invalidate                                                            ),
             .out_addr      ( slice_out_addr[ADDR_WIDTH_PHYS*i+ADDR_WIDTH_PHYS-1:ADDR_WIDTH_PHYS*i] ),
             .out_prot      ( prot[i]                                                               ),
             .out_hit       ( hit[i]                                                                )
@@ -64,7 +63,6 @@ module slice_top
   endgenerate
 
   // In case of a multi hit, the lowest slice with a hit is selected.
-  // If the invalidate flag, is set all matching slices are cleared
   always_comb begin : HIT_CHECK
     first_hit      =  0;
     multi_hit      =  0;

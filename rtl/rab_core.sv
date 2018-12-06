@@ -186,7 +186,7 @@ module rab_core
 
   logic                                           L1AllowMultiHit_S;
 
-  logic                                           invalidate_done;
+  logic                                           invalidate_ready_q, invalidate_ready_d;
   logic [N_SLICES_TOT-1:0]                        invalidate_slices;
   logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_min;
   logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_max;
@@ -205,8 +205,12 @@ module rab_core
   always_comb
     begin : PORT_SELECT
       var integer idx, idx_slice, idx_tot;
-
       idx_tot = 0;
+
+      invalidate_slices = 'b0;
+      // records to invalidate are available in a single cycle
+      invalidate_ready_d = invalidate_addr_valid;
+
       for (idx=0; idx<N_PORTS; idx++) begin
 
         p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
@@ -250,8 +254,6 @@ module rab_core
         p1_max_addr[idx]  = p1_align_addr[idx] + p1_burst_size[idx] - 1;
         p2_max_addr[idx]  = p2_align_addr[idx] + p2_burst_size[idx] - 1;
 
-        invalidate_slices = 'b0;
-        invalidate_done = 'b0;
 
         select[idx]       = 'b0;
         int_rw[idx]       = 'b0;
@@ -264,10 +266,9 @@ module rab_core
           int_addr_min[idx] = invalidate_addr_min;
           int_addr_max[idx] = invalidate_addr_max;
 
-          // invalidation is completed in a single cycle
-          invalidate_done = 'b1;
-          for (idx_slice = 0; idx_slice<N_SLICES[idx_slice]; ++idx_slice, ++idx_tot) begin
+          for (idx_slice = 0; idx_slice<N_SLICES[idx]; ++idx_slice) begin
             invalidate_slices[idx_tot] = hit_slices[idx][idx_slice];
+            ++idx_tot;
           end
         end else begin
           // select = 1 -> port1 active
@@ -316,14 +317,16 @@ module rab_core
   always @(posedge Clk_CI or negedge Rst_RBI)
     begin : PORT_PRIORITY
       var integer idx;
-      if (Rst_RBI == 1'b0)
-        curr_priority = 'h0;
-      else begin
+      if (Rst_RBI == 1'b0) begin
+        curr_priority <= 'h0;
+        invalidate_ready_q <= 0;
+      end else begin
+        invalidate_ready_q <= invalidate_ready_d;
         for (idx=0; idx<N_PORTS; idx++) begin
           if (port1_accept[idx] || port1_drop[idx])
-            curr_priority[idx] = 1'b1;
+            curr_priority[idx] <= 1'b1;
           else if (port2_accept[idx] || port2_drop[idx])
-            curr_priority[idx] = 1'b0;
+            curr_priority[idx] <= 1'b0;
         end
       end
     end
@@ -393,7 +396,7 @@ module rab_core
       .wdata_l2                ( wdata_l2_o                ),
       .waddr_l2                ( waddr_l2_o                ),
       .wren_l2                 ( wren_l2_o                 ),
-      .l1_invalidate_done_i    ( invalidate_done           ),
+      .l1_invalidate_ready_i   ( invalidate_ready_q        ),
       .l1_invalidate_slices_i  ( invalidate_slices         ),
       .invalidate_addr_min_o   ( invalidate_addr_min       ),
       .invalidate_addr_max_o   ( invalidate_addr_max       ),
