@@ -30,6 +30,7 @@ module axi_rab_cfg
   #(
     parameter N_PORTS         =   3,
     parameter N_REGS          = 196,
+    parameter N_SLICES_TOT    =  48,
     parameter N_L2_SETS       =  32,
     parameter N_L2_SET_ENTRIES=  32,
     parameter ADDR_WIDTH_PHYS =  40,
@@ -80,6 +81,7 @@ module axi_rab_cfg
 
     // Invalidation
     input logic                                     l1_invalidate_done_i,
+    input logic  [N_SLICES_TOT-1:0]                 l1_invalidate_slices_i,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_min_o,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_max_o,
     output logic                                    invalidate_addr_valid_o
@@ -714,7 +716,21 @@ module axi_rab_cfg
     end
 
   assign l2_invalidate_done_d = 'b1; // FIXME: ignore l2 for now
-  assign l1_invalidate_done_d = (l1_invalidate_done_q & invalidate_in_progress_q) | l1_invalidate_done_i;
+
+  // handle invalidation of l1 registers that are hit
+  always_comb
+    begin
+       var integer idx;
+       l1_invalidate_done_d = l1_invalidate_done_q & invalidate_in_progress_q;
+       if (invalidate_in_progress_q & l1_invalidate_done_i) begin
+          for ( idx = 0; idx < N_SLICES_TOT; ++idx ) begin
+             if ( l1_invalidate_slices_i[idx] ) begin
+                L1Cfg_DP[4*idx+3] = 'b0; // disable the slice that hit
+             end
+          end
+       end
+    end
+  // assign l1_invalidate_done_d = (l1_invalidate_done_q & invalidate_in_progress_q) | l1_invalidate_valid_i;
 
   // store invalidation registers
   always_ff @(posedge Clk_CI or negedge Rst_RBI) begin

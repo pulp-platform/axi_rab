@@ -103,7 +103,7 @@ module fsm
             state_SN     = WAIT;
 
             // Select inputs for output registers
-            if          (port1_addr_valid_i & select_i) begin
+            if (port1_addr_valid_i & select_i) begin
               port1_accept_SN = ~(no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
               port1_drop_SN   =  (no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
               port1_miss_SN   =   no_hit_i;

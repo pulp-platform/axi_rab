@@ -64,6 +64,7 @@ module slice_top
   endgenerate
 
   // In case of a multi hit, the lowest slice with a hit is selected.
+  // If the invalidate flag, is set all matching slices are cleared
   always_comb begin : HIT_CHECK
     first_hit      =  0;
     multi_hit      =  0;

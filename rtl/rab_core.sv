@@ -186,8 +186,8 @@ module rab_core
 
   logic                                           L1AllowMultiHit_S;
 
-  // Signals to control invalidation
-  logic                                           l1_invalidate_done;
+  logic                                           invalidate_done;
+  logic [N_SLICES_TOT-1:0]                        invalidate_slices;
   logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_min;
   logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_max;
   logic                                           invalidate_addr_valid;
@@ -204,8 +204,9 @@ module rab_core
 
   always_comb
     begin : PORT_SELECT
-      var integer idx;
+      var integer idx, idx_slice, idx_tot;
 
+      idx_tot = 0;
       for (idx=0; idx<N_PORTS; idx++) begin
 
         p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
@@ -249,16 +250,25 @@ module rab_core
         p1_max_addr[idx]  = p1_align_addr[idx] + p1_burst_size[idx] - 1;
         p2_max_addr[idx]  = p2_align_addr[idx] + p2_burst_size[idx] - 1;
 
+        invalidate_slices = 'b0;
+        invalidate_done = 'b0;
+
+        select[idx]       = 'b0;
+        int_rw[idx]       = 'b0;
+        int_id[idx]       = 'b0;
+        int_len[idx]      = 'b0;
+        int_user[idx]     = 'b0;
+        prefetch[idx]     = 'b0;
+
         if ( invalidate_addr_valid ) begin
           int_addr_min[idx] = invalidate_addr_min;
           int_addr_max[idx] = invalidate_addr_max;
 
-          select[idx]       = 'b0;
-          int_rw[idx]       = 'b0;
-          int_id[idx]       = 'b0;
-          int_len[idx]      = 'b0;
-          int_user[idx]     = 'b0;
-          prefetch[idx]     = 'b0;
+          // invalidation is completed in a single cycle
+          invalidate_done = 'b1;
+          for (idx_slice = 0; idx_slice<N_SLICES[idx_slice]; ++idx_slice, ++idx_tot) begin
+            invalidate_slices[idx_tot] = hit_slices[idx][idx_slice];
+          end
         end else begin
           // select = 1 -> port1 active
           // select = 0 -> port2 active
@@ -342,6 +352,7 @@ module rab_core
     #(
       .N_PORTS         ( N_PORTS             ),
       .N_REGS          ( N_REGS              ),
+      .N_SLICES_TOT    ( N_SLICES_TOT        ),
       .N_L2_SETS       ( N_L2_SETS           ),
       .N_L2_SET_ENTRIES( N_L2_SET_ENTRIES    ),
       .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH    ),
@@ -382,7 +393,8 @@ module rab_core
       .wdata_l2                ( wdata_l2_o                ),
       .waddr_l2                ( waddr_l2_o                ),
       .wren_l2                 ( wren_l2_o                 ),
-      .l1_invalidate_done_i    ( l1_invalidate_done        ),
+      .l1_invalidate_done_i    ( invalidate_done           ),
+      .l1_invalidate_slices_i  ( invalidate_slices         ),
       .invalidate_addr_min_o   ( invalidate_addr_min       ),
       .invalidate_addr_max_o   ( invalidate_addr_max       ),
       .invalidate_addr_valid_o ( invalidate_addr_valid     )
@@ -422,7 +434,7 @@ module rab_core
         .int_rw          ( int_rw[z]                                 ),
         .int_addr_min    ( int_addr_min[z]                           ),
         .int_addr_max    ( int_addr_max[z]                           ),
-        .invalidate      ( invalidate_addr_valid                     ),
+        .invalidate      ( invalidate_addr_valid                     ), // FIXME: currently unused but should enable weak matching
         .multi_hit_allow ( L1AllowMultiHit_S                         ),
         .multi_hit       ( multi_hit[z]                              ),
         .prot            ( prot_slices[z][N_SLICES[z]-1:0]           ),
