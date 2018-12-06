@@ -80,8 +80,8 @@ module axi_rab_cfg
 
     // Invalidation
     input logic                                     l1_invalidate_done_i,
-    output logic [AXI_DATA_WIDTH-1:0]               invalidate_addr_min_o,
-    output logic [AXI_DATA_WIDTH-1:0]               invalidate_addr_max_o,
+    output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_min_o,
+    output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_max_o,
     output logic                                    invalidate_addr_valid_o
   );
 
@@ -678,10 +678,15 @@ module axi_rab_cfg
   logic invalidate_in_progress_q, invalidate_in_progress_d;
   logic l1_invalidate_done_q, l1_invalidate_done_d;
   logic l2_invalidate_done_q, l2_invalidate_done_d;
-  logic invalidate_addr_min_q, invalidate_addr_min_d;
-  logic invalidate_addr_max_q, invalidate_addr_max_d;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_q;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_d;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_q;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_d;
 
   assign wresp_block = invalidate_in_progress_q; // FIXME: should this be set at the beginning
+  assign invalidate_addr_min_o = invalidate_addr_min_q;
+  assign invalidate_addr_max_o = invalidate_addr_max_q;
+  assign invalidate_addr_valid_o = invalidate_in_progress_q;
 
   // write start invalidate register
   always_comb

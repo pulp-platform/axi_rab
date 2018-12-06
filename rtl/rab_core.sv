@@ -188,8 +188,8 @@ module rab_core
 
   // Signals to control invalidation
   logic                                           l1_invalidate_done;
-  logic [AXI_DATA_WIDTH-1:0]                      invalidate_addr_min;
-  logic [AXI_DATA_WIDTH-1:0]                      invalidate_addr_max;
+  logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_min;
+  logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_max;
   logic                                           invalidate_addr_valid;
 
   genvar z;
