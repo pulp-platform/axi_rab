@@ -693,7 +693,7 @@ module axi_rab_cfg
   logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_q;
   logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_d;
 
-  assign wresp_block = invalidate_in_progress_q; // FIXME: should this be set at the beginning
+  assign wresp_block = invalidate_in_progress_q || invalidate_in_progress_d; // FIXME: should this be set at the beginning
   assign invalidate_addr_min_o = invalidate_addr_min_q;
   assign invalidate_addr_max_o = invalidate_addr_max_q;
   assign invalidate_addr_valid_o = invalidate_in_progress_q;
