@@ -312,16 +312,24 @@ module rab_core
         // Fix to zero. Synthesis will remove these signals.
         // int_cfg_regs_slices[idx_port][4*N_SLICES_MAX-1:4*N_SLICES[idx_port]] = 0;
       end
+    end
+
+  // set invalidate ready after invalidation slices are available
+  always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
+    if (Rst_RBI == 1'b0) begin
+        invalidate_ready_q <= 'b0;
+      end else begin
+        invalidate_ready_q <= invalidate_ready_d;
+      end
   end
 
+  // save port priority (only used if invalidation port is not set)
   always @(posedge Clk_CI or negedge Rst_RBI)
     begin : PORT_PRIORITY
       var integer idx;
       if (Rst_RBI == 1'b0) begin
         curr_priority <= 'h0;
-        invalidate_ready_q <= 0;
       end else begin
-        invalidate_ready_q <= invalidate_ready_d;
         for (idx=0; idx<N_PORTS; idx++) begin
           if (port1_accept[idx] || port1_drop[idx])
             curr_priority[idx] <= 1'b1;

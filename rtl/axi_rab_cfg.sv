@@ -535,7 +535,7 @@ module axi_rab_cfg
 
   logic                       wren_config;
 
-  assign FifosDisabled_S = ConfReg_DP[0];
+  assign FifosDisabled_S    = ConfReg_DP[0];
   assign L1AllowMultiHit_SO = ConfReg_DP[1];
 
   assign AddrFifoEmpty_S = ~AddrFifoEmpty_SB;
