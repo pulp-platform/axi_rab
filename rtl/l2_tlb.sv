@@ -70,12 +70,12 @@ module l2_tlb
    localparam VA_RAM_DATA_WIDTH = AXI_S_ADDR_WIDTH - IGNORE_LSB + 4;
    localparam PA_RAM_DATA_WIDTH = AXI_M_ADDR_WIDTH - IGNORE_LSB;
 
-   logic                            [AXI_S_ADDR_WIDTH-1:0] in_addr;
    logic                               [N_PAR_VA_RAMS-1:0] hit, prot, multi_hit, cache_coherent;
    logic                               [N_PAR_VA_RAMS-1:0] ram_we;
    logic                                                   last_search, last_search_next;
    logic                                                   first_search, first_search_next;
    logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] ram_waddr;
+   logic                           [VA_RAM_DATA_WIDTH-1:0] ram_wdata;
    logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
    logic                                                   pa_ram_we;
    logic                           [PA_RAM_ADDR_WIDTH-1:0] pa_port0_raddr, pa_port0_waddr; // PA RAM read, Write addr;
@@ -92,7 +92,8 @@ module l2_tlb
    logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr; // VA RAM port1 addr
    logic                                [OFFSET_WIDTH-1:0] offset_addr, offset_addr_d;
    logic                                [OFFSET_WIDTH-1:0] offset_start_addr, offset_end_addr;
-   logic                                   [SET_WIDTH-1:0] set_num;
+   logic                                   [SET_WIDTH-1:0] set_num_q, set_num_d;
+   logic                                   [SET_WIDTH-1:0] min_set_num, max_set_num;
 
    logic                                                   va_output_valid;
    logic                                                   searching_q;
@@ -137,7 +138,7 @@ module l2_tlb
               .ram_we        ( ram_we[z]                      ),
               .port0_addr    ( port0_addr                     ),
               .port1_addr    ( port1_addr                     ),
-              .ram_wdata     ( wdata_i[VA_RAM_DATA_WIDTH-1:0] ),
+              .ram_wdata     ( ram_wdata                      ),
               .output_sent   ( output_sent                    ),
               .output_valid  ( va_output_valid                ),
               .offset_addr_d ( offset_addr_d                  ),
@@ -168,10 +169,13 @@ module l2_tlb
       last_search_next  = 1'b0;
       first_search_next = first_search;
 
+      set_num_d         = set_num_q;
+
       unique case (search_SP)
         IDLE : begin
           if (start_i) begin
             search_SN         = SEARCH;
+            set_num_d         = min_set_num;
             first_search_next = 1'b1;
           end
         end
@@ -181,23 +185,27 @@ module l2_tlb
 
           // detect last search cycle
           if ( (first_search == 1'b0) && (offset_addr == offset_end_addr) )
-             last_search_next  = 1'b1;
+            last_search_next  = 1'b1;
 
           // pause search during VA RAM reconfigration
           if (|ram_we) begin
-             searching         = 1'b0;
+            searching         = 1'b0;
           end else begin
-             searching         = 1'b1;
-             first_search_next = 1'b0;
+            searching         = 1'b1;
+            first_search_next = 1'b0;
           end
 
           if (va_output_valid) begin
-            // stop search
+            if (last_search && set_num_q != max_set_num) begin
+              // search next set
+              set_num_d         = set_num_q + 1;
+              first_search_next = 1'b1;
 `ifdef MULTI_HIT_FULL_SET
-            if (last_search | (!invalidate_i & (prot_top | multi_hit_top))) begin
+            end else if (last_search | (!invalidate_i & (prot_top | multi_hit_top))) begin
 `else
-            if (last_search | (!invalidate_i & (prot_top | multi_hit_top | hit_top))) begin
+            end else if (last_search | (!invalidate_i & (prot_top | multi_hit_top | hit_top))) begin
 `endif
+              // finish search
               search_SN      = DONE;
               search_done    = 1'b1;
             end
@@ -233,8 +241,8 @@ module l2_tlb
     * cycle after the start signal. The buffered offset_addr becomes available one cycle later.
     * During the first search cycle, we therefore directly use offset_addr_start for the lookup.
     */
-   assign in_addr = in_addr_min_i;
-   assign set_num = in_addr[SET_WIDTH+IGNORE_LSB -1 : IGNORE_LSB];
+   assign min_set_num = in_addr_min_i[SET_WIDTH+IGNORE_LSB-1 : IGNORE_LSB];
+   assign max_set_num = in_addr_max_i[SET_WIDTH+IGNORE_LSB-1 : IGNORE_LSB];
 
    assign port0_raddr[OFFSET_WIDTH] = 1'b0;
    assign port1_addr [OFFSET_WIDTH] = 1'b1;
@@ -242,10 +250,19 @@ module l2_tlb
    assign port0_raddr[OFFSET_WIDTH-1:0] = first_search ? offset_start_addr : offset_addr;
    assign port1_addr [OFFSET_WIDTH-1:0] = first_search ? offset_start_addr : offset_addr;
 
-   assign port0_raddr[SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num;
-   assign port1_addr [SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num;
+   assign port0_raddr[SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num_q;
+   assign port1_addr [SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num_q;
 
    assign port0_addr = ram_we ? ram_waddr : port0_raddr;
+
+   // Store the set num to loop over it while invalidating
+   always_ff @(posedge clk_i) begin
+      if (rst_ni == 0) begin
+         set_num_q <= 1'b0;
+      end else begin
+         set_num_q <= set_num_d;
+      end
+   end
 
    // The outputs of the BRAMs are only valid if in the previous cycle:
    // 1. the inputs were valid, and
@@ -287,17 +304,20 @@ module l2_tlb
       if (HIT_OFFSET_STORE_WIDTH > 0) begin : OFFSET_STORE
 `ifndef MULTI_HIT_FULL_SET
          logic [N_SETS-1:0][HIT_OFFSET_STORE_WIDTH-1:0] hit_offset_addr; // Contains offset addr for previous hit for every SET.
+         logic [SET_WIDTH-1:0]                          set_num_reg;
          logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]           hit_addr_reg;
 
-         assign offset_start_addr = { hit_offset_addr[set_num] , {{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH}{1'b0}} };
-         assign offset_end_addr   =   hit_offset_addr[set_num]-1'b1;
+         assign offset_start_addr = { hit_offset_addr[set_num_q] , {{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH}{1'b0}} };
+         assign offset_end_addr   =   hit_offset_addr[set_num_q]-1'b1;
 
          // Register the hit addr
          always_ff @(posedge clk_i) begin
             if (rst_ni == 0) begin
                hit_addr_reg <= 0;
+               set_num_reg  <= 0;
             end else if (hit_top) begin
                hit_addr_reg <= hit_addr[hit_block_num];
+               set_num_reg  <= set_num_q;
             end
          end
 
@@ -306,7 +326,7 @@ module l2_tlb
             if (rst_ni == 0) begin
                hit_offset_addr <= 0;
             end else if (hit_o) begin
-               hit_offset_addr[set_num][HIT_OFFSET_STORE_WIDTH-1:0] <= hit_addr_reg[OFFSET_WIDTH-1 : (OFFSET_WIDTH - HIT_OFFSET_STORE_WIDTH)];
+               hit_offset_addr[set_num_reg][HIT_OFFSET_STORE_WIDTH-1:0] <= hit_addr_reg[OFFSET_WIDTH-1 : (OFFSET_WIDTH - HIT_OFFSET_STORE_WIDTH)];
             end
          end
 `else // No need to store offset if full multi hit detection is enabled because the entire SET is searched.
@@ -492,29 +512,53 @@ module l2_tlb
 
    assign pa_data = pa_ram_store_data_SP ? pa_port0_data : pa_port0_data_reg;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-///// Write enable for all block rams
-generate if (LL_WIDTH != 0) begin
-   always_comb begin
-      var reg[LL_WIDTH:0] para;
-      var int             para_int;
-      for (para = 0; para < N_PAR_VA_RAMS; para=para+1'b1) begin
-        para_int         = int'(para);
-        ram_we[para_int] = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr_i[LL_WIDTH-1:0] == para);
-      end
+   // Write enable for all block rams
+   generate if (LL_WIDTH != 0) begin
+     always_comb begin
+       var reg[LL_WIDTH:0] para;
+       var int             para_int;
+       for (para = 0; para < N_PAR_VA_RAMS; para=para+1'b1) begin
+         para_int         = int'(para);
+         if (we_i) begin
+           ram_we[para_int] = (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr_i[LL_WIDTH-1:0] == para);
+         end else if(invalidate_i) begin
+           ram_we[para_int] = hit[para_int];
+         end else begin
+           ram_we[para_int] = 'b0;
+         end
+       end
+     end
+   end else begin
+     always_comb begin
+       if (we_i) begin
+         ram_we[0] = (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
+       end else if(invalidate_i) begin
+         ram_we[0] = hit[0];
+       end else begin
+         ram_we[0] = 'b0;
+       end
+     end
    end
-end else begin
-   assign ram_we[0] = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
-end
+   endgenerate
 
-endgenerate
+   // Write data for all block rams
+   always_comb begin
+     if (we_i) begin
+       ram_wdata = wdata_i[VA_RAM_DATA_WIDTH-1:0];
+       ram_waddr = waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
+     end else begin
+       ram_wdata = 'b0;
+       ram_waddr = port0_raddr-1; // invalidate the previous address
+     end
+   end
 
-// Addresses are word, not byte addresses
-assign pa_ram_we      = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1); //waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
-assign ram_waddr      = waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
-assign pa_port0_waddr = waddr_i[PA_RAM_ADDR_WIDTH-1:0];
-assign pa_port0_addr  = pa_ram_we ? pa_port0_waddr : pa_port0_raddr;
+   // Addresses are word, not byte addresses
+   // waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] will be 0 for all VA writes and 1 for all PA writes
+   assign pa_ram_we      = we_i && (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b1);
+   assign pa_port0_waddr = waddr_i[PA_RAM_ADDR_WIDTH-1:0];
+   assign pa_port0_addr  = pa_ram_we ? pa_port0_waddr : pa_port0_raddr;
 
 endmodule
 
