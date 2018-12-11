@@ -45,6 +45,7 @@ module l2_tlb
     output logic                           busy_o,
     input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
     input  logic                           rw_type_i, //1 => write, 0=> read
+    input  logic                           invalidate_i,
 
     input  logic                           out_ready_i,
     output logic                           out_valid_o,
@@ -189,9 +190,9 @@ module l2_tlb
           if (va_output_valid) begin
             // stop search
 `ifdef MULTI_HIT_FULL_SET
-            if (last_search | prot_top | multi_hit_top) begin
+            if (last_search | (!invalidate_i & (prot_top | multi_hit_top))) begin
 `else
-            if (last_search | prot_top | multi_hit_top | hit_top ) begin
+            if (last_search | (!invalidate_i & (prot_top | multi_hit_top | hit_top))) begin
 `endif
               search_SN      = DONE;
               search_done    = 1'b1;
@@ -375,39 +376,40 @@ module l2_tlb
            multi_next          = 1'b0;
            cache_coherent_next = 1'b0;
 
-          // abort transaction
-          if         ((search_done & ~hit_top) | prot_top | multi_hit_top) begin
-             out_SN = SEND_OUTPUT;
+          // wait for search completed in input FSM
+          if (search_done) begin
+            // abort transaction
+            if (~hit_top | prot_top | multi_hit_top) begin
+              out_SN = SEND_OUTPUT;
 
-             if (search_done & ~hit_top) begin
+              if (~hit_top) begin
                 miss_next  = 1'b1;
-             end
-             if (prot_top) begin
+              end
+              if (prot_top) begin
                 prot_next  = 1'b1;
                 hit_next   = 1'b1;
-             end
-             if (multi_hit_top) begin
+              end
+              if (multi_hit_top) begin
                 multi_next = 1'b1;
                 hit_next   = 1'b1;
-             end
+              end
+            // read PA RAM
+            end else begin
+              hit_next              = 1'b1;
+              cache_coherent_next   = cache_coherent[hit_block_num];
+              pa_port0_raddr        = (N_PAR_VA_RAMS * hit_addr[hit_block_num]) + hit_block_num;
+              pa_port0_raddr_reg_SN = pa_port0_raddr;
 
-          // read PA RAM
-          end else if (search_done & hit_top) begin
-             hit_next              = 1'b1;
-             cache_coherent_next   = cache_coherent[hit_block_num];
-             pa_port0_raddr        = (N_PAR_VA_RAMS * hit_addr[hit_block_num]) + hit_block_num;
-             pa_port0_raddr_reg_SN = pa_port0_raddr;
-
-             // read PA RAM now
-             if (~pa_ram_we) begin
+              // read PA RAM now
+              if (~pa_ram_we) begin
                 out_SN               = SEND_OUTPUT;
                 pa_ram_store_data_SN = 1'b1;
-
-             // read PA RAM after PA RAM reconfiguration
-             end else begin // pa_ram_we
+              // read PA RAM after PA RAM reconfiguration
+              end else begin // pa_ram_we
                 out_SN               = WAIT_ON_WRITE;
 
-             end
+              end
+            end
           end
         end
 
