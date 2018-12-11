@@ -45,11 +45,14 @@ module fsm
     output logic                        multi_o,
     output logic                        prot_o,
     output logic                        prefetch_o,
-    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
+    output logic                        invalidate_o,
+    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_min_i,
+    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_max_i,
     input  logic     [AXI_ID_WIDTH-1:0] in_id_i,
     input  logic                  [7:0] in_len_i,
     input  logic   [AXI_USER_WIDTH-1:0] in_user_i,
-    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_o,
+    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_min_o,
+    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_max_o,
     output logic     [AXI_ID_WIDTH-1:0] in_id_o,
     output logic                  [7:0] in_len_o,
     output logic   [AXI_USER_WIDTH-1:0] in_user_o
@@ -163,9 +166,11 @@ module fsm
       multi_o          = 1'b0;
       prot_o           = 1'b0;
       prefetch_o       = 1'b0;
+      invalidate_o     = 1'b0;
       cache_coherent_o = 1'b0;
       out_addr_o       =   '0;
-      in_addr_o        =   '0;
+      in_addr_min_o    =   '0;
+      in_addr_max_o    =   '0;
       in_id_o          =   '0;
       in_len_o         =   '0;
       in_user_o        =   '0;
@@ -182,7 +187,9 @@ module fsm
       prefetch_o       = prefetch_SN;
       cache_coherent_o = cache_coherent_SN;
       out_addr_o       = out_addr_DN;
-      in_addr_o        = in_addr_i;
+      invalidate_o     = invalidate_i;
+      in_addr_min_o    = in_addr_min_i;
+      in_addr_max_o    = in_addr_max_i;
       in_id_o          = in_id_i;
       in_len_o         = in_len_i;
       in_user_o        = in_user_i;

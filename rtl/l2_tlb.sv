@@ -43,7 +43,8 @@ module l2_tlb
 
     input  logic                           start_i,
     output logic                           busy_o,
-    input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
+    input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr_min_i,
+    input  logic    [AXI_S_ADDR_WIDTH-1:0] in_addr_max_i, // required not to cross any page boundary unless invalidate mode is on
     input  logic                           rw_type_i, //1 => write, 0=> read
     input  logic                           invalidate_i,
 
@@ -69,6 +70,7 @@ module l2_tlb
    localparam VA_RAM_DATA_WIDTH = AXI_S_ADDR_WIDTH - IGNORE_LSB + 4;
    localparam PA_RAM_DATA_WIDTH = AXI_M_ADDR_WIDTH - IGNORE_LSB;
 
+   logic                            [AXI_S_ADDR_WIDTH-1:0] in_addr;
    logic                               [N_PAR_VA_RAMS-1:0] hit, prot, multi_hit, cache_coherent;
    logic                               [N_PAR_VA_RAMS-1:0] ram_we;
    logic                                                   last_search, last_search_next;
@@ -128,7 +130,7 @@ module l2_tlb
              (
               .clk_i         ( clk_i                          ),
               .rst_ni        ( rst_ni                         ),
-              .in_addr       ( in_addr_i                      ),
+              .in_addr       ( in_addr                        ),
               .rw_type       ( rw_type_i                      ),
               .ram_we        ( ram_we[z]                      ),
               .port0_addr    ( port0_addr                     ),
@@ -229,7 +231,8 @@ module l2_tlb
     * cycle after the start signal. The buffered offset_addr becomes available one cycle later.
     * During the first search cycle, we therefore directly use offset_addr_start for the lookup.
     */
-   assign set_num = in_addr_i[SET_WIDTH+IGNORE_LSB -1 : IGNORE_LSB];
+   assign in_addr = in_addr_min_i;
+   assign set_num = in_addr[SET_WIDTH+IGNORE_LSB -1 : IGNORE_LSB];
 
    assign port0_raddr[OFFSET_WIDTH] = 1'b0;
    assign port1_addr [OFFSET_WIDTH] = 1'b1;
@@ -474,7 +477,7 @@ module l2_tlb
       .d1_o  (                                )
     );
 
-   assign out_addr_o[IGNORE_LSB-1:0]                = in_addr_i[IGNORE_LSB-1:0];
+   assign out_addr_o[IGNORE_LSB-1:0]                = in_addr[IGNORE_LSB-1:0];
    assign out_addr_o[AXI_M_ADDR_WIDTH-1:IGNORE_LSB] = pa_data;
 
    always_ff @(posedge clk_i) begin
