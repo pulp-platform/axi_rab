@@ -60,9 +60,9 @@ module fsm
 
   //-------------Internal Signals----------------------
 
-  typedef enum logic           {IDLE, WAIT} state_t;
-  logic                        state_SP; // Present state
-  logic                        state_SN; // Next State
+  typedef enum logic     [1:0] {IDLE, WAIT_SENT, WAIT_INVALIDATE} state_t;
+  state_t                      state_SP; // Present state
+  state_t                      state_SN; // Next State
 
   logic                        port1_accept_SN;
   logic                        port1_drop_SN;
@@ -100,10 +100,14 @@ module fsm
     out_reg_en_S      = 1'b0; // by default hold register output
 
     unique case(state_SP)
-        IDLE :
-          if ( ~invalidate_i & ((port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i)) ) begin
+        IDLE : begin
+          if ( invalidate_i ) begin
+            // Stall during invalidation, forwarding the invalidation flag
             out_reg_en_S = 1'b1;
-            state_SN     = WAIT;
+            state_SN     = WAIT_INVALIDATE;
+          end else if ( (port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i) ) begin
+            out_reg_en_S = 1'b1;
+            state_SN     = WAIT_SENT;
 
             // Select inputs for output registers
             if (port1_addr_valid_i & select_i) begin
@@ -130,12 +134,21 @@ module fsm
             cache_coherent_SN = cache_coherent_i;
             out_addr_DN       = out_addr_i;
           end
+        end
 
-        WAIT :
+        WAIT_SENT : begin
           if ( port1_sent_i | port2_sent_i ) begin
             out_reg_en_S = 1'b1; // "clear" the register
             state_SN     = IDLE;
           end
+        end
+
+        WAIT_INVALIDATE : begin
+          if ( ~invalidate_i ) begin
+            out_reg_en_S = 1'b1; // clear invalidation
+            state_SN     = IDLE;
+          end
+        end
 
         default : begin
            state_SN      = IDLE;

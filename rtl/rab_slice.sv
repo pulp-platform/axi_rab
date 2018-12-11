@@ -23,7 +23,7 @@ module rab_slice
     input  logic                       in_trans_type,
     input  logic [ADDR_WIDTH_VIRT-1:0] in_addr_min,
     input  logic [ADDR_WIDTH_VIRT-1:0] in_addr_max,
-    input  logic                       in_partial_match,
+    input  logic                       in_partial_match, // with partial matches the out_addr is not reliable
     output logic                       out_hit,
     output logic                       out_prot,
     output logic [ADDR_WIDTH_PHYS-1:0] out_addr

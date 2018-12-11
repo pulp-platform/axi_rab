@@ -497,6 +497,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] L2OutId_DP;
   logic [N_PORTS-1:0]                     [7:0] L2OutLen_DP;
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] L2OutInAddr_DP;
+  logic [N_PORTS-1:0]                           L2OutInvalidate_DP;
 
   logic [N_PORTS-1:0]                           L2OutHit_SN, L2OutHit_SP;
   logic [N_PORTS-1:0]                           L2OutMiss_SN, L2OutMiss_SP;
@@ -598,6 +599,10 @@ module axi_rab_top
 
   logic [N_PORTS-1:0]                           aw_in_stall;
   logic [N_PORTS-1:0]                           aw_out_stall;
+
+  // Signals to store state of L2 invalidation
+  logic [N_PORTS-1:0]                           l2_invalidate_done;
+  logic [N_PORTS-1:0]                           l2_invalidate_in_progress_q, l2_invalidate_in_progress_d;
 
   genvar                                        i;
 
@@ -1616,7 +1621,10 @@ module axi_rab_top
       // L2 config outputs
       .wdata_l2_o           ( L2CfgWData_D               ),
       .waddr_l2_o           ( L2CfgWAddr_D               ),
-      .wren_l2_o            ( L2CfgWE_S                  )
+      .wren_l2_o            ( L2CfgWE_S                  ),
+
+      // L2 invalidation done
+      .invalidate_l2_done_i ( l2_invalidate_done         )
     );
 
   // }}}
@@ -2093,7 +2101,15 @@ module axi_rab_top
         L1DropEn_S[i]       = 1'b0;
         L2InEn_S[i]         = 1'b0;
 
-        if ( rab_prot[i] | rab_multi[i] | rab_prefetch[i] ) begin
+        l2_invalidate_in_progress_d[i] = l2_invalidate_in_progress_q[i] & rab_invalidate[i];
+
+        if ( rab_invalidate[i] ) begin
+          // 0. Forward invalidation to the L2 (if not done yet) without dropping any L1 request
+          L2InEn_S[i]                    = ~L2Busy_S[i] & ~l2_invalidate_in_progress_q[i];
+          if (L2InEn_S[i] == 1'b1) begin
+            l2_invalidate_in_progress_d[i] = 1'b1;
+          end
+        end else if ( rab_prot[i] | rab_multi[i] | rab_prefetch[i] ) begin
           // 1. Drop
           l1_ar_drop[i] = int_rtrans_drop[i] & ~L1DropValid_SP[i];
           l1_xw_drop[i] = int_wtrans_drop[i] & ~L1DropValid_SP[i];
@@ -2101,7 +2117,6 @@ module axi_rab_top
           // Store to L1_DROP_BUF upon handshake
           L1DropEn_S[i] = (l1_ar_drop[i] & l1_ar_done[i]) |
                           (l1_xw_drop[i] & l1_xw_done[i]);
-
         end else if ( rab_miss[i] ) begin
           // 2. Save - Make sure L2 is really available.
           l1_ar_save[i] = int_rtrans_drop[i] & ~L2Busy_S[i];
@@ -2125,28 +2140,30 @@ module axi_rab_top
        */
       always_comb begin : L2_ACCEPT_DROP_SAVE
 
-        l2_ar_addr[i]       =  'b0;
-        l2_aw_addr[i]       =  'b0;
-        l2_ar_accept[i]     = 1'b0;
-        l2_xr_drop[i]       = 1'b0;
-        l2_xw_accept[i]     = 1'b0;
-        l2_xw_drop[i]       = 1'b0;
+        l2_ar_addr[i]         =  'b0;
+        l2_aw_addr[i]         =  'b0;
+        l2_ar_accept[i]       = 1'b0;
+        l2_xr_drop[i]         = 1'b0;
+        l2_xw_accept[i]       = 1'b0;
+        l2_xw_drop[i]         = 1'b0;
 
-        l1_r_drop[i]        = 1'b0;
+        l1_r_drop[i]          = 1'b0;
 
-        lx_id_drop[i]       =  'b0;
-        lx_len_drop[i]      =  'b0;
-        lx_prefetch_drop[i] = 1'b0;
-        lx_hit_drop[i]      = 1'b0;
+        lx_id_drop[i]         =  'b0;
+        lx_len_drop[i]        =  'b0;
+        lx_prefetch_drop[i]   = 1'b0;
+        lx_hit_drop[i]        = 1'b0;
 
-        L1DropValid_SN[i]   = L1DropValid_SP[i] | L1DropEn_S[i];
-        L2OutValid_SN[i]    = L2OutValid_SP[i];
-        L2OutReady_S[i]     = 1'b0;
-        L2OutEn_S[i]        = 1'b0;
+        L1DropValid_SN[i]     = L1DropValid_SP[i] | L1DropEn_S[i];
+        L2OutValid_SN[i]      = L2OutValid_SP[i];
+        L2OutReady_S[i]       = 1'b0;
+        L2OutEn_S[i]          = 1'b0;
 
-        L2Miss_S[i]         = 1'b0;
-        int_multi[i]        = 1'b0;
-        int_prot[i]         = 1'b0;
+        L2Miss_S[i]           = 1'b0;
+        int_multi[i]          = 1'b0;
+        int_prot[i]           = 1'b0;
+
+        l2_invalidate_done[i] = 1'b0;
 
         if (L2OutValid_SP[i] == 1'b0) begin
 
@@ -2180,37 +2197,43 @@ module axi_rab_top
 
         end else begin // L2_OUT_BUF has valid data
 
-          if ( L2OutHit_SP[i] & ~(L2OutPrefetch_S[i] | L2OutProt_SP[i] | L2OutMulti_SP[i]) ) begin
-
-            l2_ar_addr[i]       = L2OutAddr_DP[i];
-            l2_aw_addr[i]       = L2OutAddr_DP[i];
-
-            l2_ar_accept[i]     = L2OutRwType_DP[i] ? 1'b0 : 1'b1;
-            l2_xw_accept[i]     = L2OutRwType_DP[i] ? 1'b1 : 1'b0;
-
-            // Invalidate L2_OUT_BUF upon handshake
-            L2OutValid_SN[i] = ~( (l2_ar_accept[i] & l2_ar_done[i]) |
-                                  (l2_xw_accept[i] & l2_xw_done[i]) );
+          if ( L2OutInvalidate_DP[i] ) begin
+            // If invalidation raise the invalidation_done flag, and ignore rest of request
+            l2_invalidate_done[i] = 1'b1; // will be saved by config block in next cycle
+            L2OutValid_SN[i]      = 1'b0;
           end else begin
+            if ( L2OutHit_SP[i] & ~(L2OutPrefetch_S[i] | L2OutProt_SP[i] | L2OutMulti_SP[i]) ) begin
+              // If a hit is found set accept flag
+              l2_ar_addr[i]       = L2OutAddr_DP[i];
+              l2_aw_addr[i]       = L2OutAddr_DP[i];
 
-            lx_id_drop[i]       = L2OutId_DP[i];
-            lx_len_drop[i]      = L2OutLen_DP[i];
-            lx_prefetch_drop[i] = L2OutPrefetch_S[i];
-            lx_hit_drop[i]      = L2OutHit_SP[i];
+              l2_ar_accept[i]     = L2OutRwType_DP[i] ? 1'b0 : 1'b1;
+              l2_xw_accept[i]     = L2OutRwType_DP[i] ? 1'b1 : 1'b0;
 
-            // The l2_xr_drop will also perform the handshake with the R sender
-            l2_xr_drop[i]       = L2OutRwType_DP[i] ? 1'b0 : 1'b1;
-            l2_xw_drop[i]       = L2OutRwType_DP[i] ? 1'b1 : 1'b0;
+              // Invalidate L2_OUT_BUF upon handshake
+              L2OutValid_SN[i]    = ~((l2_ar_accept[i] & l2_ar_done[i]) |
+                                      (l2_xw_accept[i] & l2_xw_done[i]));
+            end else begin
+              // In case of no hit or an error set drop flag
+              lx_id_drop[i]       = L2OutId_DP[i];
+              lx_len_drop[i]      = L2OutLen_DP[i];
+              lx_prefetch_drop[i] = L2OutPrefetch_S[i];
+              lx_hit_drop[i]      = L2OutHit_SP[i];
 
-            // Invalidate L1_DROP_BUF upon handshake
-            if ( (l2_xr_drop[i] & l2_xr_done[i]) | (l2_xw_drop[i] & l2_xw_done[i]) ) begin
+              // The l2_xr_drop will also perform the handshake with the R sender
+              l2_xr_drop[i]       = L2OutRwType_DP[i] ? 1'b0 : 1'b1;
+              l2_xw_drop[i]       = L2OutRwType_DP[i] ? 1'b1 : 1'b0;
 
-              L2OutValid_SN[i]  = 1'b0;
-              L2Miss_S[i]       = ~L2OutHit_SP[i];
-              int_prot[i]       = L2OutProt_SP[i];
-              int_multi[i]      = L2OutMulti_SP[i];
-            end
-          end
+              // Invalidate L1_DROP_BUF upon handshake
+              if ( (l2_xr_drop[i] & l2_xr_done[i]) | (l2_xw_drop[i] & l2_xw_done[i]) ) begin
+
+                L2OutValid_SN[i]  = 1'b0;
+                L2Miss_S[i]       = ~L2OutHit_SP[i];
+                int_prot[i]       = L2OutProt_SP[i];
+                int_multi[i]      = L2OutMulti_SP[i];
+              end
+            end // else: !if( L2OutHit_SP[i] & ~(L2OutPrefetch_S[i] | L2OutProt_SP[i] | L2OutMulti_SP[i]) )
+          end // else: !if( L2OutInvalidate_DP )
         end
 
         // Only accept new L2 output after ongoing drops have finished.
@@ -2272,9 +2295,22 @@ module axi_rab_top
             L2InLen_DP[i]        <= L1OutLen_D[i];
             L2InMinAddr_DP[i]    <= L1OutMinAddr_D[i];
             L2InMaxAddr_DP[i]    <= L1OutMaxAddr_D[i];
-            L2InInvalidate_DP[i] <=  'b0; // rab_invalidate;
+            L2InInvalidate_DP[i] <= rab_invalidate[i];
          end
       end // always_ff @ (posedge Clk_CI)
+
+      /*
+       * L2 invalidation logic
+       *
+       * Make sure every invalidation request is passed to the L2 only a single time
+       */
+      always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
+         if (Rst_RBI == 0) begin
+            l2_invalidate_in_progress_q[i] = 'b0;
+         end else begin
+            l2_invalidate_in_progress_q[i] = l2_invalidate_in_progress_d[i];
+         end
+      end
 
       l2_tlb
         #(
@@ -2323,31 +2359,33 @@ module axi_rab_top
        */
       always_ff @(posedge Clk_CI) begin : L2_OUT_BUF
          if (Rst_RBI == 0) begin
-            L2OutRwType_DP[i] <= 1'b0;
-            L2OutUser_DP[i]   <=  'b0;
-            L2OutLen_DP[i]    <=  'b0;
-            L2OutId_DP[i]     <=  'b0;
-            L2OutInAddr_DP[i] <=  'b0;
+            L2OutRwType_DP[i]     <= 1'b0;
+            L2OutUser_DP[i]       <=  'b0;
+            L2OutLen_DP[i]        <=  'b0;
+            L2OutId_DP[i]         <=  'b0;
+            L2OutInAddr_DP[i]     <=  'b0;
+            L2OutInvalidate_DP[i] <=  'b0;
 
-            L2OutHit_SP[i]    <= 1'b0;
-            L2OutMiss_SP[i]   <= 1'b0;
-            L2OutProt_SP[i]   <= 1'b0;
-            L2OutMulti_SP[i]  <= 1'b0;
-            L2OutCC_SP[i]     <= 1'b0;
-            L2OutAddr_DP[i]   <=  'b0;
+            L2OutHit_SP[i]        <= 1'b0;
+            L2OutMiss_SP[i]       <= 1'b0;
+            L2OutProt_SP[i]       <= 1'b0;
+            L2OutMulti_SP[i]      <= 1'b0;
+            L2OutCC_SP[i]         <= 1'b0;
+            L2OutAddr_DP[i]       <=  'b0;
          end else if (L2OutEn_S[i] == 1'b1) begin
-            L2OutRwType_DP[i] <= L2InRwType_DP[i];
-            L2OutUser_DP[i]   <= L2InUser_DP[i];
-            L2OutLen_DP[i]    <= L2InLen_DP[i];
-            L2OutId_DP[i]     <= L2InId_DP[i];
-            L2OutInAddr_DP[i] <= L2InMinAddr_DP[i];
+            L2OutRwType_DP[i]     <= L2InRwType_DP[i];
+            L2OutUser_DP[i]       <= L2InUser_DP[i];
+            L2OutLen_DP[i]        <= L2InLen_DP[i];
+            L2OutId_DP[i]         <= L2InId_DP[i];
+            L2OutInAddr_DP[i]     <= L2InMinAddr_DP[i];
+            L2OutInvalidate_DP[i] <= L2InInvalidate_DP[i];
 
-            L2OutHit_SP[i]    <= L2OutHit_SN[i];
-            L2OutMiss_SP[i]   <= L2OutMiss_SN[i];
-            L2OutProt_SP[i]   <= L2OutProt_SN[i];
-            L2OutMulti_SP[i]  <= L2OutMulti_SN[i];
-            L2OutCC_SP[i]     <= L2OutCC_SN[i];
-            L2OutAddr_DP[i]   <= L2OutAddr_DN[i];
+            L2OutHit_SP[i]        <= L2OutHit_SN[i];
+            L2OutMiss_SP[i]       <= L2OutMiss_SN[i];
+            L2OutProt_SP[i]       <= L2OutProt_SN[i];
+            L2OutMulti_SP[i]      <= L2OutMulti_SN[i];
+            L2OutCC_SP[i]         <= L2OutCC_SN[i];
+            L2OutAddr_DP[i]       <= L2OutAddr_DN[i];
          end
       end // always_ff @ (posedge Clk_CI)
 
@@ -2380,99 +2418,104 @@ module axi_rab_top
 
     end else begin : L2_TLB_STUB // if (ENABLE_L2TLB[i] == 1)
 
-      assign l1_ar_drop[i]        = int_rtrans_drop[i];
-      assign l1_r_drop[i]         = int_rtrans_drop[i];
-      assign l1_xw_drop[i]        = int_wtrans_drop[i];
+      assign l1_ar_drop[i]                  = int_rtrans_drop[i];
+      assign l1_r_drop[i]                   = int_rtrans_drop[i];
+      assign l1_xw_drop[i]                  = int_wtrans_drop[i];
 
-      assign l1_ar_save[i]        = 1'b0;
-      assign l1_xw_save[i]        = 1'b0;
-      assign l2_xw_accept[i]      = 1'b0;
-      assign l2_xr_drop[i]        = 1'b0;
-      assign l2_xw_drop[i]        = 1'b0;
+      assign l1_ar_save[i]                  = 1'b0;
+      assign l1_xw_save[i]                  = 1'b0;
+      assign l2_xw_accept[i]                = 1'b0;
+      assign l2_xr_drop[i]                  = 1'b0;
+      assign l2_xw_drop[i]                  = 1'b0;
 
-      assign l2_ar_addr[i]        =  'b0;
-      assign l2_aw_addr[i]        =  'b0;
+      assign l2_ar_addr[i]                  =  'b0;
+      assign l2_aw_addr[i]                  =  'b0;
 
-      assign l1_id_drop[i]        = int_wtrans_drop[i] ? int_awid[i] :
-                                    int_rtrans_drop[i] ? int_arid[i] :
-                                    '0;
-      assign l1_len_drop[i]       = int_wtrans_drop[i] ? int_awlen[i] :
-                                    int_rtrans_drop[i] ? int_arlen[i] :
-                                    '0;
-      assign l1_prefetch_drop[i]  = rab_prefetch[i];
-      assign l1_hit_drop[i]       = ~rab_miss[i];
+      assign l1_id_drop[i]                  = int_wtrans_drop[i] ? int_awid[i] :
+                                              int_rtrans_drop[i] ? int_arid[i] :
+                                                '0;
+      assign l1_len_drop[i]                 = int_wtrans_drop[i] ? int_awlen[i] :
+                                              int_rtrans_drop[i] ? int_arlen[i] :
+                                                '0;
+      assign l1_prefetch_drop[i]            = rab_prefetch[i];
+      assign l1_hit_drop[i]                 = ~rab_miss[i];
 
-      assign lx_id_drop[i]        = int_wtrans_drop[i] ? int_awid[i] :
-                                    int_rtrans_drop[i] ? int_arid[i] :
-                                    '0;
-      assign lx_len_drop[i]       = int_wtrans_drop[i] ? int_awlen[i] :
-                                    int_rtrans_drop[i] ? int_arlen[i] :
-                                    '0;
-      assign lx_prefetch_drop[i]  = rab_prefetch[i];
-      assign lx_hit_drop[i]       = ~rab_miss[i];
+      assign lx_id_drop[i]                  = int_wtrans_drop[i] ? int_awid[i] :
+                                              int_rtrans_drop[i] ? int_arid[i] :
+                                              '0;
+      assign lx_len_drop[i]                 = int_wtrans_drop[i] ? int_awlen[i] :
+                                              int_rtrans_drop[i] ? int_arlen[i] :
+                                              '0;
+      assign lx_prefetch_drop[i]            = rab_prefetch[i];
+      assign lx_hit_drop[i]                 = ~rab_miss[i];
 
-      assign l2_cache_coherent[i] = 1'b0;
+      assign l2_cache_coherent[i]           = 1'b0;
 
-      assign int_miss[i]          = rab_miss[i];
-      assign int_prot[i]          = rab_prot[i];
-      assign int_multi[i]         = rab_multi[i];
+      assign int_miss[i]                    = rab_miss[i];
+      assign int_prot[i]                    = rab_prot[i];
+      assign int_multi[i]                   = rab_multi[i];
+
+      assign l2_invalidate_in_progress_d[i] = 1'b0;
+      assign l2_invalidate_in_progress_q[i] = 1'b0;
+      assign l2_invalidate_done[i]          = rab_invalidate[i];
 
       // unused signals
-      assign L2Miss_S[i]          = 1'b0;
+      assign L2Miss_S[i]                    = 1'b0;
 
-      assign L1OutRwType_D[i]     = 1'b0;
-      assign L1OutProt_D[i]       = 1'b0;
-      assign L1OutMulti_D[i]      = 1'b0;
+      assign L1OutRwType_D[i]               = 1'b0;
+      assign L1OutProt_D[i]                 = 1'b0;
+      assign L1OutMulti_D[i]                = 1'b0;
 
-      assign L1DropRwType_DP[i]   = 1'b0;
-      assign L1DropUser_DP[i]     =  'b0;
-      assign L1DropId_DP[i]       =  'b0;
-      assign L1DropLen_DP[i]      =  'b0;
-      assign L1DropAddr_DP[i]     =  'b0;
-      assign L1DropProt_DP[i]     = 1'b0;
-      assign L1DropMulti_DP[i]    = 1'b0;
+      assign L1DropRwType_DP[i]             = 1'b0;
+      assign L1DropUser_DP[i]               =  'b0;
+      assign L1DropId_DP[i]                 =  'b0;
+      assign L1DropLen_DP[i]                =  'b0;
+      assign L1DropAddr_DP[i]               =  'b0;
+      assign L1DropProt_DP[i]               = 1'b0;
+      assign L1DropMulti_DP[i]              = 1'b0;
 
-      assign L1DropEn_S[i]        = 1'b0;
-      assign L1DropPrefetch_S[i]  = 1'b0;
-      assign L1DropValid_SN[i]    = 1'b0;
-      assign L1DropValid_SP[i]    = 1'b0;
+      assign L1DropEn_S[i]                  = 1'b0;
+      assign L1DropPrefetch_S[i]            = 1'b0;
+      assign L1DropValid_SN[i]              = 1'b0;
+      assign L1DropValid_SP[i]              = 1'b0;
 
-      assign L2InRwType_DP[i]     = 1'b0;
-      assign L2InUser_DP[i]       =  'b0;
-      assign L2InId_DP[i]         =  'b0;
-      assign L2InLen_DP[i]        =  'b0;
-      assign L2InMinAddr_DP[i]    =  'b0;
-      assign L2InMaxAddr_DP[i]    =  'b0;
-      assign L2InInvalidate_DP[i] =  'b0;
+      assign L2InRwType_DP[i]               = 1'b0;
+      assign L2InUser_DP[i]                 =  'b0;
+      assign L2InId_DP[i]                   =  'b0;
+      assign L2InLen_DP[i]                  =  'b0;
+      assign L2InMinAddr_DP[i]              =  'b0;
+      assign L2InMaxAddr_DP[i]              =  'b0;
+      assign L2InInvalidate_DP[i]           =  'b0;
 
-      assign L2InEn_S[i]          = 1'b0;
+      assign L2InEn_S[i]                    = 1'b0;
 
-      assign L2OutHit_SN[i]       = 1'b0;
-      assign L2OutMiss_SN[i]      = 1'b0;
-      assign L2OutProt_SN[i]      = 1'b0;
-      assign L2OutMulti_SN[i]     = 1'b0;
-      assign L2OutCC_SN[i]        = 1'b0;
-      assign L2OutAddr_DN[i]      =  'b0;
+      assign L2OutHit_SN[i]                 = 1'b0;
+      assign L2OutMiss_SN[i]                = 1'b0;
+      assign L2OutProt_SN[i]                = 1'b0;
+      assign L2OutMulti_SN[i]               = 1'b0;
+      assign L2OutCC_SN[i]                  = 1'b0;
+      assign L2OutAddr_DN[i]                =  'b0;
 
-      assign L2OutRwType_DP[i]    = 1'b0;
-      assign L2OutUser_DP[i]      =  'b0;
-      assign L2OutId_DP[i]        =  'b0;
-      assign L2OutLen_DP[i]       =  'b0;
-      assign L2OutInAddr_DP[i]    =  'b0;
-      assign L2OutHit_SP[i]       = 1'b0;
-      assign L2OutMiss_SP[i]      = 1'b0;
-      assign L2OutProt_SP[i]      = 1'b0;
-      assign L2OutMulti_SP[i]     = 1'b0;
-      assign L2OutCC_SP[i]        = 1'b0;
-      assign L2OutAddr_DP[i]      =  'b0;
+      assign L2OutRwType_DP[i]              = 1'b0;
+      assign L2OutUser_DP[i]                =  'b0;
+      assign L2OutId_DP[i]                  =  'b0;
+      assign L2OutLen_DP[i]                 =  'b0;
+      assign L2OutInAddr_DP[i]              =  'b0;
+      assign L2OutInvalidate_DP[i]          =  'b0;
+      assign L2OutHit_SP[i]                 = 1'b0;
+      assign L2OutMiss_SP[i]                = 1'b0;
+      assign L2OutProt_SP[i]                = 1'b0;
+      assign L2OutMulti_SP[i]               = 1'b0;
+      assign L2OutCC_SP[i]                  = 1'b0;
+      assign L2OutAddr_DP[i]                =  'b0;
 
-      assign L2OutEn_S[i]         = 1'b0;
-      assign L2OutPrefetch_S[i]   = 1'b0;
-      assign L2Busy_S[i]          = 1'b0;
-      assign L2OutValid_S[i]      = 1'b0;
-      assign L2OutValid_SN[i]     = 1'b0;
-      assign L2OutValid_SP[i]     = 1'b0;
-      assign L2OutReady_S[i]      = 1'b0;
+      assign L2OutEn_S[i]                   = 1'b0;
+      assign L2OutPrefetch_S[i]             = 1'b0;
+      assign L2Busy_S[i]                    = 1'b0;
+      assign L2OutValid_S[i]                = 1'b0;
+      assign L2OutValid_SN[i]               = 1'b0;
+      assign L2OutValid_SP[i]               = 1'b0;
+      assign L2OutReady_S[i]                = 1'b0;
 
     end // !`ifdef ENABLE_L2TLB
   end // for (i = 0; i < N_PORTS; i++)

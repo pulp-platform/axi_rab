@@ -82,7 +82,7 @@ module axi_rab_cfg
     // Invalidation
     input logic                                     l1_invalidate_ready_i,
     input logic  [N_SLICES_TOT-1:0]                 l1_invalidate_slices_i,
-    input logic                                     l2_invalidate_done_i,
+    input logic  [N_PORTS-1:0]                      l2_invalidate_done_i,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_min_o,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_max_o,
     output logic                                    invalidate_addr_valid_o
@@ -687,8 +687,8 @@ module axi_rab_cfg
   // INVALIDATE
   //
 
-  logic l1_invalidate_done_q, l1_invalidate_done_d;
-  logic l2_invalidate_done_q, l2_invalidate_done_d;
+  logic                       l1_invalidate_done_q, l1_invalidate_done_d;
+  logic [N_PORTS-1:0]         l2_invalidate_done_q, l2_invalidate_done_d;
   logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_q;
   logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_d;
   logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_q;
@@ -706,14 +706,14 @@ module axi_rab_cfg
         invalidate_addr_min_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
      end
   end
-  // write end invalidate register
+  // write end invalidate register (NOTE: blocks until invalidation is completed)
   always_comb begin
      invalidate_addr_max_d = invalidate_addr_max_q;
      invalidate_in_progress_d = invalidate_in_progress_q;
      if ((wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q) begin
         invalidate_addr_max_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
         invalidate_in_progress_d = 'b1;
-     end else if (l1_invalidate_done_q && l2_invalidate_done_q) begin
+     end else if (l1_invalidate_done_q && (&l2_invalidate_done_q)) begin
         invalidate_in_progress_d = 'b0;
      end
   end
@@ -729,15 +729,18 @@ module axi_rab_cfg
      end
   end
 
-  // check if l2 is finished invalidating
-  always_comb begin
-    l2_invalidate_done_d = 'b1; //invalidate_done_q; // FIXME: ignore L2 invalidation for now
-    if (invalidate_in_progress_q && l2_invalidate_done_i) begin
-      l2_invalidate_done_d = 'b1;
-    end else if (!invalidate_in_progress_q) begin
-      l2_invalidate_done_d = 'b0;
+  // check if every l2 is finished invalidating
+  generate for (j = 0; j < N_PORTS; ++j) begin
+    always_comb begin
+      l2_invalidate_done_d[j] = l2_invalidate_done_q[j];
+      if (invalidate_in_progress_q && l2_invalidate_done_i[j]) begin
+        l2_invalidate_done_d[j] = 'b1;
+      end else if (!invalidate_in_progress_q) begin
+        l2_invalidate_done_d[j] = 'b0;
+      end
     end
   end
+  endgenerate
 
   // store invalidation registers
   always_ff @(posedge Clk_CI or negedge Rst_RBI) begin

@@ -130,8 +130,10 @@ module l2_tlb
              (
               .clk_i         ( clk_i                          ),
               .rst_ni        ( rst_ni                         ),
-              .in_addr       ( in_addr                        ),
+              .in_addr_min   ( in_addr_min_i                  ),
+              .in_addr_max   ( in_addr_max_i                  ),
               .rw_type       ( rw_type_i                      ),
+              .partial_match ( invalidate_i                   ),
               .ram_we        ( ram_we[z]                      ),
               .port0_addr    ( port0_addr                     ),
               .port1_addr    ( port1_addr                     ),
@@ -477,7 +479,7 @@ module l2_tlb
       .d1_o  (                                )
     );
 
-   assign out_addr_o[IGNORE_LSB-1:0]                = in_addr[IGNORE_LSB-1:0];
+   assign out_addr_o[IGNORE_LSB-1:0]                = in_addr_min_i[IGNORE_LSB-1:0];
    assign out_addr_o[AXI_M_ADDR_WIDTH-1:IGNORE_LSB] = pa_data;
 
    always_ff @(posedge clk_i) begin
