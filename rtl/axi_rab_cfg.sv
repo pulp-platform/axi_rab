@@ -82,6 +82,7 @@ module axi_rab_cfg
     // Invalidation
     input logic                                     l1_invalidate_ready_i,
     input logic  [N_SLICES_TOT-1:0]                 l1_invalidate_slices_i,
+    input logic                                     l2_invalidate_done_i,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_min_o,
     output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_max_o,
     output logic                                    invalidate_addr_valid_o
@@ -717,16 +718,25 @@ module axi_rab_cfg
      end
   end
 
-  assign l2_invalidate_done_d = 'b1; // FIXME: ignore l2 for now
-
   // handle invalidation of l1 registers that are hit
   always_comb begin
      l1_invalidate_done_d = l1_invalidate_done_q;
      if (invalidate_in_progress_q && l1_invalidate_ready_i) begin
+        // NOTE: the actual invalidation will happen in the same cycle in the L1 config logic
         l1_invalidate_done_d = 'b1;
      end else if (!invalidate_in_progress_q) begin
         l1_invalidate_done_d = 'b0;
      end
+  end
+
+  // check if l2 is finished invalidating
+  always_comb begin
+    l2_invalidate_done_d = 'b1; //invalidate_done_q; // FIXME: ignore L2 invalidation for now
+    if (invalidate_in_progress_q && l2_invalidate_done_i) begin
+      l2_invalidate_done_d = 'b1;
+    end else if (!invalidate_in_progress_q) begin
+      l2_invalidate_done_d = 'b0;
+    end
   end
 
   // store invalidation registers

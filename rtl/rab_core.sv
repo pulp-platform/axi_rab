@@ -111,7 +111,10 @@ module rab_core
 
     output logic [N_PORTS-1:0] [AXI_LITE_DATA_WIDTH-1:0] wdata_l2_o,
     output logic [N_PORTS-1:0] [AXI_LITE_ADDR_WIDTH-1:0] waddr_l2_o,
-    output logic [N_PORTS-1:0]                           wren_l2_o
+    output logic [N_PORTS-1:0]                           wren_l2_o,
+
+    output logic                                         invalidate_o,
+    input  logic                                         l2_invalidate_done
     );
 
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
@@ -201,6 +204,8 @@ module rab_core
   // ██║  ██║███████║███████║██║╚██████╔╝██║ ╚████║██║ ╚═╝ ██║███████╗██║ ╚████║   ██║   ███████║
   // ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
   //
+
+  assign invalidate_o = invalidate_addr_valid;
 
   always_comb
     begin : PORT_SELECT
@@ -406,6 +411,7 @@ module rab_core
       .wren_l2                 ( wren_l2_o                 ),
       .l1_invalidate_ready_i   ( invalidate_ready_q        ),
       .l1_invalidate_slices_i  ( invalidate_slices         ),
+      .l2_invalidate_done_i    ( l2_invalidate_done_i      ),
       .invalidate_addr_min_o   ( invalidate_addr_min       ),
       .invalidate_addr_max_o   ( invalidate_addr_max       ),
       .invalidate_addr_valid_o ( invalidate_addr_valid     )

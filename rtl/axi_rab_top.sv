@@ -487,6 +487,7 @@ module axi_rab_top
   logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] L2InId_DP;
   logic [N_PORTS-1:0]                     [7:0] L2InLen_DP;
   logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] L2InAddr_DP;
+  logic [N_PORTS-1:0]                           L2InInvalidate_DP;
   logic [N_PORTS-1:0]                           L2InEn_S;
 
   // L2 output Buffer
@@ -2254,17 +2255,19 @@ module axi_rab_top
        */
       always_ff @(posedge Clk_CI) begin : L2_IN_BUF
          if (Rst_RBI == 0) begin
-            L2InRwType_DP[i] <= 1'b0;
-            L2InUser_DP[i]   <=  'b0;
-            L2InId_DP[i]     <=  'b0;
-            L2InLen_DP[i]    <=  'b0;
-            L2InAddr_DP[i]   <=  'b0;
+            L2InRwType_DP[i]     <= 1'b0;
+            L2InUser_DP[i]       <=  'b0;
+            L2InId_DP[i]         <=  'b0;
+            L2InLen_DP[i]        <=  'b0;
+            L2InAddr_DP[i]       <=  'b0;
+            L2InInvalidate_DP[i] <=  'b0;
          end else if (L2InEn_S[i] == 1'b1) begin
-            L2InRwType_DP[i] <= L1OutRwType_D[i];
-            L2InUser_DP[i]   <= L1OutUser_D[i]  ;
-            L2InId_DP[i]     <= L1OutId_D[i]    ;
-            L2InLen_DP[i]    <= L1OutLen_D[i]   ;
-            L2InAddr_DP[i]   <= L1OutAddr_D[i]  ;
+            L2InRwType_DP[i]     <= L1OutRwType_D[i];
+            L2InUser_DP[i]       <= L1OutUser_D[i]  ;
+            L2InId_DP[i]         <= L1OutId_D[i]    ;
+            L2InLen_DP[i]        <= L1OutLen_D[i]   ;
+            L2InAddr_DP[i]       <= L1OutAddr_D[i]  ;
+            L2InInvalidate_DP[i] <=  'b0;
          end
       end // always_ff @ (posedge Clk_CI)
 
@@ -2281,29 +2284,30 @@ module axi_rab_top
           )
       u_l2_tlb
         (
-          .clk_i              ( Clk_CI           ),
-          .rst_ni             ( Rst_RBI          ),
+          .clk_i              ( Clk_CI              ),
+          .rst_ni             ( Rst_RBI             ),
 
           // Config inputs
-          .we_i               ( L2CfgWE_S[i]     ),
-          .waddr_i            ( L2CfgWAddr_D[i]  ),
-          .wdata_i            ( L2CfgWData_D[i]  ),
+          .we_i               ( L2CfgWE_S[i]        ),
+          .waddr_i            ( L2CfgWAddr_D[i]     ),
+          .wdata_i            ( L2CfgWData_D[i]     ),
 
           // Request input
-          .start_i            ( L2InEn_S[i]      ),
-          .busy_o             ( L2Busy_S[i]      ),
-          .rw_type_i          ( L2InRwType_DP[i] ),
-          .in_addr_i          ( L2InAddr_DP[i]   ),
+          .start_i            ( L2InEn_S[i]         ),
+          .busy_o             ( L2Busy_S[i]         ),
+          .rw_type_i          ( L2InRwType_DP[i]    ),
+          .in_addr_i          ( L2InAddr_DP[i]      ),
+          .invalidate_i       ( L2InInvalidate_DP[i]),
 
           // Response output
-          .out_ready_i        ( L2OutReady_S[i]  ),
-          .out_valid_o        ( L2OutValid_S[i]  ),
-          .hit_o              ( L2OutHit_SN[i]   ),
-          .miss_o             ( L2OutMiss_SN[i]  ),
-          .prot_o             ( L2OutProt_SN[i]  ),
-          .multi_o            ( L2OutMulti_SN[i] ),
-          .cache_coherent_o   ( L2OutCC_SN[i]    ),
-          .out_addr_o         ( L2OutAddr_DN[i]  )
+          .out_ready_i        ( L2OutReady_S[i]     ),
+          .out_valid_o        ( L2OutValid_S[i]     ),
+          .hit_o              ( L2OutHit_SN[i]      ),
+          .miss_o             ( L2OutMiss_SN[i]     ),
+          .prot_o             ( L2OutProt_SN[i]     ),
+          .multi_o            ( L2OutMulti_SN[i]    ),
+          .cache_coherent_o   ( L2OutCC_SN[i]       ),
+          .out_addr_o         ( L2OutAddr_DN[i]     )
         );
 
       /*
@@ -2432,6 +2436,7 @@ module axi_rab_top
       assign L2InId_DP[i]         =  'b0;
       assign L2InLen_DP[i]        =  'b0;
       assign L2InAddr_DP[i]       =  'b0;
+      assign L2InInvalidate_DP[i] =  'b0;
 
       assign L2InEn_S[i]          = 1'b0;
 
