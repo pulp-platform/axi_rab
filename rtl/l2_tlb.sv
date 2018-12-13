@@ -131,24 +131,24 @@ module l2_tlb
              )
          u_check_ram
              (
-              .clk_i         ( clk_i             ),
-              .rst_ni        ( rst_ni            ),
-              .in_addr_min   ( in_addr_min_i     ),
-              .in_addr_max   ( in_addr_max_i     ),
-              .rw_type       ( rw_type_i         ),
-              .partial_match ( invalidate_i      ),
-              .ram_we        ( ram_we[z]         ),
-              .port0_addr    ( port0_addr[z]     ),
-              .port1_addr    ( port1_addr        ),
-              .ram_wdata     ( ram_wdata         ),
-              .output_sent   ( output_sent       ),
-              .output_valid  ( va_output_valid   ),
-              .offset_addr_d ( offset_addr_d     ),
-              .hit_addr      ( hit_addr[z]       ),
-              .master        ( cache_coherent[z] ),
-              .hit           ( hit[z]            ),
-              .multi_hit     ( multi_hit[z]      ),
-              .prot          ( prot[z]           )
+              .clk_i         ( clk_i                      ),
+              .rst_ni        ( rst_ni                     ),
+              .in_addr_min   ( in_addr_min_i              ),
+              .in_addr_max   ( in_addr_max_i              ),
+              .rw_type       ( rw_type_i                  ),
+              .partial_match ( invalidate_i               ),
+              .ram_we        ( ram_we[z]                  ),
+              .port0_addr    ( port0_addr[z]              ),
+              .port1_addr    ( port1_addr                 ),
+              .ram_wdata     ( ram_wdata                  ),
+              .output_sent   ( output_sent | invalidate_i ), // always drop earlier detected hits immediately when invalidating
+              .output_valid  ( va_output_valid            ),
+              .offset_addr_d ( offset_addr_d              ),
+              .hit_addr      ( hit_addr[z]                ),
+              .master        ( cache_coherent[z]          ),
+              .hit           ( hit[z]                     ),
+              .multi_hit     ( multi_hit[z]               ),
+              .prot          ( prot[z]                    )
               );
       end // for (z = 0; z < N_PORTS; z++)
    endgenerate
@@ -193,7 +193,7 @@ module l2_tlb
           // pause search during VA RAM reconfigration
           if (|ram_we) begin
             searching = 1'b0;
-            if(searching_q && invalidate_i && !we_i) begin
+            if(invalidate_i && searching_q && !we_i) begin
               // we need to rollback to check other port that might also have been hit
               rollback         = 1'b1;
               last_search_next = 1'b0;
