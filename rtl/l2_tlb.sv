@@ -74,6 +74,7 @@ module l2_tlb
    logic                               [N_PAR_VA_RAMS-1:0] ram_we;
    logic                                                   last_search, last_search_next;
    logic                                                   first_search, first_search_next;
+   logic                                                   first_set, first_set_next;
    logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] ram_waddr;
    logic                           [VA_RAM_DATA_WIDTH-1:0] ram_wdata;
    logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
@@ -94,7 +95,7 @@ module l2_tlb
    logic                                [OFFSET_WIDTH-1:0] offset_addr, offset_addr_d;
    logic                                [OFFSET_WIDTH-1:0] offset_start_addr, offset_end_addr;
    logic                                   [SET_WIDTH-1:0] set_num_q, set_num_d;
-   logic                                   [SET_WIDTH-1:0] min_set_num, max_set_num;
+   logic                                   [SET_WIDTH-1:0] set_num, min_set_num, max_set_num;
    logic                                                   rollback;
 
    logic                                                   va_output_valid;
@@ -170,6 +171,7 @@ module l2_tlb
       search_done       = 1'b0;
       last_search_next  = 1'b0;
       first_search_next = first_search;
+      first_set_next    = first_set;
 
       set_num_d         = set_num_q;
       rollback          = 1'b0;
@@ -178,22 +180,28 @@ module l2_tlb
         IDLE : begin
           if (start_i) begin
             search_SN         = SEARCH;
-            set_num_d         = min_set_num;
             first_search_next = 1'b1;
+            first_set_next    = 1'b1;
           end
         end
 
         SEARCH : begin
           busy_o = 1'b1;
 
+          // detect first set searched
+          if (first_set) begin
+            set_num_d      = min_set_num;
+            first_set_next = 1'b0;
+          end
+
           // detect last search cycle
-          if ( (first_search == 1'b0) && (offset_addr == offset_end_addr) )
+          if ((first_search == 1'b0) && (offset_addr == offset_end_addr))
             last_search_next = 1'b1;
 
           // pause search during VA RAM reconfigration
           if (|ram_we) begin
             searching = 1'b0;
-            if(invalidate_i && searching_q && !we_i) begin
+            if (invalidate_i && searching_q && !we_i) begin
               // we need to rollback to check other port that might also have been hit
               rollback         = 1'b1;
               last_search_next = 1'b0;
@@ -204,14 +212,15 @@ module l2_tlb
           end
 
           if (va_output_valid) begin
-            if (last_search && set_num_q != max_set_num) begin
+            if ((last_search && !rollback) && set_num != max_set_num ) begin
               // search next set
-              set_num_d         = set_num_q + 1;
+              set_num_d         = set_num + 1;
+              searching         = 1'b0;
               first_search_next = 1'b1;
 `ifdef MULTI_HIT_FULL_SET
-            end else if (last_search | (!invalidate_i & (prot_top | multi_hit_top))) begin
+            end else if ((last_search & !rollback) | (!invalidate_i & (prot_top | multi_hit_top))) begin
 `else
-            end else if (last_search | (!invalidate_i & (prot_top | multi_hit_top | hit_top))) begin
+            end else if ((last_search & !rollback) | (!invalidate_i & (prot_top | multi_hit_top | hit_top))) begin
 `endif
               // finish search
               search_SN      = DONE;
@@ -236,9 +245,11 @@ module l2_tlb
       if (rst_ni == 0) begin
          last_search  <= 1'b0;
          first_search <= 1'b0;
+         first_set    <= 1'b0;
       end else begin
          last_search  <= last_search_next;
          first_search <= first_search_next;
+         first_set    <= first_set_next;
       end
   end
 
@@ -250,7 +261,10 @@ module l2_tlb
     * During the first search cycle, we therefore directly use offset_addr_start for the lookup.
     */
    assign min_set_num = in_addr_min_i[SET_WIDTH+IGNORE_LSB-1 : IGNORE_LSB];
-   assign max_set_num = in_addr_max_i[SET_WIDTH+IGNORE_LSB-1 : IGNORE_LSB];
+   assign max_set_num = (in_addr_min_i[AXI_S_ADDR_WIDTH-1:SET_WIDTH+IGNORE_LSB] == in_addr_max_i[AXI_S_ADDR_WIDTH-1:SET_WIDTH+IGNORE_LSB]) ?
+                        in_addr_max_i[SET_WIDTH+IGNORE_LSB-1 : IGNORE_LSB] :
+                        min_set_num - 1'b1;
+   assign set_num = first_set ? min_set_num : set_num_q;
 
    assign port0_raddr[OFFSET_WIDTH] = 1'b0;
    assign port1_addr [OFFSET_WIDTH] = 1'b1;
@@ -258,8 +272,8 @@ module l2_tlb
    assign port0_raddr[OFFSET_WIDTH-1:0] = first_search ? offset_start_addr : offset_addr;
    assign port1_addr [OFFSET_WIDTH-1:0] = first_search ? offset_start_addr : offset_addr;
 
-   assign port0_raddr[SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num_q;
-   assign port1_addr [SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num_q;
+   assign port0_raddr[SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num;
+   assign port1_addr [SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num;
 
    always_comb begin
      for(int i=0; i<N_PAR_VA_RAMS; ++i) begin
@@ -323,8 +337,8 @@ module l2_tlb
          logic [SET_WIDTH-1:0]                          set_num_reg;
          logic [SET_WIDTH+OFFSET_WIDTH+1-1:0]           hit_addr_reg;
 
-         assign offset_start_addr = { hit_offset_addr[set_num_q] , {{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH}{1'b0}} };
-         assign offset_end_addr   =   hit_offset_addr[set_num_q]-1'b1;
+         assign offset_start_addr = { hit_offset_addr[set_num] , {{OFFSET_WIDTH-HIT_OFFSET_STORE_WIDTH}{1'b0}} };
+         assign offset_end_addr   =   hit_offset_addr[set_num]-1'b1;
 
          // Register the hit addr
          always_ff @(posedge clk_i) begin
@@ -333,7 +347,7 @@ module l2_tlb
                set_num_reg  <= 0;
             end else if (hit_top) begin
                hit_addr_reg <= hit_addr[hit_block_num];
-               set_num_reg  <= set_num_q;
+               set_num_reg  <= set_num;
             end
          end
 
