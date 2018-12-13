@@ -74,7 +74,7 @@ module l2_tlb
    logic                               [N_PAR_VA_RAMS-1:0] ram_we;
    logic                                                   last_search, last_search_next;
    logic                                                   first_search, first_search_next;
-   logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] ram_waddr;
+   logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] ram_waddr;
    logic                           [VA_RAM_DATA_WIDTH-1:0] ram_wdata;
    logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] hit_addr;
    logic                                                   pa_ram_we;
@@ -88,12 +88,14 @@ module l2_tlb
    int                                                     hit_block_num;
 
    logic                                                   searching, search_done;
-   logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr, port0_raddr; // VA RAM port0 addr
+   logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_raddr;
+   logic [N_PAR_VA_RAMS-1:0][SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr; // VA RAM port0 addr
    logic                    [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr; // VA RAM port1 addr
    logic                                [OFFSET_WIDTH-1:0] offset_addr, offset_addr_d;
    logic                                [OFFSET_WIDTH-1:0] offset_start_addr, offset_end_addr;
    logic                                   [SET_WIDTH-1:0] set_num_q, set_num_d;
    logic                                   [SET_WIDTH-1:0] min_set_num, max_set_num;
+   logic                                                   rollback;
 
    logic                                                   va_output_valid;
    logic                                                   searching_q;
@@ -129,24 +131,24 @@ module l2_tlb
              )
          u_check_ram
              (
-              .clk_i         ( clk_i                          ),
-              .rst_ni        ( rst_ni                         ),
-              .in_addr_min   ( in_addr_min_i                  ),
-              .in_addr_max   ( in_addr_max_i                  ),
-              .rw_type       ( rw_type_i                      ),
-              .partial_match ( invalidate_i                   ),
-              .ram_we        ( ram_we[z]                      ),
-              .port0_addr    ( port0_addr                     ),
-              .port1_addr    ( port1_addr                     ),
-              .ram_wdata     ( ram_wdata                      ),
-              .output_sent   ( output_sent                    ),
-              .output_valid  ( va_output_valid                ),
-              .offset_addr_d ( offset_addr_d                  ),
-              .hit_addr      ( hit_addr[z]                    ),
-              .master        ( cache_coherent[z]              ),
-              .hit           ( hit[z]                         ),
-              .multi_hit     ( multi_hit[z]                   ),
-              .prot          ( prot[z]                        )
+              .clk_i         ( clk_i             ),
+              .rst_ni        ( rst_ni            ),
+              .in_addr_min   ( in_addr_min_i     ),
+              .in_addr_max   ( in_addr_max_i     ),
+              .rw_type       ( rw_type_i         ),
+              .partial_match ( invalidate_i      ),
+              .ram_we        ( ram_we[z]         ),
+              .port0_addr    ( port0_addr[z]     ),
+              .port1_addr    ( port1_addr        ),
+              .ram_wdata     ( ram_wdata         ),
+              .output_sent   ( output_sent       ),
+              .output_valid  ( va_output_valid   ),
+              .offset_addr_d ( offset_addr_d     ),
+              .hit_addr      ( hit_addr[z]       ),
+              .master        ( cache_coherent[z] ),
+              .hit           ( hit[z]            ),
+              .multi_hit     ( multi_hit[z]      ),
+              .prot          ( prot[z]           )
               );
       end // for (z = 0; z < N_PORTS; z++)
    endgenerate
@@ -170,6 +172,7 @@ module l2_tlb
       first_search_next = first_search;
 
       set_num_d         = set_num_q;
+      rollback          = 1'b0;
 
       unique case (search_SP)
         IDLE : begin
@@ -185,11 +188,16 @@ module l2_tlb
 
           // detect last search cycle
           if ( (first_search == 1'b0) && (offset_addr == offset_end_addr) )
-            last_search_next  = 1'b1;
+            last_search_next = 1'b1;
 
           // pause search during VA RAM reconfigration
           if (|ram_we) begin
-            searching         = 1'b0;
+            searching = 1'b0;
+            if(searching_q && invalidate_i && !we_i) begin
+              // we need to rollback to check other port that might also have been hit
+              rollback         = 1'b1;
+              last_search_next = 1'b0;
+            end
           end else begin
             searching         = 1'b1;
             first_search_next = 1'b0;
@@ -232,7 +240,7 @@ module l2_tlb
          last_search  <= last_search_next;
          first_search <= first_search_next;
       end
-   end
+  end
 
    /*
     * VA RAM address generation
@@ -253,7 +261,11 @@ module l2_tlb
    assign port0_raddr[SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num_q;
    assign port1_addr [SET_WIDTH+OFFSET_WIDTH : OFFSET_WIDTH+1] = set_num_q;
 
-   assign port0_addr = ram_we ? ram_waddr : port0_raddr;
+   always_comb begin
+     for(int i=0; i<N_PAR_VA_RAMS; ++i) begin
+       port0_addr[i] = ram_we[i] ? ram_waddr[i] : port0_raddr;
+     end
+   end
 
    // Store the set num to loop over it while invalidating
    always_ff @(posedge clk_i) begin
@@ -285,6 +297,8 @@ module l2_tlb
          offset_addr <= offset_start_addr + 1'b1;
       end else if (searching) begin
          offset_addr <= offset_addr + 1'b1;
+      end else if (rollback) begin
+         offset_addr <= offset_addr - 1'b1;
       end
    end
 
@@ -296,6 +310,8 @@ module l2_tlb
          offset_addr_d <= offset_start_addr;
       end else if (searching) begin
          offset_addr_d <= offset_addr_d + 1'b1;
+      end else if (rollback) begin
+         offset_addr_d <= offset_addr_d - 1'b1;
       end
    end
 
@@ -522,22 +538,28 @@ module l2_tlb
        for (para = 0; para < N_PAR_VA_RAMS; para=para+1'b1) begin
          para_int         = int'(para);
          if (we_i) begin
-           ram_we[para_int] = (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr_i[LL_WIDTH-1:0] == para);
+           ram_we[para_int]    = (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0) && (waddr_i[LL_WIDTH-1:0] == para);
+           ram_waddr[para_int] = waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
          end else if(invalidate_i) begin
-           ram_we[para_int] = hit[para_int];
+           ram_we[para_int]    = hit[para_int];
+           ram_waddr[para_int] = hit_addr[para_int];
          end else begin
-           ram_we[para_int] = 'b0;
+           ram_we[para_int]    = 'b0;
+           ram_waddr[para_int] = 'b0;
          end
        end
      end
    end else begin
      always_comb begin
        if (we_i) begin
-         ram_we[0] = (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
+         ram_we[0]    = (waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH] == 1'b0);
+         ram_waddr[0] = waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
        end else if(invalidate_i) begin
-         ram_we[0] = hit[0];
+         ram_we[0]    = hit[0];
+         ram_waddr[0] = hit_addr[0];
        end else begin
-         ram_we[0] = 'b0;
+         ram_we[0]    = 'b0;
+         ram_waddr[0] = 'b0;
        end
      end
    end
@@ -547,10 +569,8 @@ module l2_tlb
    always_comb begin
      if (we_i) begin
        ram_wdata = wdata_i[VA_RAM_DATA_WIDTH-1:0];
-       ram_waddr = waddr_i[LL_WIDTH+VA_RAM_ADDR_WIDTH-1:LL_WIDTH];
      end else begin
        ram_wdata = 'b0;
-       ram_waddr = port0_raddr-1; // invalidate the previous address
      end
    end
 
