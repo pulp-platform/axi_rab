@@ -494,7 +494,7 @@ module rab_core
         .port1_sent_i       ( port1_sent[z]                    ),
         .port2_sent_i       ( port2_sent[z]                    ),
         .select_i           ( select[z]                        ),
-        .invalidate_i       ( {N_PORTS{invalidate_addr_valid}} ),
+        .invalidate_i       ( invalidate_addr_valid            ),
         .no_hit_i           ( no_hit[z]                        ),
         .multi_hit_i        ( multi_hit[z]                     ),
         .no_prot_i          ( no_prot[z]                       ),
