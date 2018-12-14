@@ -240,7 +240,7 @@ module axi_rab_cfg
                  else if (s_axi_bready)
                    begin
                       bvalid            <= 1'b0;
-                      bresp             <= 1'b00;
+                      bresp             <= 2'b00;
                       wresp_done_reg    <= 1'b1;
                       wresp_running_reg <= 1'b0;
                    end
