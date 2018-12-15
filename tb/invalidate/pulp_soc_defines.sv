@@ -11,9 +11,6 @@
 `ifndef PULP_SOC_DEFINES_SV
 `define PULP_SOC_DEFINES_SV
 
-// Width of byte enable for a given data width
-`define EVAL_BE_WIDTH(DATAWIDTH) (DATAWIDTH/8)
-
 // RAB defines
 `define AXI_EXT_ADDR_WIDTH    32
 `define AXI_LITE_DATA_WIDTH   32
