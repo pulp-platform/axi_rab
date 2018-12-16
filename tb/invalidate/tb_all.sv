@@ -11,44 +11,47 @@ module tb_all;
   logic clk;
   logic done = 0;
 
-  AXI_BUS_DV #(
-    .AXI_ADDR_WIDTH(AW),
-    .AXI_DATA_WIDTH(DW),
-    .AXI_ID_WIDTH(SIW),
-    .AXI_USER_WIDTH(UW)
-    ) axi_slave_dv(clk);
+  AXI_BUS_DV
+    #(
+      .AXI_ADDR_WIDTH(AW),
+      .AXI_DATA_WIDTH(DW),
+      .AXI_ID_WIDTH(SIW),
+      .AXI_USER_WIDTH(UW)
+      ) axi_slave_dv(clk);
 
-  AXI_BUS_DV #(
-    .AXI_ADDR_WIDTH(AW),
-    .AXI_DATA_WIDTH(DW),
-    .AXI_ID_WIDTH(MIW),
-    .AXI_USER_WIDTH(UW)
-    ) axi_master_dv(clk);
+  AXI_BUS_DV
+    #(
+      .AXI_ADDR_WIDTH(AW),
+      .AXI_DATA_WIDTH(DW),
+      .AXI_ID_WIDTH(MIW),
+      .AXI_USER_WIDTH(UW)
+      ) axi_master_dv(clk);
 
-  AXI_LITE_DV #(
-    .AXI_ADDR_WIDTH(AW),
-    .AXI_DATA_WIDTH(DW)
-    ) axi_config_dv(clk);
+  AXI_LITE_DV
+    #(
+      .AXI_ADDR_WIDTH(AW),
+      .AXI_DATA_WIDTH(DW)
+      ) axi_config_dv(clk);
 
   base_tb
-   #(
-    .AW(AW),
-    .DW(DW),
-    .SIW(SIW),
-    .MIW(MIW),
-    .UW(UW),
-    .CK(CK),
-    .TA(TA),
-    .TT(TT)
-   )
+    #(
+      .AW(AW),
+      .DW(DW),
+      .SIW(SIW),
+      .MIW(MIW),
+      .UW(UW),
+      .CK(CK),
+      .TA(TA),
+      .TT(TT)
+      )
   i_base_tb
-   (
-    .master_dv_in(axi_master_dv),
-    .slave_dv_out(axi_slave_dv),
-    .config_dv_in(axi_config_dv),
-    .done_i(done),
-    .clk_o(clk)
-   );
+    (
+     .master_dv_in(axi_master_dv),
+     .slave_dv_out(axi_slave_dv),
+     .config_dv_in(axi_config_dv),
+     .done_i(done),
+     .clk_o(clk)
+     );
 
   axi_test::axi_lite_driver #(.AW(AW), .DW(DW), .TT(TT), .TA(TA)) axi_config_drv = new(axi_config_dv);
   axi_test::axi_driver #(.AW(AW), .DW(DW), .IW(SIW), .UW(UW), .TA(TA), .TT(TT)) axi_slave_drv = new(axi_slave_dv);
@@ -81,7 +84,7 @@ module tb_all;
     automatic axi_test::axi_b_beat #(.IW(SIW), .UW(UW)) b_beat = new;
     axi_slave_drv.reset_slave();
     axi_slave_drv.axi.aw_ready = 1'b1;
-    axi_slave_drv.axi.w_ready = 1'b1;
+    axi_slave_drv.axi.w_ready  = 1'b1;
   end
 
   initial begin

@@ -10,14 +10,15 @@ module base_tb
     parameter CK,
     parameter TA,
     parameter TT
-  )
+    )
   (
-    AXI_BUS_DV.in master_dv_in,
-    AXI_BUS_DV.out slave_dv_out,
-    AXI_LITE_DV.in config_dv_in,
-    input logic done_i,
-    output logic clk_o
-  );
+   AXI_BUS_DV.in master_dv_in,
+   AXI_BUS_DV.out slave_dv_out,
+   AXI_LITE_DV.in config_dv_in,
+   input logic done_i,
+   output logic clk_o
+   );
+
   timeunit      1ps;
   timeprecision 1ps;
 
@@ -26,28 +27,31 @@ module base_tb
 
   assign clk_o = clk;
 
-  AXI_BUS #(
-    .AXI_ADDR_WIDTH(AW),
-    .AXI_DATA_WIDTH(DW),
-    .AXI_ID_WIDTH(SIW),
-    .AXI_USER_WIDTH(UW)
-    ) slave_out();
+  AXI_BUS
+    #(
+      .AXI_ADDR_WIDTH(AW),
+      .AXI_DATA_WIDTH(DW),
+      .AXI_ID_WIDTH(SIW),
+      .AXI_USER_WIDTH(UW)
+      ) slave_out();
 
   `AXI_ASSIGN(slave_dv_out, slave_out);
 
-  AXI_BUS #(
-    .AXI_ADDR_WIDTH(AW),
-    .AXI_DATA_WIDTH(DW),
-    .AXI_ID_WIDTH(MIW),
-    .AXI_USER_WIDTH(UW)
-    ) master_in();
+  AXI_BUS
+    #(
+      .AXI_ADDR_WIDTH(AW),
+      .AXI_DATA_WIDTH(DW),
+      .AXI_ID_WIDTH(MIW),
+      .AXI_USER_WIDTH(UW)
+      ) master_in();
 
   `AXI_ASSIGN(master_in, master_dv_in);
 
-  AXI_LITE #(
-    .AXI_ADDR_WIDTH(AW),
-    .AXI_DATA_WIDTH(DW)
-    ) config_in();
+  AXI_LITE
+    #(
+      .AXI_ADDR_WIDTH(AW),
+      .AXI_DATA_WIDTH(DW)
+      ) config_in();
 
   `AXI_LITE_ASSIGN(config_in, config_dv_in);
 
@@ -55,14 +59,14 @@ module base_tb
     #(
       .TA(TA),
       .TT(TT)
-     )
-    i_dut
-     (
-      .clk_i      ( clk        ),
-      .rst_ni     ( rst        ),
-      .config_in  ( config_in ),
-      .master_in  ( master_in ),
-      .slave_out  ( slave_out  )
+      )
+  i_dut
+    (
+     .clk_i      ( clk       ),
+     .rst_ni     ( rst       ),
+     .config_in  ( config_in ),
+     .master_in  ( master_in ),
+     .slave_out  ( slave_out )
      );
 
   initial begin
