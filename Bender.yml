@@ -1,0 +1,51 @@
+package:
+  name: axi_rab
+  authors: []
+
+dependencies:
+  axi: { git: "https://github.com/pulp-platform/axi.git", rev: 6ca80be513c050a971a128ed10f9cbea7f6ba142 }
+
+export_include_dirs:
+  # - ../../../../fe/rtl/includes
+  - tb/invalidate/
+sources:
+  - ../../pkg/cfmath/CfMath.sv
+  - ../../../../fe/rtl/pulp_soc/axi_rab_wrap.sv
+  - ../../../../fe/ips/axi/axi_id_remap/axi_id_remap.sv # FIXME: the rab library also has an axi_id_remap, but it does not work with axi_rab_wrap
+  - ../../../../fe/ips/axi/axi_id_remap/ID_Gen_1.sv
+  - ../../../../fe/ips/axi/axi_id_remap/ID_Gen_8.sv
+  - ../../../../fe/rtl/pulp_soc/axi_id_remap_wrap.sv
+  - /usr/pack/vivado-2017.2-kgf/Vivado/2017.2/data/verilog/src/xeclib/RAMB36E1.v
+  - /usr/pack/vivado-2017.2-kgf/Vivado/2017.2/data/verilog/src/unimacro/BRAM_TDP_MACRO.v
+  - ../../../../fe/ips/fpga-support/rtl/BramPort.sv
+  - ../../../../fe/ips/fpga-support/rtl/TdpBramArray.sv
+  - ../../../../fe/ips/fpga-support/rtl/BramDwc.sv
+  - ../../../../fe/ips/fpga-support/rtl/BramLogger.sv
+  - ../../../../fe/ips/fpga-support/rtl/AxiBramLogger.sv
+  - rtl/axi4_ar_buffer.sv
+  - rtl/axi4_ar_sender.sv
+  - rtl/axi4_aw_buffer.sv
+  - rtl/axi4_aw_sender.sv
+  - rtl/axi4_b_buffer.sv
+  - rtl/axi4_b_sender.sv
+  - rtl/axi4_r_buffer.sv
+  - rtl/axi4_r_sender.sv
+  - rtl/axi4_w_buffer.sv
+  - rtl/axi4_w_sender.sv
+  - rtl/axi_buffer_rab_bram.sv
+  - rtl/axi_buffer_rab.sv
+  - rtl/axi_rab_cfg.sv
+  - rtl/axi_rab_top.sv
+  - rtl/check_ram.sv
+  - rtl/fsm.sv
+  - rtl/l2_tlb.sv
+  - rtl/rab_core.sv
+  - rtl/rab_slice.sv
+  - rtl/ram_tp_write_first.sv
+  - rtl/ram_tp_no_change.sv
+  - rtl/slice_top.sv
+  - target: test
+    files:
+      - tb/invalidate/tb_all.sv
+      - tb/invalidate/base_tb.sv
+      - tb/invalidate/rab_wrap.sv
