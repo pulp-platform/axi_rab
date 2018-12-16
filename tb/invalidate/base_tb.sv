@@ -16,16 +16,19 @@ module base_tb
    AXI_BUS_DV.out slave_dv_out,
    AXI_LITE_DV.in config_dv_in,
    input logic done_i,
+   output logic start_o,
    output logic clk_o
    );
 
   timeunit      1ps;
   timeprecision 1ps;
 
-  logic clk = 0;
-  logic rst = 1;
+  logic clk    = 0;
+  logic rst    = 1;
+  logic start  = 0;
 
-  assign clk_o = clk;
+  assign clk_o   = clk;
+  assign start_o = start;
 
   AXI_BUS
     #(
@@ -80,6 +83,7 @@ module base_tb
     #(CK/2);
     rst <= 1;
     #CK;
+    start <= 1;
     while (!done_i) begin
       clk <= 1;
       #(CK/2);

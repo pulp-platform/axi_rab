@@ -20,10 +20,12 @@
 `define EN_ACP                 1
 // `define RAB_AX_LOG_EN          1
 // `define RAB_AX_LOG_ENTRIES     2*1024
-
 `define RAB_N_PORTS              2
 `define RAB_L2_N_SETS           32
 `define RAB_L2_N_SET_ENTRIES    32
 `define RAB_L2_N_PAR_VA_RAMS     4
+
+// Auxiliary defines
+`define PAGE_SIZE             4096
 
 `endif // PULP_SOC_DEFINES|SV

@@ -1,4 +1,5 @@
 `include "axi/assign.svh"
+`include "pulp_soc_defines.sv"
 
 module rab_wrap
   #(
@@ -13,12 +14,10 @@ module rab_wrap
    AXI_BUS.out slave_out
    );
 
-`ifndef SYNTHESIS
   initial begin
     assert(slave_out.AXI_ADDR_WIDTH == master_in.AXI_ADDR_WIDTH);
     assert(slave_out.AXI_DATA_WIDTH == master_in.AXI_DATA_WIDTH);
   end
-`endif
 
   AXI_BUS_DV
     #(
@@ -104,9 +103,9 @@ module rab_wrap
 
   axi_rab_wrap
     #(
-      .N_PORTS                ( 2                        ),
-      .N_L2_SETS              ( 32                       ),
-      .N_L2_SET_ENTRIES       ( 32                       ),
+      .N_PORTS                ( `RAB_N_PORTS             ),
+      .N_L2_SETS              ( `RAB_L2_N_SETS           ),
+      .N_L2_SET_ENTRIES       ( `RAB_L2_N_SET_ENTRIES    ),
       .AXI_DATA_WIDTH         ( master_in.AXI_DATA_WIDTH ),
       .AXI_USER_WIDTH         ( master_in.AXI_USER_WIDTH ),
       .AXI_INT_ADDR_WIDTH     ( master_in.AXI_ADDR_WIDTH ),
