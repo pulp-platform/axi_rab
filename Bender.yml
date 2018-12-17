@@ -46,6 +46,7 @@ sources:
   - rtl/slice_top.sv
   - target: test
     files:
-      - tb/invalidate/tb_all.sv
       - tb/invalidate/base_tb.sv
       - tb/invalidate/rab_wrap.sv
+      - tb/invalidate/tb_all.sv
+      - tb/invalidate/tb_single.sv

@@ -1,7 +1,7 @@
 `include "pulp_soc_defines.sv"
 `include "utils.sv"
 
-module tb_all;
+module tb_single;
   localparam AW = 32;
   localparam DW = 32;
   localparam SIW = 6;
@@ -68,9 +68,8 @@ module tb_all;
 
     localparam integer N_SLICES_ARRAY[`RAB_N_PORTS-1:0] = `N_SLICES_ARRAY;
     localparam integer EN_L2TLB_ARRAY[`RAB_N_PORTS-1:0] = `EN_L2TLB_ARRAY;
-    localparam N_SLICES_TOT = N_SLICES_ARRAY[0] + N_SLICES_ARRAY[1];
 
-    int address, max_va, l1_va, va, pa;
+    int address, l1_va, max_va, va, pa;
 
     // NOTE: testbench currently assumes N_PORTS == 2 and L2 only on port 1 enabled
     assert(`RAB_N_PORTS == 2 && EN_L2TLB_ARRAY[0] == 0 && EN_L2TLB_ARRAY[1] == 1);
@@ -79,7 +78,6 @@ module tb_all;
     @(posedge start);
 
     $display("Inserting entries...");
-    va = 32'h00;
     // write L2 configuration (only accelerator -> host)
     for(int i=0; i<`RAB_L2_N_SET_ENTRIES; ++i) begin
       for(int j=0; j<`RAB_L2_N_SETS; ++j) begin
@@ -91,9 +89,9 @@ module tb_all;
       end
     end
     l1_va = va;
-    // write L1 configuration (both host -> accelerator and accelerator -> host)
-    for(int i=0; i<N_SLICES_TOT; ++i) begin
-      address  = 8'h20 + i*8'h20;
+    // write L1 configuration (only accelerator -> host)
+    for(int i=0; i<N_SLICES_ARRAY[1]; ++i) begin
+      address  = (N_SLICES_ARRAY[0]+1)*8'h20 + i*8'h20;
       pa       = 32'hff000000 + va;
       axi_config_drv.write_ok(address + 32'h00, va);
       axi_config_drv.write_ok(address + 32'h08, va+`PAGE_SIZE-1);
@@ -103,89 +101,56 @@ module tb_all;
     end
     max_va = va;
 
-    $display("Checking if entries correctly setup...");
-    // check L1 configuration
-    va = l1_va;
-    for(int i=0; i<N_SLICES_TOT; ++i) begin
-      address = 8'h20 + i*8'h20;
-      pa      = 32'hff000000 + va;
-      axi_config_drv.read_exp(address + 32'h00, va);
-      axi_config_drv.read_exp(address + 32'h08, va+`PAGE_SIZE-1);
-      axi_config_drv.read_exp(address + 32'h10, pa);
-      axi_config_drv.read_exp(address + 32'h18, 3'b111);
-      va     += `PAGE_SIZE;
-    end
-
-    // check all addresses if they are hit as expected
+    $display("Checking entries...");
+    // loop over addresses and remove and reinsert them
     for(int addr=0; addr<max_va; addr+=`PAGE_SIZE) begin
+      // check current
       ax_beat.ax_addr = addr;
       ax_beat.ax_size = 3'b101;
       axi_master_drv.send_ar(ax_beat);
       axi_master_drv.recv_r(r_beat);
-      if(addr >= l1_va && (addr - l1_va)/`PAGE_SIZE < N_SLICES_ARRAY[0]) begin
-        if(r_beat.r_resp != 2'b10) begin
-          // these addresses should fail as these are host slices
-          $error("Expected 0x%08x not to hit as it mapped in the host slices", addr);
-        end
-      end else begin
+      if(r_beat.r_resp != 2'b00) begin
+        $error("Expected 0x%08x to hit", addr);
+      end else if(r_beat.r_data != 32'hff000000 + addr) begin
+        $error("Hit for 0x%08x expected at 0x%08x instead of 0x%08x", addr, 32'hff000000 + addr, r_beat.r_data);
+      end
+
+      // invalidate
+      axi_config_drv.write_ok(32'h10, addr);
+      axi_config_drv.write_ok(32'h18, addr+`PAGE_SIZE-1);
+
+      // check current
+      ax_beat.ax_addr = addr;
+      ax_beat.ax_size = 3'b101;
+      axi_master_drv.send_ar(ax_beat);
+      axi_master_drv.recv_r(r_beat);
+      if(r_beat.r_resp == 2'b00) begin
+        $error("Expected 0x%08x to miss as entry has been invalidated", addr);
+      end
+      // check previous
+      if(addr != 0) begin
+        ax_beat.ax_addr = addr - 8'h40;
+        ax_beat.ax_size = 3'b101;
+        axi_master_drv.send_ar(ax_beat);
+        axi_master_drv.recv_r(r_beat);
         if(r_beat.r_resp != 2'b00) begin
-          $error("Expected 0x%08x to hit", addr);
-        end else if(r_beat.r_data != 32'hff000000 + addr) begin
-          $error("Hit for 0x%08x expected at 0x%08x instead of 0x%08x", addr, 32'hff000000 + addr, r_beat.r_data);
+          $error("Expected address previous to 0x%08x to still hit", addr);
         end
       end
-    end
-
-    $display("Invalidating all entries...");
-    // trigger an invalidation
-    axi_config_drv.write_ok(32'h10, 32'h00);
-    axi_config_drv.write_ok(32'h18, max_va);
-
-    $display("Disabling l1/l2 config...");
-    // disable writing to the l1/l2
-    axi_config_drv.write_ok(32'h0c, 3'b100);
-
-    $display("Verifying disabled l1/l2 config...");
-    // check if L1 configuration fails (both host -> accelerator and accelerator -> host)
-    va = l1_va;
-    for(int i=0; i<N_SLICES_TOT; ++i) begin
-      address  = 8'h20 + i*8'h20;
-      pa       = 32'hff000000 + va;
-      axi_config_drv.write_err(address + 32'h00, va);
-      axi_config_drv.write_err(address + 32'h08, va+`PAGE_SIZE-1);
-      axi_config_drv.write_err(address + 32'h10, pa);
-      axi_config_drv.write_err(address + 32'h18, 3'b111);
-      va      += `PAGE_SIZE;
-    end
-
-    // check if L2 configuration failed (only accelerator -> host)
-    for(int i=0; i<`RAB_L2_N_SET_ENTRIES; ++i) begin
-      address = 32'h8000 + i*8'h04;
-      axi_config_drv.write_err(address, 32'h00);
-      axi_config_drv.write_err(address + 32'h1000, 32'h00);
-    end
-
-    $display("Checking if entries invalidated...");
-    // check L1 configuration
-    va = l1_va;
-    for(int i=0; i<N_SLICES_TOT; ++i) begin
-      address = 8'h20 + i*8'h20;
-      pa      = 32'hff000000 + va;
-      axi_config_drv.read_exp(address + 32'h00, va);
-      axi_config_drv.read_exp(address + 32'h08, va+`PAGE_SIZE-1);
-      axi_config_drv.read_exp(address + 32'h10, pa);
-      axi_config_drv.read_exp(address + 32'h18, 3'b0);
-      va     += `PAGE_SIZE;
-    end
-
-    // check all addresses if they miss as expected
-    for(int addr=0; addr<max_va; addr+=`PAGE_SIZE) begin
-      ax_beat.ax_addr = addr;
-      ax_beat.ax_size = 3'b101;
-      axi_master_drv.send_ar(ax_beat);
-      axi_master_drv.recv_r(r_beat);
-      if(r_beat.r_resp != 2'b10) begin
-        $error("Expected 0x%08x to miss as all entries have been invalidated", addr);
+      // reinsert
+      va = addr;
+      pa = 32'hff000000 + va;
+      if(addr >= l1_va) begin
+        address = (N_SLICES_ARRAY[0]+1)*8'h20 + ((va-l1_va)/`PAGE_SIZE)*8'h20;
+        axi_config_drv.write_ok(address + 32'h00, va);
+        axi_config_drv.write_ok(address + 32'h08, va+`PAGE_SIZE-1);
+        axi_config_drv.write_ok(address + 32'h10, pa);
+        axi_config_drv.write_ok(address + 32'h18, 3'b111);
+      end else begin
+        address = 32'h8000 + ((va/`PAGE_SIZE)%`RAB_L2_N_SETS)*4*`RAB_L2_N_SET_ENTRIES + ((va/`PAGE_SIZE)/`RAB_L2_N_SETS)*4;
+        axi_config_drv.write_ok(address, (va >> 8) | 32'h7);
+        axi_config_drv.write_ok(address + 32'h1000, (pa >> 12));
+        va     += `PAGE_SIZE;
       end
     end
 
