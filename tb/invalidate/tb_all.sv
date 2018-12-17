@@ -189,7 +189,7 @@ module tb_all;
       end
     end
 
-    $display("Done!");
+    $display("Success!");
     done = 1;
   end
 

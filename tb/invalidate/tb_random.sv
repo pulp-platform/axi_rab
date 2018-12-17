@@ -82,6 +82,7 @@ module tb_random;
     axi_master_drv.reset_master();
     @(posedge ready);
 
+    $display("Checking randomized addresses...");
     while(1) begin
       @(posedge clk);
       void'(randomize(ax_beat) with { ax_beat.ax_addr inside { [0:max_va] } ; });
@@ -168,6 +169,7 @@ module tb_random;
     // set master ready to run parallel lookups to invalidations / insertions
     ready = 1;
 
+    $display("Start invaldation/reinsertion process...");
     while(1) begin
       @(posedge clk);
       idx = $urandom_range(0, ena.size()-1);
@@ -222,6 +224,8 @@ module tb_random;
     @(posedge ready);
 
     #SIM_TIME;
+
+    $display("Success!");
     done =1;
   end
 
