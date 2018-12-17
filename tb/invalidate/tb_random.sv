@@ -1,7 +1,7 @@
 `include "pulp_soc_defines.sv"
 `include "utils.sv"
 
-`define VERBOSE
+// `define VERBOSE
 
 module tb_random;
   timeunit 1ps;
@@ -96,6 +96,13 @@ module tb_random;
       ena_save = ena[idx];
       axi_master_drv.send_ar(ax_beat);
       axi_master_drv.recv_r(r_beat);
+
+      // reject addresses with entries modified during read (FIXME: define this properly)
+      if(ena_save != ena[idx]) begin
+        continue;
+      end
+
+      // check state
       if(ena_save) begin
         if(r_beat.r_resp != 2'b00) begin
           $error("Expected hit at 0x%08x, but got miss instead", ax_beat.ax_addr);
@@ -170,9 +177,8 @@ module tb_random;
         $display("Invalidating page at 0x%08x", idx*`PAGE_SIZE);
 `endif
         axi_config_drv.write_ok(32'h10, idx*`PAGE_SIZE);
-        @(negedge clk); // switch the ena before the next invalidating cycle
-        ena[idx] = 0;
         axi_config_drv.write_ok(32'h18, (idx+1)*`PAGE_SIZE-1);
+        ena[idx] = 0;
       end else begin
         // reinsert entry
 `ifdef VERBOSE
@@ -185,15 +191,13 @@ module tb_random;
           axi_config_drv.write_ok(address + 32'h00, va);
           axi_config_drv.write_ok(address + 32'h08, va+`PAGE_SIZE-1);
           axi_config_drv.write_ok(address + 32'h10, pa);
-          @(negedge clk); // switch ena before the next insertion cycle
-          ena[idx] = 1;
           axi_config_drv.write_ok(address + 32'h18, 3'b111);
+          ena[idx] = 1;
         end else begin
           address = 32'h8000 + (idx%`RAB_L2_N_SETS)*4*`RAB_L2_N_SET_ENTRIES + (idx/`RAB_L2_N_SETS)*4;
           axi_config_drv.write_ok(address + 32'h1000, (pa >> 12));
-          @(negedge clk); // switch ena before the next insertion cycle
-          ena[idx] = 1;
           axi_config_drv.write_ok(address, (va >> 8) | 32'h7);
+          ena[idx] = 1;
        end
       end
     end
