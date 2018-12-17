@@ -201,6 +201,7 @@ module tb_all;
     // slave just sends back the rewritten address to the master
     while(1) begin
       axi_slave_drv.recv_ar(ax_beat);
+      r_beat.r_id = ax_beat.ax_id;
       r_beat.r_data = ax_beat.ax_addr;
       r_beat.r_last = 1'b1;
       axi_slave_drv.send_r(r_beat);

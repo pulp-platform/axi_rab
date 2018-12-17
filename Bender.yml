@@ -50,3 +50,4 @@ sources:
       - tb/invalidate/rab_wrap.sv
       - tb/invalidate/tb_all.sv
       - tb/invalidate/tb_single.sv
+      - tb/invalidate/tb_random.sv

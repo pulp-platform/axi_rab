@@ -150,7 +150,6 @@ module tb_single;
         address = 32'h8000 + ((va/`PAGE_SIZE)%`RAB_L2_N_SETS)*4*`RAB_L2_N_SET_ENTRIES + ((va/`PAGE_SIZE)/`RAB_L2_N_SETS)*4;
         axi_config_drv.write_ok(address, (va >> 8) | 32'h7);
         axi_config_drv.write_ok(address + 32'h1000, (pa >> 12));
-        va     += `PAGE_SIZE;
       end
     end
 
@@ -166,6 +165,7 @@ module tb_single;
     // slave just sends back the rewritten address to the master
     while(1) begin
       axi_slave_drv.recv_ar(ax_beat);
+      r_beat.r_id = ax_beat.ax_id;
       r_beat.r_data = ax_beat.ax_addr;
       r_beat.r_last = 1'b1;
       axi_slave_drv.send_r(r_beat);
