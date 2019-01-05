@@ -1,7 +1,7 @@
 `include "pulp_soc_defines.sv"
 `include "utils.sv"
 
-// `define VERBOSE
+`define VERBOSE
 
 module tb_random;
   timeunit 1ps;
@@ -77,7 +77,7 @@ module tb_random;
     automatic axi_test::axi_ax_beat #(.AW(AW), .IW(MIW), .UW(UW)) ax_beat = new;
     automatic axi_test::axi_r_beat  #(.DW(DW), .IW(MIW), .UW(UW)) r_beat = new;
 
-    int idx, ena_save;
+    automatic int idx, ena_save;
 
     axi_master_drv.reset_master();
     @(posedge ready);
@@ -126,7 +126,7 @@ module tb_random;
   end
 
   initial begin
-    int address, va, pa, idx;
+    automatic int address, va, pa, idx;
 
     localparam integer N_SLICES_ARRAY[`RAB_N_PORTS-1:0] = `N_SLICES_ARRAY;
     localparam integer EN_L2TLB_ARRAY[`RAB_N_PORTS-1:0] = `EN_L2TLB_ARRAY;

@@ -12,6 +12,7 @@ module tb_single;
   localparam TT = CK * 3 / 4;
 
   logic clk;
+  int   clk_cnt;
   logic start;
   logic done = 0;
 
@@ -55,7 +56,8 @@ module tb_single;
      .config_dv_in(axi_config_dv),
      .done_i(done),
      .start_o(start),
-     .clk_o(clk)
+     .clk_o(clk),
+     .clk_cnt_o(clk_cnt)
      );
 
   axi_lite_driver #(.AW(AW), .DW(DW), .TT(TT), .TA(TA)) axi_config_drv = new(axi_config_dv);
@@ -69,7 +71,8 @@ module tb_single;
     localparam integer N_SLICES_ARRAY[`RAB_N_PORTS-1:0] = `N_SLICES_ARRAY;
     localparam integer EN_L2TLB_ARRAY[`RAB_N_PORTS-1:0] = `EN_L2TLB_ARRAY;
 
-    int address, l1_va, max_va, va, pa;
+    automatic int address, l1_va, max_va, va, pa;
+    automatic int start_time, min_time = 1000000, max_time = 0;
 
     // NOTE: testbench currently assumes N_PORTS == 2 and L2 only on port 1 enabled
     assert(`RAB_N_PORTS == 2 && EN_L2TLB_ARRAY[0] == 0 && EN_L2TLB_ARRAY[1] == 1);
@@ -117,7 +120,10 @@ module tb_single;
 
       // invalidate
       axi_config_drv.write_ok(32'h10, addr);
+      start_time = clk_cnt;
       axi_config_drv.write_ok(32'h18, addr+`PAGE_SIZE-1);
+      if(clk_cnt - start_time > max_time) max_time = clk_cnt - start_time;
+      if(clk_cnt - start_time < min_time) min_time = clk_cnt - start_time;
 
       // check current
       ax_beat.ax_addr = addr;
@@ -152,6 +158,7 @@ module tb_single;
         axi_config_drv.write_ok(address + 32'h1000, (pa >> 12));
       end
     end
+    $display("Invalidation took between %d and %d cycles", min_time, max_time);
 
     $display("Success!");
     done = 1;

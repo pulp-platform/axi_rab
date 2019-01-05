@@ -17,18 +17,21 @@ module base_tb
    AXI_LITE_DV.in config_dv_in,
    input logic done_i,
    output logic start_o,
-   output logic clk_o
+   output logic clk_o,
+   output int clk_cnt_o
    );
 
   timeunit      1ps;
   timeprecision 1ps;
 
-  logic clk    = 0;
-  logic rst    = 1;
-  logic start  = 0;
+  logic clk     = 0;
+  logic rst     = 1;
+  logic start   = 0;
+  int   clk_cnt = 0;
 
-  assign clk_o   = clk;
-  assign start_o = start;
+  assign clk_o     = clk;
+  assign start_o   = start;
+  assign clk_cnt_o = clk_cnt;
 
   AXI_BUS
     #(
@@ -84,11 +87,13 @@ module base_tb
     rst <= 1;
     #CK;
     start <= 1;
+    clk_cnt <= 0;
     while (!done_i) begin
       clk <= 1;
       #(CK/2);
       clk <= 0;
       #(CK/2);
+      clk_cnt <= clk_cnt+1;
     end
     $stop;
   end
