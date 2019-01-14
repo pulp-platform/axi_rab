@@ -46,6 +46,7 @@
  * Maheshwara Sharma <msharma@student.ethz.ch>
  * Andreas Kurth <akurth@iis.ee.ethz.ch>
  * Johannes Weinbuch <jweinbuch@student.ethz.ch>
+ * Koen Wolters <kwolters@student.ethz.ch>
  * Pirmin Vogel <vogelpi@iis.ee.ethz.ch>
  */
 
