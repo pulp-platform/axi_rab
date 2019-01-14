@@ -23,8 +23,10 @@ module check_ram
   (
    input  logic                                clk_i,
    input  logic                                rst_ni,
-   input  logic [ADDR_WIDTH-1:0]               in_addr,
+   input  logic [ADDR_WIDTH-1:0]               in_addr_min,
+   input  logic [ADDR_WIDTH-1:0]               in_addr_max, // not used unless partial match mode is enabled
    input  logic                                rw_type, // 1 => write, 0=> read
+   input  logic                                partial_match, // with partial matches the hit_addr is not reliable
    input  logic                                ram_we,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr,
    input  logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port1_addr,
@@ -44,7 +46,7 @@ module check_ram
    logic [RAM_DATA_WIDTH-1:0]           port0_data_o, port1_data_o; // RAM read data outputs
    logic                                port0_hit, port1_hit; // Ram output matches in_addr
 
-    logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr_saved, port1_addr_saved;
+   logic [SET_WIDTH+OFFSET_WIDTH+1-1:0] port0_addr_saved, port1_addr_saved;
 
    // Hit FSM Signals
    typedef enum                         logic {SEARCH, HIT} hit_state_t;
@@ -84,8 +86,17 @@ module check_ram
     );
 
    //// Check Ram Outputs
-   assign port0_hit = (port0_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port0_data_o[RAM_DATA_WIDTH-1:4]);
-   assign port1_hit = (port1_data_o[0] == 1'b1) && (in_addr[ADDR_WIDTH-1: IGNORE_LSB] == port1_data_o[RAM_DATA_WIDTH-1:4]);
+   always_comb begin
+      if(partial_match) begin
+         port0_hit = (port0_data_o[0] == 1'b1) && (in_addr_min[ADDR_WIDTH-1:IGNORE_LSB] <= port0_data_o[RAM_DATA_WIDTH-1:4])
+                     && (port0_data_o[RAM_DATA_WIDTH-1:4] <= in_addr_max[ADDR_WIDTH-1:IGNORE_LSB]);
+         port1_hit = (port1_data_o[0] == 1'b1) && (in_addr_min[ADDR_WIDTH-1:IGNORE_LSB] <= port1_data_o[RAM_DATA_WIDTH-1:4])
+                     && (port1_data_o[RAM_DATA_WIDTH-1:4] <= in_addr_max[ADDR_WIDTH-1:IGNORE_LSB]);
+      end else begin
+         port0_hit = (port0_data_o[0] == 1'b1) && (in_addr_min[ADDR_WIDTH-1:IGNORE_LSB] == port0_data_o[RAM_DATA_WIDTH-1:4]);
+         port1_hit = (port1_data_o[0] == 1'b1) && (in_addr_min[ADDR_WIDTH-1:IGNORE_LSB] == port1_data_o[RAM_DATA_WIDTH-1:4]);
+      end
+   end
    //// ----------------------------------------------------- /////
 
    //// ------------------- Check if Hit ------------------------ ////
@@ -99,13 +110,13 @@ module check_ram
    end
 
    always_ff @(posedge clk_i, negedge rst_ni) begin
-       if (!rst_ni) begin
-           port0_addr_saved <= '0;
-           port1_addr_saved <= '0;
-       end else begin
-           port0_addr_saved <= port0_addr;
-           port1_addr_saved <= port1_addr;
-       end
+      if (!rst_ni) begin
+         port0_addr_saved <= '0;
+         port1_addr_saved <= '0;
+      end else begin
+         port0_addr_saved <= port0_addr;
+         port1_addr_saved <= port1_addr;
+      end
    end
 
    always_comb begin

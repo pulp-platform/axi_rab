@@ -26,6 +26,7 @@ module fsm
     input  logic                        port1_sent_i,
     input  logic                        port2_sent_i,
     input  logic                        select_i,
+    input  logic                        invalidate_i,
     input  logic                        no_hit_i,
     input  logic                        multi_hit_i,
     input  logic                        no_prot_i,
@@ -44,11 +45,14 @@ module fsm
     output logic                        multi_o,
     output logic                        prot_o,
     output logic                        prefetch_o,
-    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_i,
+    output logic                        invalidate_o,
+    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_min_i,
+    input  logic [AXI_S_ADDR_WIDTH-1:0] in_addr_max_i,
     input  logic     [AXI_ID_WIDTH-1:0] in_id_i,
     input  logic                  [7:0] in_len_i,
     input  logic   [AXI_USER_WIDTH-1:0] in_user_i,
-    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_o,
+    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_min_o,
+    output logic [AXI_S_ADDR_WIDTH-1:0] in_addr_max_o,
     output logic     [AXI_ID_WIDTH-1:0] in_id_o,
     output logic                  [7:0] in_len_o,
     output logic   [AXI_USER_WIDTH-1:0] in_user_o
@@ -56,9 +60,9 @@ module fsm
 
   //-------------Internal Signals----------------------
 
-  typedef enum logic           {IDLE, WAIT} state_t;
-  logic                        state_SP; // Present state
-  logic                        state_SN; // Next State
+  typedef enum logic     [1:0] {IDLE, WAIT_SENT, WAIT_INVALIDATE} state_t;
+  state_t                      state_SP; // Present state
+  state_t                      state_SN; // Next State
 
   logic                        port1_accept_SN;
   logic                        port1_drop_SN;
@@ -96,13 +100,17 @@ module fsm
     out_reg_en_S      = 1'b0; // by default hold register output
 
     unique case(state_SP)
-        IDLE :
-          if ( (port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i) ) begin
+        IDLE : begin
+          if ( invalidate_i ) begin
+            // Stall during invalidation, forwarding the invalidation flag
             out_reg_en_S = 1'b1;
-            state_SN     = WAIT;
+            state_SN     = WAIT_INVALIDATE;
+          end else if ( (port1_addr_valid_i & select_i) | (port2_addr_valid_i & ~select_i) ) begin
+            out_reg_en_S = 1'b1;
+            state_SN     = WAIT_SENT;
 
             // Select inputs for output registers
-            if          (port1_addr_valid_i & select_i) begin
+            if (port1_addr_valid_i & select_i) begin
               port1_accept_SN = ~(no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
               port1_drop_SN   =  (no_hit_i | multi_hit_i | ~no_prot_i | prefetch_i);
               port1_miss_SN   =   no_hit_i;
@@ -126,12 +134,21 @@ module fsm
             cache_coherent_SN = cache_coherent_i;
             out_addr_DN       = out_addr_i;
           end
+        end
 
-        WAIT :
+        WAIT_SENT : begin
           if ( port1_sent_i | port2_sent_i ) begin
             out_reg_en_S = 1'b1; // "clear" the register
             state_SN     = IDLE;
           end
+        end
+
+        WAIT_INVALIDATE : begin
+          if ( ~invalidate_i ) begin
+            out_reg_en_S = 1'b1; // clear invalidation
+            state_SN     = IDLE;
+          end
+        end
 
         default : begin
            state_SN      = IDLE;
@@ -162,9 +179,11 @@ module fsm
       multi_o          = 1'b0;
       prot_o           = 1'b0;
       prefetch_o       = 1'b0;
+      invalidate_o     = 1'b0;
       cache_coherent_o = 1'b0;
       out_addr_o       =   '0;
-      in_addr_o        =   '0;
+      in_addr_min_o    =   '0;
+      in_addr_max_o    =   '0;
       in_id_o          =   '0;
       in_len_o         =   '0;
       in_user_o        =   '0;
@@ -181,7 +200,9 @@ module fsm
       prefetch_o       = prefetch_SN;
       cache_coherent_o = cache_coherent_SN;
       out_addr_o       = out_addr_DN;
-      in_addr_o        = in_addr_i;
+      invalidate_o     = invalidate_i;
+      in_addr_min_o    = in_addr_min_i;
+      in_addr_max_o    = in_addr_max_i;
       in_id_o          = in_id_i;
       in_len_o         = in_len_i;
       in_user_o        = in_user_i;

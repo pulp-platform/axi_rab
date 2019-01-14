@@ -69,9 +69,11 @@ module rab_core
     output logic [N_PORTS-1:0]                           int_prot,
     output logic [N_PORTS-1:0]                           int_multi,
     output logic [N_PORTS-1:0]                           int_prefetch,
+    output logic [N_PORTS-1:0]                           int_invalidate,
     output logic                                         int_mhf_full,
 
-    output logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] int_axaddr_o,
+    output logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] int_axaddr_min_o,
+    output logic [N_PORTS-1:0]    [AXI_S_ADDR_WIDTH-1:0] int_axaddr_max_o,
     output logic [N_PORTS-1:0]        [AXI_ID_WIDTH-1:0] int_axid_o,
     output logic [N_PORTS-1:0]                     [7:0] int_axlen_o,
     output logic [N_PORTS-1:0]      [AXI_USER_WIDTH-1:0] int_axuser_o,
@@ -111,7 +113,9 @@ module rab_core
 
     output logic [N_PORTS-1:0] [AXI_LITE_DATA_WIDTH-1:0] wdata_l2_o,
     output logic [N_PORTS-1:0] [AXI_LITE_ADDR_WIDTH-1:0] waddr_l2_o,
-    output logic [N_PORTS-1:0]                           wren_l2_o
+    output logic [N_PORTS-1:0]                           wren_l2_o,
+
+    input  logic [N_PORTS-1:0]                           invalidate_l2_done_i
     );
 
   // ███████╗██╗ ██████╗ ███╗   ██╗ █████╗ ██╗     ███████╗
@@ -186,6 +190,12 @@ module rab_core
 
   logic                                           L1AllowMultiHit_S;
 
+  logic                                           invalidate_ready_q, invalidate_ready_d;
+  logic [N_SLICES_TOT-1:0]                        invalidate_slices;
+  logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_min;
+  logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_max;
+  logic                                           invalidate_addr_valid;
+
   genvar z;
 
   //  █████╗ ███████╗███████╗██╗ ██████╗ ███╗   ██╗███╗   ███╗███████╗███╗   ██╗████████╗███████╗
@@ -196,15 +206,18 @@ module rab_core
   // ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝
   //
 
+  assign invalidate_o = invalidate_addr_valid;
+
   always_comb
     begin : PORT_SELECT
-      var integer idx;
+      var integer idx, idx_slice, idx_tot;
+      idx_tot = 0;
+
+      invalidate_slices = 'b0;
+      // records to invalidate are available in a single cycle
+      invalidate_ready_d = invalidate_addr_valid;
 
       for (idx=0; idx<N_PORTS; idx++) begin
-
-        // select = 1 -> port1 active
-        // select = 0 -> port2 active
-        select[idx] = (curr_priority[idx] & port1_addr_valid[idx]) | ~port2_addr_valid[idx];
 
         p1_burst_size[idx] = (port1_len[idx] + 1) << port1_size[idx];
         p2_burst_size[idx] = (port2_len[idx] + 1) << port2_size[idx];
@@ -247,13 +260,35 @@ module rab_core
         p1_max_addr[idx]  = p1_align_addr[idx] + p1_burst_size[idx] - 1;
         p2_max_addr[idx]  = p2_align_addr[idx] + p2_burst_size[idx] - 1;
 
-        int_addr_min[idx] = select[idx] ? port1_addr[idx]  : port2_addr[idx];
-        int_addr_max[idx] = select[idx] ? p1_max_addr[idx] : p2_max_addr[idx];
-        int_rw[idx]       = select[idx] ? port1_type[idx]  : port2_type[idx];
-        int_id[idx]       = select[idx] ? port1_id[idx]    : port2_id[idx];
-        int_len[idx]      = select[idx] ? port1_len[idx]   : port2_len[idx];
-        int_user[idx]     = select[idx] ? port1_user[idx]  : port2_user[idx];
-        prefetch[idx]     = select[idx] ? p1_prefetch[idx] : p2_prefetch[idx];
+
+        select[idx]       = 'b0;
+        int_rw[idx]       = 'b0;
+        int_id[idx]       = 'b0;
+        int_len[idx]      = 'b0;
+        int_user[idx]     = 'b0;
+        prefetch[idx]     = 'b0;
+
+        if ( invalidate_addr_valid ) begin
+          int_addr_min[idx] = invalidate_addr_min;
+          int_addr_max[idx] = invalidate_addr_max;
+
+          for (idx_slice = 0; idx_slice<N_SLICES[idx]; ++idx_slice) begin
+            invalidate_slices[idx_tot] = hit_slices[idx][idx_slice];
+            ++idx_tot;
+          end
+        end else begin
+          // select = 1 -> port1 active
+          // select = 0 -> port2 active
+          select[idx] = (curr_priority[idx] & port1_addr_valid[idx]) | ~port2_addr_valid[idx];
+
+          int_addr_min[idx] = select[idx] ? port1_addr[idx]  : port2_addr[idx];
+          int_addr_max[idx] = select[idx] ? p1_max_addr[idx] : p2_max_addr[idx];
+          int_rw[idx]       = select[idx] ? port1_type[idx]  : port2_type[idx];
+          int_id[idx]       = select[idx] ? port1_id[idx]    : port2_id[idx];
+          int_len[idx]      = select[idx] ? port1_len[idx]   : port2_len[idx];
+          int_user[idx]     = select[idx] ? port1_user[idx]  : port2_user[idx];
+          prefetch[idx]     = select[idx] ? p1_prefetch[idx] : p2_prefetch[idx];
+        end
 
         hit [idx]    = | hit_slices [idx];
         prot[idx]    = | prot_slices[idx];
@@ -283,19 +318,29 @@ module rab_core
         // Fix to zero. Synthesis will remove these signals.
         // int_cfg_regs_slices[idx_port][4*N_SLICES_MAX-1:4*N_SLICES[idx_port]] = 0;
       end
+    end
+
+  // set invalidate ready after invalidation slices are available
+  always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
+    if (Rst_RBI == 1'b0) begin
+        invalidate_ready_q <= 'b0;
+      end else begin
+        invalidate_ready_q <= invalidate_ready_d;
+      end
   end
 
+  // save port priority (only used if invalidation port is not set)
   always @(posedge Clk_CI or negedge Rst_RBI)
     begin : PORT_PRIORITY
       var integer idx;
-      if (Rst_RBI == 1'b0)
-        curr_priority = 'h0;
-      else begin
+      if (Rst_RBI == 1'b0) begin
+        curr_priority <= 'h0;
+      end else begin
         for (idx=0; idx<N_PORTS; idx++) begin
           if (port1_accept[idx] || port1_drop[idx])
-            curr_priority[idx] = 1'b1;
+            curr_priority[idx] <= 1'b1;
           else if (port2_accept[idx] || port2_drop[idx])
-            curr_priority[idx] = 1'b0;
+            curr_priority[idx] <= 1'b0;
         end
       end
     end
@@ -324,6 +369,7 @@ module rab_core
     #(
       .N_PORTS         ( N_PORTS             ),
       .N_REGS          ( N_REGS              ),
+      .N_SLICES_TOT    ( N_SLICES_TOT        ),
       .N_L2_SETS       ( N_L2_SETS           ),
       .N_L2_SET_ENTRIES( N_L2_SET_ENTRIES    ),
       .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH    ),
@@ -336,34 +382,40 @@ module rab_core
     )
     u_axi_rab_cfg
     (
-      .Clk_CI             ( Clk_CI                    ),
-      .Rst_RBI            ( Rst_RBI                   ),
-      .s_axi_awaddr       ( s_axi_awaddr              ),
-      .s_axi_awvalid      ( s_axi_awvalid             ),
-      .s_axi_wdata        ( s_axi_wdata               ),
-      .s_axi_wstrb        ( s_axi_wstrb               ),
-      .s_axi_wvalid       ( s_axi_wvalid              ),
-      .s_axi_bready       ( s_axi_bready              ),
-      .s_axi_araddr       ( s_axi_araddr              ),
-      .s_axi_arvalid      ( s_axi_arvalid             ),
-      .s_axi_rready       ( s_axi_rready              ),
-      .s_axi_arready      ( s_axi_arready             ),
-      .s_axi_rdata        ( s_axi_rdata               ),
-      .s_axi_rresp        ( s_axi_rresp               ),
-      .s_axi_rvalid       ( s_axi_rvalid              ),
-      .s_axi_wready       ( s_axi_wready              ),
-      .s_axi_bresp        ( s_axi_bresp               ),
-      .s_axi_bvalid       ( s_axi_bvalid              ),
-      .s_axi_awready      ( s_axi_awready             ),
-      .L1Cfg_DO           ( int_cfg_regs              ),
-      .L1AllowMultiHit_SO ( L1AllowMultiHit_S         ),
-      .MissAddr_DI        ( miss_addr_mhf[PortIdx_D]  ),
-      .MissMeta_DI        ( miss_meta_mhf[PortIdx_D]  ),
-      .Miss_SI            ( miss_valid_mhf[PortIdx_D] ),
-      .MhFifoFull_SO      ( int_mhf_full              ),
-      .wdata_l2           ( wdata_l2_o                ),
-      .waddr_l2           ( waddr_l2_o                ),
-      .wren_l2            ( wren_l2_o                 )
+      .Clk_CI                  ( Clk_CI                    ),
+      .Rst_RBI                 ( Rst_RBI                   ),
+      .s_axi_awaddr            ( s_axi_awaddr              ),
+      .s_axi_awvalid           ( s_axi_awvalid             ),
+      .s_axi_wdata             ( s_axi_wdata               ),
+      .s_axi_wstrb             ( s_axi_wstrb               ),
+      .s_axi_wvalid            ( s_axi_wvalid              ),
+      .s_axi_bready            ( s_axi_bready              ),
+      .s_axi_araddr            ( s_axi_araddr              ),
+      .s_axi_arvalid           ( s_axi_arvalid             ),
+      .s_axi_rready            ( s_axi_rready              ),
+      .s_axi_arready           ( s_axi_arready             ),
+      .s_axi_rdata             ( s_axi_rdata               ),
+      .s_axi_rresp             ( s_axi_rresp               ),
+      .s_axi_rvalid            ( s_axi_rvalid              ),
+      .s_axi_wready            ( s_axi_wready              ),
+      .s_axi_bresp             ( s_axi_bresp               ),
+      .s_axi_bvalid            ( s_axi_bvalid              ),
+      .s_axi_awready           ( s_axi_awready             ),
+      .L1Cfg_DO                ( int_cfg_regs              ),
+      .L1AllowMultiHit_SO      ( L1AllowMultiHit_S         ),
+      .MissAddr_DI             ( miss_addr_mhf[PortIdx_D]  ),
+      .MissMeta_DI             ( miss_meta_mhf[PortIdx_D]  ),
+      .Miss_SI                 ( miss_valid_mhf[PortIdx_D] ),
+      .MhFifoFull_SO           ( int_mhf_full              ),
+      .wdata_l2                ( wdata_l2_o                ),
+      .waddr_l2                ( waddr_l2_o                ),
+      .wren_l2                 ( wren_l2_o                 ),
+      .l1_invalidate_ready_i   ( invalidate_ready_q        ),
+      .l1_invalidate_slices_i  ( invalidate_slices         ),
+      .l2_invalidate_done_i    ( invalidate_l2_done_i      ),
+      .invalidate_addr_min_o   ( invalidate_addr_min       ),
+      .invalidate_addr_max_o   ( invalidate_addr_max       ),
+      .invalidate_addr_valid_o ( invalidate_addr_valid     )
     );
 
   generate for (z = 0; z < N_PORTS; z++) begin : MHF_TLB_SELECT
@@ -396,16 +448,17 @@ module rab_core
       )
       u_slice_top
       (
-        .int_cfg_regs    ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
-        .int_rw          ( int_rw[z]                                 ),
-        .int_addr_min    ( int_addr_min[z]                           ),
-        .int_addr_max    ( int_addr_max[z]                           ),
-        .multi_hit_allow ( L1AllowMultiHit_S                         ),
-        .multi_hit       ( multi_hit[z]                              ),
-        .prot            ( prot_slices[z][N_SLICES[z]-1:0]           ),
-        .hit             ( hit_slices [z][N_SLICES[z]-1:0]           ),
-        .cache_coherent  ( cache_coherent[z]                         ),
-        .out_addr        ( out_addr[z]                               )
+        .int_cfg_regs        ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
+        .int_rw              ( int_rw[z]                                 ),
+        .int_addr_min        ( int_addr_min[z]                           ),
+        .int_addr_max        ( int_addr_max[z]                           ),
+        .partial_match_allow ( invalidate_addr_valid                     ),
+        .multi_hit_allow     ( L1AllowMultiHit_S                         ),
+        .multi_hit           ( multi_hit[z]                              ),
+        .prot                ( prot_slices[z][N_SLICES[z]-1:0]           ),
+        .hit                 ( hit_slices [z][N_SLICES[z]-1:0]           ),
+        .cache_coherent      ( cache_coherent[z]                         ),
+        .out_addr            ( out_addr[z]                               )
       );
     // hit_slices [N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
     // prot_slices[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
@@ -434,39 +487,43 @@ module rab_core
       )
       u_fsm
       (
-        .Clk_CI             ( Clk_CI                ),
-        .Rst_RBI            ( Rst_RBI               ),
-        .port1_addr_valid_i ( port1_addr_valid[z]   ),
-        .port2_addr_valid_i ( port2_addr_valid[z]   ),
-        .port1_sent_i       ( port1_sent[z]         ),
-        .port2_sent_i       ( port2_sent[z]         ),
-        .select_i           ( select[z]             ),
-        .no_hit_i           ( no_hit[z]             ),
-        .multi_hit_i        ( multi_hit[z]          ),
-        .no_prot_i          ( no_prot[z]            ),
-        .prefetch_i         ( prefetch[z]           ),
-        .out_addr_i         ( out_addr[z]           ),
-        .cache_coherent_i   ( cache_coherent[z]     ),
-        .port1_accept_o     ( port1_accept[z]       ),
-        .port1_drop_o       ( port1_drop[z]         ),
-        .port1_miss_o       ( port1_miss[z]         ),
-        .port2_accept_o     ( port2_accept[z]       ),
-        .port2_drop_o       ( port2_drop[z]         ),
-        .port2_miss_o       ( port2_miss[z]         ),
-        .out_addr_o         ( out_addr_reg[z]       ),
-        .cache_coherent_o   ( cache_coherent_reg[z] ),
-        .miss_o             ( int_miss[z]           ),
-        .multi_o            ( int_multi[z]          ),
-        .prot_o             ( int_prot[z]           ),
-        .prefetch_o         ( int_prefetch[z]       ),
-        .in_addr_i          ( int_addr_min[z]       ),
-        .in_id_i            ( int_id[z]             ),
-        .in_len_i           ( int_len[z]            ),
-        .in_user_i          ( int_user[z]           ),
-        .in_addr_o          ( int_axaddr_o[z]       ),
-        .in_id_o            ( int_axid_o[z]         ),
-        .in_len_o           ( int_axlen_o[z]        ),
-        .in_user_o          ( int_axuser_o[z]       )
+        .Clk_CI             ( Clk_CI                           ),
+        .Rst_RBI            ( Rst_RBI                          ),
+        .port1_addr_valid_i ( port1_addr_valid[z]              ),
+        .port2_addr_valid_i ( port2_addr_valid[z]              ),
+        .port1_sent_i       ( port1_sent[z]                    ),
+        .port2_sent_i       ( port2_sent[z]                    ),
+        .select_i           ( select[z]                        ),
+        .invalidate_i       ( invalidate_addr_valid            ),
+        .no_hit_i           ( no_hit[z]                        ),
+        .multi_hit_i        ( multi_hit[z]                     ),
+        .no_prot_i          ( no_prot[z]                       ),
+        .prefetch_i         ( prefetch[z]                      ),
+        .out_addr_i         ( out_addr[z]                      ),
+        .cache_coherent_i   ( cache_coherent[z]                ),
+        .port1_accept_o     ( port1_accept[z]                  ),
+        .port1_drop_o       ( port1_drop[z]                    ),
+        .port1_miss_o       ( port1_miss[z]                    ),
+        .port2_accept_o     ( port2_accept[z]                  ),
+        .port2_drop_o       ( port2_drop[z]                    ),
+        .port2_miss_o       ( port2_miss[z]                    ),
+        .out_addr_o         ( out_addr_reg[z]                  ),
+        .cache_coherent_o   ( cache_coherent_reg[z]            ),
+        .miss_o             ( int_miss[z]                      ),
+        .multi_o            ( int_multi[z]                     ),
+        .prot_o             ( int_prot[z]                      ),
+        .prefetch_o         ( int_prefetch[z]                  ),
+        .invalidate_o       ( int_invalidate[z]                ),
+        .in_addr_min_i      ( int_addr_min[z]                  ),
+        .in_addr_max_i      ( int_addr_max[z]                  ),
+        .in_id_i            ( int_id[z]                        ),
+        .in_len_i           ( int_len[z]                       ),
+        .in_user_i          ( int_user[z]                      ),
+        .in_addr_min_o      ( int_axaddr_min_o[z]              ),
+        .in_addr_max_o      ( int_axaddr_max_o[z]              ),
+        .in_id_o            ( int_axid_o[z]                    ),
+        .in_len_o           ( int_axlen_o[z]                   ),
+        .in_user_o          ( int_axuser_o[z]                  )
       );
   end
   endgenerate

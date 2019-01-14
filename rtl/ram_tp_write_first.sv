@@ -37,7 +37,7 @@ module ram_tp_write_first
 
   localparam DEPTH = 2**ADDR_WIDTH;
 
-  (* ram_style = "block" *) reg [DATA_WIDTH-1:0] ram[DEPTH];
+  (* ram_style = "block" *) reg [DATA_WIDTH-1:0] ram[DEPTH] = '{DEPTH{0}};
                             reg [ADDR_WIDTH-1:0] raddr0;
                             reg [ADDR_WIDTH-1:0] raddr1;
 

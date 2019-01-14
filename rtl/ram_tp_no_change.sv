@@ -38,7 +38,7 @@ module ram_tp_no_change
 
   localparam DEPTH = 2**ADDR_WIDTH;
 
-  (* ram_style = "block" *) reg [DATA_WIDTH-1:0] ram[DEPTH];
+  (* ram_style = "block" *) reg [DATA_WIDTH-1:0] ram[DEPTH] = '{DEPTH{0}};
                             reg [DATA_WIDTH-1:0] d0;
                             reg [DATA_WIDTH-1:0] d1;
 
@@ -48,7 +48,7 @@ module ram_tp_no_change
     end else begin
       d0 <= ram[addr0];
     end
-    d1   <= ram[addr1];
+    d1 <= ram[addr1];
   end
 
   assign d0_o = d0;
