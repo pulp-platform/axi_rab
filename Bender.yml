@@ -28,10 +28,11 @@ sources:
   - rtl/ram_tp_write_first.sv
   - rtl/ram_tp_no_change.sv
   - rtl/slice_top.sv
-  - target: test
-    files:
-      - tb/invalidate/base_tb.sv
-      - tb/invalidate/rab_wrap.sv
-      - tb/invalidate/tb_all.sv
-      - tb/invalidate/tb_single.sv
-      - tb/invalidate/tb_random.sv
+
+  #- target: test
+  #  files:
+  #    - tb/invalidate/base_tb.sv
+  #    - tb/invalidate/rab_wrap.sv
+  #    - tb/invalidate/tb_all.sv
+  #    - tb/invalidate/tb_single.sv
+  #    - tb/invalidate/tb_random.sv
