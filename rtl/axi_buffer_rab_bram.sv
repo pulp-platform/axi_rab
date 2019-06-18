@@ -8,8 +8,6 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-import CfMath::log2;
-
 module axi_buffer_rab_bram
   #(
     parameter DATA_WIDTH,
@@ -42,7 +40,7 @@ module axi_buffer_rab_bram
   // To still push and pop simultaneously if the buffer is full, we internally increase the
   // buffer depth by 1.
   localparam ACT_BUFFER_DEPTH     = BUFFER_DEPTH+1;
-  localparam ACT_LOG_BUFFER_DEPTH = log2(ACT_BUFFER_DEPTH+1);
+  localparam ACT_LOG_BUFFER_DEPTH = $clog2(ACT_BUFFER_DEPTH+1);
 
   /**
     * Internal data structures

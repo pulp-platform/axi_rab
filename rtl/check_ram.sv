@@ -8,8 +8,6 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-import CfMath::log2;
-
 //`define MULTI_HIT_FULL_SET
 
 module check_ram
@@ -41,7 +39,7 @@ module check_ram
    output logic                                prot
    );
 
-   localparam IGNORE_LSB = log2(PAGE_SIZE); // 12
+   localparam IGNORE_LSB = $clog2(PAGE_SIZE); // 12
 
    logic [RAM_DATA_WIDTH-1:0]           port0_data_o, port1_data_o; // RAM read data outputs
    logic                                port0_hit, port1_hit; // Ram output matches in_addr

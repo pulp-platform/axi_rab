@@ -8,8 +8,6 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-import CfMath::log2;
-
 module axi4_w_buffer
   #(
     parameter AXI_DATA_WIDTH   = 32,
@@ -87,14 +85,14 @@ module axi4_w_buffer
   logic                           l1_fifo_valid_in;
   logic                           l1_fifo_ready_out;
 
-  logic                           l1_req;
-  logic                           l1_accept_cur, l1_save_cur, l1_drop_cur;
-  logic                           l1_master_cur;
-  logic        [AXI_ID_WIDTH-1:0] l1_id_cur;
-  logic                     [7:0] l1_len_cur;
-  logic                           l1_hit_cur, l1_prefetch_cur;
-  logic                           l1_save_in, l1_save_out;
-  logic [log2(L1_FIFO_DEPTH)-1:0] n_l1_save_SP;
+  logic                             l1_req;
+  logic                             l1_accept_cur, l1_save_cur, l1_drop_cur;
+  logic                             l1_master_cur;
+  logic        [AXI_ID_WIDTH-1:0]   l1_id_cur;
+  logic                     [7:0]   l1_len_cur;
+  logic                             l1_hit_cur, l1_prefetch_cur;
+  logic                             l1_save_in, l1_save_out;
+  logic [$clog2(L1_FIFO_DEPTH)-1:0] n_l1_save_SP;
 
   logic                           l2_fifo_valid_out;
   logic                           l2_fifo_ready_in;

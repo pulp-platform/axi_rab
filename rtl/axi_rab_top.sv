@@ -52,8 +52,6 @@
 
 `include "pulp_soc_defines.sv"
 
-import CfMath::log2;
-
 module axi_rab_top
 
   // Parameters {{{
@@ -2315,14 +2313,14 @@ module axi_rab_top
 
       l2_tlb
         #(
-          .AXI_S_ADDR_WIDTH       ( AXI_S_ADDR_WIDTH                                    ),
-          .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                                    ),
-          .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                                 ),
-          .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                                 ),
-          .N_SETS                 ( `RAB_L2_N_SETS                                      ),
-          .N_OFFSETS              ( `RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS       ),
-          .N_PAR_VA_RAMS          ( `RAB_L2_N_PAR_VA_RAMS                               ),
-          .HIT_OFFSET_STORE_WIDTH ( log2(`RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS) )
+          .AXI_S_ADDR_WIDTH       ( AXI_S_ADDR_WIDTH                                      ),
+          .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                                      ),
+          .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                                   ),
+          .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                                   ),
+          .N_SETS                 ( `RAB_L2_N_SETS                                        ),
+          .N_OFFSETS              ( `RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS         ),
+          .N_PAR_VA_RAMS          ( `RAB_L2_N_PAR_VA_RAMS                                 ),
+          .HIT_OFFSET_STORE_WIDTH ( $clog2(`RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS) )
           )
       u_l2_tlb
         (

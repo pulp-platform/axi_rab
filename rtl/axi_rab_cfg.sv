@@ -24,8 +24,6 @@
 //
 // --=========================================================================--
 
-import CfMath::log2;
-
 module axi_rab_cfg
   #(
     parameter N_PORTS         =   3,
@@ -88,9 +86,9 @@ module axi_rab_cfg
     output logic                                    invalidate_addr_valid_o
   );
 
-  localparam ADDR_LSB = log2(64/8); // 64 even if the AXI Lite interface is 32,
-                                    // because RAB slices are 64 bit wide.
-  localparam ADDR_MSB = log2(N_REGS)+ADDR_LSB-1;
+  localparam ADDR_LSB = $clog2(64/8); // 64 even if the AXI Lite interface is 32,
+                                      // because RAB slices are 64 bit wide.
+  localparam ADDR_MSB = $clog2(N_REGS)+ADDR_LSB-1;
 
   localparam CONFIG_SIZE = 'h20; // Addresses at start to use for config registers
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
@@ -427,7 +425,7 @@ module axi_rab_cfg
     for( j=0; j< N_PORTS; j++)
       begin
         if (AXI_DATA_WIDTH == 64) begin
-          assign l2_addr_is_in_va_rams[j] = (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg[log2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
+          assign l2_addr_is_in_va_rams[j] = (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg[$clog2(L2SINGLE_AMAP_SIZE)-1:0] <= L2_VA_MAX_ADDR);
           assign upper_word_is_written[j] = (wstrb_reg[7:4] != 4'b0000);
           assign lower_word_is_written[j] = (wstrb_reg[3:0] != 4'b0000);
         end else begin

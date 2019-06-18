@@ -21,8 +21,6 @@
 
 `include "pulp_soc_defines.sv"
 
-import CfMath::log2;
-
 `define MY_ARRAY_SUM(MY_ARRAY,ARRAY_SIZE) ( (ARRAY_SIZE==1) ? MY_ARRAY[0] : (ARRAY_SIZE==2) ? MY_ARRAY[0] + MY_ARRAY[1] : (ARRAY_SIZE==3) ? MY_ARRAY[0] + MY_ARRAY[1] + MY_ARRAY[2] : (ARRAY_SIZE==4) ? MY_ARRAY[0] + MY_ARRAY[1] + MY_ARRAY[2] + MY_ARRAY[3] : 0 )
 
 module rab_core
@@ -133,9 +131,9 @@ module rab_core
   localparam         N_SLICES_MAX              = `N_SLICES_MAX;
 
   localparam N_REGS                            = 4*N_SLICES_TOT + 4;
-  localparam AXI_SIZE_WIDTH                    = log2(AXI_DATA_WIDTH/8);
+  localparam AXI_SIZE_WIDTH                    = $clog2(AXI_DATA_WIDTH/8);
 
-  localparam PORT_ID_WIDTH                     = (N_PORTS < 2) ? 1 : log2(N_PORTS);
+  localparam PORT_ID_WIDTH                     = (N_PORTS < 2) ? 1 : $clog2(N_PORTS);
   localparam MISS_META_WIDTH                   = PORT_ID_WIDTH + AXI_USER_WIDTH + AXI_ID_WIDTH;
 
   logic [N_PORTS-1:0]                      [15:0] p1_burst_size;

@@ -10,8 +10,6 @@
 
 `include "pulp_soc_defines.sv"
 
-import CfMath::log2;
-
 //`define MULTI_HIT_FULL_SET  // Enable full multi hit detection. Always the entire set is searched.
 //`define MULTI_HIT_CUR_CYCLE // Enable partial multi hit detection. Only multi hits in the same search cycle are detected.
 
@@ -60,12 +58,12 @@ module l2_tlb
 
    localparam VA_RAM_DEPTH      = N_SETS * N_OFFSETS * 2;
    localparam PA_RAM_DEPTH      = VA_RAM_DEPTH * N_PAR_VA_RAMS;
-   localparam VA_RAM_ADDR_WIDTH = log2(VA_RAM_DEPTH);
-   localparam PA_RAM_ADDR_WIDTH = log2(PA_RAM_DEPTH);
-   localparam SET_WIDTH         = log2(N_SETS);
-   localparam OFFSET_WIDTH      = log2(N_OFFSETS);
-   localparam LL_WIDTH          = log2(N_PAR_VA_RAMS);
-   localparam IGNORE_LSB        = log2(PAGE_SIZE);
+   localparam VA_RAM_ADDR_WIDTH = $clog2(VA_RAM_DEPTH);
+   localparam PA_RAM_ADDR_WIDTH = $clog2(PA_RAM_DEPTH);
+   localparam SET_WIDTH         = $clog2(N_SETS);
+   localparam OFFSET_WIDTH      = $clog2(N_OFFSETS);
+   localparam LL_WIDTH          = $clog2(N_PAR_VA_RAMS);
+   localparam IGNORE_LSB        = $clog2(PAGE_SIZE);
 
    localparam VA_RAM_DATA_WIDTH = AXI_S_ADDR_WIDTH - IGNORE_LSB + 4;
    localparam PA_RAM_DATA_WIDTH = AXI_M_ADDR_WIDTH - IGNORE_LSB;
