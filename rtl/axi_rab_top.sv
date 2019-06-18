@@ -54,17 +54,17 @@ module axi_rab_top
 
   // Parameters {{{
   #(
-    parameter N_PORTS             =  2,
-    parameter N_L2_SETS           = 32,
-    parameter N_L2_SET_ENTRIES    = 32,
-    parameter AXI_DATA_WIDTH      = 64,
-    parameter AXI_S_ADDR_WIDTH    = 32,
-    parameter AXI_M_ADDR_WIDTH    = 40,
-    parameter AXI_LITE_DATA_WIDTH = 64,
-    parameter AXI_LITE_ADDR_WIDTH = 32,
-    parameter AXI_ID_WIDTH        = 10,
-    parameter AXI_USER_WIDTH      =  6,
-    parameter MH_FIFO_DEPTH       = 16
+    parameter int unsigned  N_PORTS             =  2,
+    parameter int unsigned  N_L2_SETS           = 32,
+    parameter int unsigned  N_L2_SET_ENTRIES    = 32,
+    parameter int unsigned  AXI_DATA_WIDTH      = 64,
+    parameter int unsigned  AXI_S_ADDR_WIDTH    = 32,
+    parameter int unsigned  AXI_M_ADDR_WIDTH    = 40,
+    parameter int unsigned  AXI_LITE_DATA_WIDTH = 64,
+    parameter int unsigned  AXI_LITE_ADDR_WIDTH = 32,
+    parameter int unsigned  AXI_ID_WIDTH        = 10,
+    parameter int unsigned  AXI_USER_WIDTH      =  6,
+    parameter int unsigned  MH_FIFO_DEPTH       = 16
   )
   // }}}
 
