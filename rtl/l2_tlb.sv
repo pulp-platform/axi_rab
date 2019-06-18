@@ -8,8 +8,6 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-`include "pulp_soc_defines.sv"
-
 //`define MULTI_HIT_FULL_SET  // Enable full multi hit detection. Always the entire set is searched.
 //`define MULTI_HIT_CUR_CYCLE // Enable partial multi hit detection. Only multi hits in the same search cycle are detected.
 

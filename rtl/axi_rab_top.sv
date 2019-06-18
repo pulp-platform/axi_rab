@@ -50,8 +50,6 @@
  * Pirmin Vogel <vogelpi@iis.ee.ethz.ch>
  */
 
-`include "pulp_soc_defines.sv"
-
 module axi_rab_top
 
   // Parameters {{{
