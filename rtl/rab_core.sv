@@ -23,17 +23,21 @@
 
 module rab_core
   #(
-    parameter int unsigned  N_PORTS             =  3,
-    parameter int unsigned  N_L2_SETS           = 32,
-    parameter int unsigned  N_L2_SET_ENTRIES    = 32,
-    parameter int unsigned  AXI_DATA_WIDTH      = 64,
-    parameter int unsigned  AXI_S_ADDR_WIDTH    = 32,
-    parameter int unsigned  AXI_M_ADDR_WIDTH    = 40,
-    parameter int unsigned  AXI_LITE_DATA_WIDTH = 64,
-    parameter int unsigned  AXI_LITE_ADDR_WIDTH = 32,
-    parameter int unsigned  AXI_ID_WIDTH        =  8,
-    parameter int unsigned  AXI_USER_WIDTH      =  6,
-    parameter int unsigned  MH_FIFO_DEPTH       = 16
+    parameter int unsigned N_PORTS             =  2,
+    parameter int unsigned N_L1_SLICES [3:0]   = '{default: 0}, // number of L1 slices per port
+    parameter int unsigned N_L1_SLICES_MAX     = 0, // maximum of per-port values above
+    parameter bit          EN_ACP              = 0, // enable ACP
+    parameter bit          ENABLE_L2TLB [3:0]  = '{default: 0}, // enable L2 TLB per port
+    parameter int unsigned N_L2_SETS           = 32,
+    parameter int unsigned N_L2_SET_ENTRIES    = 32,
+    parameter int unsigned AXI_DATA_WIDTH      = 64,
+    parameter int unsigned AXI_S_ADDR_WIDTH    = 32,
+    parameter int unsigned AXI_M_ADDR_WIDTH    = 40,
+    parameter int unsigned AXI_LITE_DATA_WIDTH = 64,
+    parameter int unsigned AXI_LITE_ADDR_WIDTH = 32,
+    parameter int unsigned AXI_ID_WIDTH        =  8,
+    parameter int unsigned AXI_USER_WIDTH      =  6,
+    parameter int unsigned MH_FIFO_DEPTH       = 16
     )
    (
     input  logic                                         Clk_CI,
@@ -122,75 +126,71 @@ module rab_core
   // ╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚══════╝
   //
 
-  localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
+  localparam N_L1_SLICES_TOT  = `MY_ARRAY_SUM(N_L1_SLICES, N_PORTS);
 
-  localparam integer N_SLICES[N_PORTS-1:0]     = `N_SLICES_ARRAY;
-  localparam         N_SLICES_TOT              = `MY_ARRAY_SUM(N_SLICES,N_PORTS);
-  localparam         N_SLICES_MAX              = `N_SLICES_MAX;
+  localparam N_REGS           = 4*N_L1_SLICES_TOT + 4;
+  localparam AXI_SIZE_WIDTH   = $clog2(AXI_DATA_WIDTH/8);
 
-  localparam N_REGS                            = 4*N_SLICES_TOT + 4;
-  localparam AXI_SIZE_WIDTH                    = $clog2(AXI_DATA_WIDTH/8);
+  localparam PORT_ID_WIDTH    = (N_PORTS < 2) ? 1 : $clog2(N_PORTS);
+  localparam MISS_META_WIDTH  = PORT_ID_WIDTH + AXI_USER_WIDTH + AXI_ID_WIDTH;
 
-  localparam PORT_ID_WIDTH                     = (N_PORTS < 2) ? 1 : $clog2(N_PORTS);
-  localparam MISS_META_WIDTH                   = PORT_ID_WIDTH + AXI_USER_WIDTH + AXI_ID_WIDTH;
+  logic [N_PORTS-1:0]                      [15:0]     p1_burst_size;
+  logic [N_PORTS-1:0]                      [15:0]     p2_burst_size;
 
-  logic [N_PORTS-1:0]                      [15:0] p1_burst_size;
-  logic [N_PORTS-1:0]                      [15:0] p2_burst_size;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     p1_align_addr;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     p2_align_addr;
 
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p1_align_addr;
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p2_align_addr;
+  logic [N_PORTS-1:0]        [AXI_SIZE_WIDTH-1:0]     p1_mask;
+  logic [N_PORTS-1:0]        [AXI_SIZE_WIDTH-1:0]     p2_mask;
 
-  logic [N_PORTS-1:0]        [AXI_SIZE_WIDTH-1:0] p1_mask;
-  logic [N_PORTS-1:0]        [AXI_SIZE_WIDTH-1:0] p2_mask;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     p1_max_addr;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     p2_max_addr;
 
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p1_max_addr;
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] p2_max_addr;
+  logic [N_PORTS-1:0]                                 p1_prefetch;
+  logic [N_PORTS-1:0]                                 p2_prefetch;
 
-  logic [N_PORTS-1:0]                             p1_prefetch;
-  logic [N_PORTS-1:0]                             p2_prefetch;
+  logic [N_PORTS-1:0]                                 int_rw;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     int_addr_min;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     int_addr_max;
+  logic [N_PORTS-1:0]          [AXI_ID_WIDTH-1:0]     int_id;
+  logic [N_PORTS-1:0]                       [7:0]     int_len;
+  logic [N_PORTS-1:0]        [AXI_USER_WIDTH-1:0]     int_user;
 
-  logic [N_PORTS-1:0]                             int_rw;
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] int_addr_min;
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] int_addr_max;
-  logic [N_PORTS-1:0]          [AXI_ID_WIDTH-1:0] int_id;
-  logic [N_PORTS-1:0]                       [7:0] int_len;
-  logic [N_PORTS-1:0]        [AXI_USER_WIDTH-1:0] int_user;
+  logic [N_PORTS-1:0]                                 hit;
+  logic [N_PORTS-1:0]                                 prot;
+  logic [N_PORTS-1:0]                                 prefetch;
 
-  logic [N_PORTS-1:0]                             hit;
-  logic [N_PORTS-1:0]                             prot;
-  logic [N_PORTS-1:0]                             prefetch;
+  logic [N_PORTS-1:0]                                 no_hit;
+  logic [N_PORTS-1:0]                                 no_prot;
 
-  logic [N_PORTS-1:0]                             no_hit;
-  logic [N_PORTS-1:0]                             no_prot;
+  logic [N_PORTS-1:0]       [N_L1_SLICES_MAX-1:0]     hit_slices;
+  logic [N_PORTS-1:0]       [N_L1_SLICES_MAX-1:0]     prot_slices;
 
-  logic [N_PORTS-1:0]          [N_SLICES_MAX-1:0] hit_slices;
-  logic [N_PORTS-1:0]          [N_SLICES_MAX-1:0] prot_slices;
+  logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0]     out_addr;
+  logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0]     out_addr_reg;
 
-  logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0] out_addr;
-  logic [N_PORTS-1:0]      [AXI_M_ADDR_WIDTH-1:0] out_addr_reg;
+  logic [N_PORTS-1:0]                                 cache_coherent;
+  logic [N_PORTS-1:0]                                 cache_coherent_reg;
 
-  logic [N_PORTS-1:0]                             cache_coherent;
-  logic [N_PORTS-1:0]                             cache_coherent_reg;
+  logic [N_PORTS-1:0]                                 select;
+  reg   [N_PORTS-1:0]                                 curr_priority;
 
-  logic [N_PORTS-1:0]                             select;
-  reg   [N_PORTS-1:0]                             curr_priority;
+  reg   [N_PORTS-1:0]                                 multi_hit;
 
-  reg   [N_PORTS-1:0]                             multi_hit;
+  logic [N_PORTS-1:0]                                 miss_valid_mhf;
+  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0]     miss_addr_mhf;
+  logic [N_PORTS-1:0]       [MISS_META_WIDTH-1:0]     miss_meta_mhf;
 
-  logic [N_PORTS-1:0]                             miss_valid_mhf;
-  logic [N_PORTS-1:0]      [AXI_S_ADDR_WIDTH-1:0] miss_addr_mhf;
-  logic [N_PORTS-1:0]       [MISS_META_WIDTH-1:0] miss_meta_mhf;
+  logic [N_REGS-1:0]                       [63:0]     int_cfg_regs;
+  logic [N_PORTS-1:0] [4*N_L1_SLICES_MAX-1:0] [63:0]  int_cfg_regs_slices;
 
-  logic [N_REGS-1:0]                       [63:0] int_cfg_regs;
-  logic [N_PORTS-1:0] [4*N_SLICES_MAX-1:0] [63:0] int_cfg_regs_slices;
+  logic                                               L1AllowMultiHit_S;
 
-  logic                                           L1AllowMultiHit_S;
-
-  logic                                           invalidate_ready_q, invalidate_ready_d;
-  logic [N_SLICES_TOT-1:0]                        invalidate_slices;
-  logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_min;
-  logic [AXI_S_ADDR_WIDTH-1:0]                    invalidate_addr_max;
-  logic                                           invalidate_addr_valid;
+  logic                                               invalidate_ready_q, invalidate_ready_d;
+  logic [N_L1_SLICES_TOT-1:0]                         invalidate_slices;
+  logic [AXI_S_ADDR_WIDTH-1:0]                        invalidate_addr_min;
+  logic [AXI_S_ADDR_WIDTH-1:0]                        invalidate_addr_max;
+  logic                                               invalidate_addr_valid;
 
   genvar z;
 
@@ -268,7 +268,7 @@ module rab_core
           int_addr_min[idx] = invalidate_addr_min;
           int_addr_max[idx] = invalidate_addr_max;
 
-          for (idx_slice = 0; idx_slice<N_SLICES[idx]; ++idx_slice) begin
+          for (idx_slice = 0; idx_slice<N_L1_SLICES[idx]; ++idx_slice) begin
             invalidate_slices[idx_tot] = hit_slices[idx][idx_slice];
             ++idx_tot;
           end
@@ -306,13 +306,13 @@ module rab_core
       var integer reg_num;
       reg_num=0;
       for ( idx_port = 0; idx_port < N_PORTS; idx_port++ ) begin
-        for ( idx_slice = 0; idx_slice < 4*N_SLICES[idx_port]; idx_slice++ ) begin
+        for ( idx_slice = 0; idx_slice < 4*N_L1_SLICES[idx_port]; idx_slice++ ) begin
           int_cfg_regs_slices[idx_port][idx_slice] = int_cfg_regs[4+reg_num];
           reg_num++;
         end
-        // int_cfg_regs_slices[idx_port][N_SLICES_MAX:N_SLICES[idx_port]] will be dangling
+        // int_cfg_regs_slices[idx_port][N_L1_SLICES_MAX:N_L1_SLICES[idx_port]] will be dangling
         // Fix to zero. Synthesis will remove these signals.
-        // int_cfg_regs_slices[idx_port][4*N_SLICES_MAX-1:4*N_SLICES[idx_port]] = 0;
+        // int_cfg_regs_slices[idx_port][4*N_L1_SLICES_MAX-1:4*N_L1_SLICES[idx_port]] = 0;
       end
     end
 
@@ -365,7 +365,7 @@ module rab_core
     #(
       .N_PORTS         ( N_PORTS             ),
       .N_REGS          ( N_REGS              ),
-      .N_SLICES_TOT    ( N_SLICES_TOT        ),
+      .N_SLICES_TOT    ( N_L1_SLICES_TOT     ),
       .N_L2_SETS       ( N_L2_SETS           ),
       .N_L2_SET_ENTRIES( N_L2_SET_ENTRIES    ),
       .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH    ),
@@ -415,7 +415,7 @@ module rab_core
     );
 
   generate for (z = 0; z < N_PORTS; z++) begin : MHF_TLB_SELECT
-    if (ENABLE_L2TLB[z] == 1) begin // L2 TLB is enabled
+    if (ENABLE_L2TLB[z]) begin // L2 TLB is enabled
       assign miss_valid_mhf[z] = miss_l2_i[z];
       assign miss_addr_mhf[z]  = miss_l2_addr_i[z];
       assign miss_meta_mhf[z]  = {miss_l2_user_i[z], PortIdx_D, miss_l2_id_i[z]};
@@ -437,31 +437,31 @@ module rab_core
   generate for (z = 0; z < N_PORTS; z++) begin : SLICE_TOP_GEN
     slice_top
       #(
-        .N_SLICES        ( N_SLICES[z]      ),
-        .N_REGS          ( 4*N_SLICES[z]    ),
+        .N_SLICES        ( N_L1_SLICES[z]   ),
+        .N_REGS          ( 4*N_L1_SLICES[z] ),
         .ADDR_WIDTH_PHYS ( AXI_M_ADDR_WIDTH ),
         .ADDR_WIDTH_VIRT ( AXI_S_ADDR_WIDTH )
       )
       u_slice_top
       (
-        .int_cfg_regs        ( int_cfg_regs_slices[z][4*N_SLICES[z]-1:0] ),
-        .int_rw              ( int_rw[z]                                 ),
-        .int_addr_min        ( int_addr_min[z]                           ),
-        .int_addr_max        ( int_addr_max[z]                           ),
-        .partial_match_allow ( invalidate_addr_valid                     ),
-        .multi_hit_allow     ( L1AllowMultiHit_S                         ),
-        .multi_hit           ( multi_hit[z]                              ),
-        .prot                ( prot_slices[z][N_SLICES[z]-1:0]           ),
-        .hit                 ( hit_slices [z][N_SLICES[z]-1:0]           ),
-        .cache_coherent      ( cache_coherent[z]                         ),
-        .out_addr            ( out_addr[z]                               )
+        .int_cfg_regs        ( int_cfg_regs_slices[z][4*N_L1_SLICES[z]-1:0] ),
+        .int_rw              ( int_rw[z]                                   ),
+        .int_addr_min        ( int_addr_min[z]                             ),
+        .int_addr_max        ( int_addr_max[z]                             ),
+        .partial_match_allow ( invalidate_addr_valid                       ),
+        .multi_hit_allow     ( L1AllowMultiHit_S                           ),
+        .multi_hit           ( multi_hit[z]                                ),
+        .prot                ( prot_slices[z][N_L1_SLICES[z]-1:0]          ),
+        .hit                 ( hit_slices [z][N_L1_SLICES[z]-1:0]          ),
+        .cache_coherent      ( cache_coherent[z]                           ),
+        .out_addr            ( out_addr[z]                                 )
       );
-    // hit_slices [N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
-    // prot_slices[N_SLICES_MAX-1:N_SLICES_MAX-N_SLICES[z]] will be dangling
+    // hit_slices [N_L1_SLICES_MAX-1:N_L1_SLICES_MAX-N_L1_SLICES[z]] will be dangling
+    // prot_slices[N_L1_SLICES_MAX-1:N_L1_SLICES_MAX-N_L1_SLICES[z]] will be dangling
     // Fix to zero. Synthesis will remove these signals.
-    if ( N_SLICES[z] < N_SLICES_MAX ) begin
-      assign hit_slices [z][N_SLICES_MAX-1:N_SLICES[z]] = 0;
-      assign prot_slices[z][N_SLICES_MAX-1:N_SLICES[z]] = 0;
+    if ( N_L1_SLICES[z] < N_L1_SLICES_MAX ) begin
+      assign hit_slices [z][N_L1_SLICES_MAX-1:N_L1_SLICES[z]] = 0;
+      assign prot_slices[z][N_L1_SLICES_MAX-1:N_L1_SLICES[z]] = 0;
     end
   end // for (z = 0; z < N_PORTS; z++)
   endgenerate

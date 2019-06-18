@@ -54,17 +54,21 @@ module axi_rab_top
 
   // Parameters {{{
   #(
-    parameter int unsigned  N_PORTS             =  2,
-    parameter int unsigned  N_L2_SETS           = 32,
-    parameter int unsigned  N_L2_SET_ENTRIES    = 32,
-    parameter int unsigned  AXI_DATA_WIDTH      = 64,
-    parameter int unsigned  AXI_S_ADDR_WIDTH    = 32,
-    parameter int unsigned  AXI_M_ADDR_WIDTH    = 40,
-    parameter int unsigned  AXI_LITE_DATA_WIDTH = 64,
-    parameter int unsigned  AXI_LITE_ADDR_WIDTH = 32,
-    parameter int unsigned  AXI_ID_WIDTH        = 10,
-    parameter int unsigned  AXI_USER_WIDTH      =  6,
-    parameter int unsigned  MH_FIFO_DEPTH       = 16
+    parameter int unsigned N_PORTS             =  2,
+    parameter int unsigned N_L1_SLICES [3:0]   = '{default: 0}, // number of L1 slices per port
+    parameter int unsigned N_L1_SLICES_MAX     = 0, // maximum of per-port values above
+    parameter bit          EN_ACP              = 0, // enable ACP
+    parameter bit          ENABLE_L2TLB [3:0]  = '{default: 0}, // enable L2 TLB per port
+    parameter int unsigned N_L2_SETS           = 32,
+    parameter int unsigned N_L2_SET_ENTRIES    = 32,
+    parameter int unsigned AXI_DATA_WIDTH      = 64,
+    parameter int unsigned AXI_S_ADDR_WIDTH    = 32,
+    parameter int unsigned AXI_M_ADDR_WIDTH    = 40,
+    parameter int unsigned AXI_LITE_DATA_WIDTH = 64,
+    parameter int unsigned AXI_LITE_ADDR_WIDTH = 32,
+    parameter int unsigned AXI_ID_WIDTH        = 10,
+    parameter int unsigned AXI_USER_WIDTH      =  6,
+    parameter int unsigned MH_FIFO_DEPTH       = 16
   )
   // }}}
 
@@ -1529,6 +1533,10 @@ module axi_rab_top
   rab_core
     #(
       .N_PORTS             ( N_PORTS             ),
+      .N_L1_SLICES         ( N_L1_SLICES         ),
+      .N_L1_SLICES_MAX     ( N_L1_SLICES_MAX     ),
+      .EN_ACP              ( EN_ACP              ),
+      .ENABLE_L2TLB        ( ENABLE_L2TLB        ),
       .N_L2_SETS           ( N_L2_SETS           ),
       .N_L2_SET_ENTRIES    ( N_L2_SET_ENTRIES    ),
       .AXI_DATA_WIDTH      ( AXI_DATA_WIDTH      ),
