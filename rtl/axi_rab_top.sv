@@ -61,6 +61,7 @@ module axi_rab_top
     parameter bit          ENABLE_L2TLB [3:0]  = '{default: 0}, // enable L2 TLB per port
     parameter int unsigned N_L2_SETS           = 32,
     parameter int unsigned N_L2_SET_ENTRIES    = 32,
+    parameter int unsigned N_L2_PAR_VA_RAMS    = 4,
     parameter int unsigned AXI_DATA_WIDTH      = 64,
     parameter int unsigned AXI_S_ADDR_WIDTH    = 32,
     parameter int unsigned AXI_M_ADDR_WIDTH    = 40,
@@ -618,11 +619,8 @@ module axi_rab_top
 
   // Local parameters {{{
 
-  // Enable L2 for select ports
-  localparam integer ENABLE_L2TLB[N_PORTS-1:0] = `EN_L2TLB_ARRAY;
-
   // L2TLB parameters
-  localparam integer HUM_BUFFER_DEPTH = (N_L2_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS)+13;
+  localparam integer HUM_BUFFER_DEPTH = (N_L2_SET_ENTRIES/2/N_L2_PAR_VA_RAMS)+13;
 
   // }}}
 
@@ -2319,14 +2317,14 @@ module axi_rab_top
 
       l2_tlb
         #(
-          .AXI_S_ADDR_WIDTH       ( AXI_S_ADDR_WIDTH                                      ),
-          .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                                      ),
-          .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                                   ),
-          .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                                   ),
-          .N_SETS                 ( `RAB_L2_N_SETS                                        ),
-          .N_OFFSETS              ( `RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS         ),
-          .N_PAR_VA_RAMS          ( `RAB_L2_N_PAR_VA_RAMS                                 ),
-          .HIT_OFFSET_STORE_WIDTH ( $clog2(`RAB_L2_N_SET_ENTRIES/2/`RAB_L2_N_PAR_VA_RAMS) )
+          .AXI_S_ADDR_WIDTH       ( AXI_S_ADDR_WIDTH                            ),
+          .AXI_M_ADDR_WIDTH       ( AXI_M_ADDR_WIDTH                            ),
+          .AXI_LITE_DATA_WIDTH    ( AXI_LITE_DATA_WIDTH                         ),
+          .AXI_LITE_ADDR_WIDTH    ( AXI_LITE_ADDR_WIDTH                         ),
+          .N_SETS                 ( N_L2_SETS                                   ),
+          .N_OFFSETS              ( N_L2_SET_ENTRIES/2/N_L2_PAR_VA_RAMS         ),
+          .N_PAR_VA_RAMS          ( N_L2_PAR_VA_RAMS                            ),
+          .HIT_OFFSET_STORE_WIDTH ( $clog2(N_L2_SET_ENTRIES/2/N_L2_PAR_VA_RAMS) )
           )
       u_l2_tlb
         (
