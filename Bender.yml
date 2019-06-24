@@ -3,7 +3,7 @@ package:
   authors: []
 
 dependencies:
-  axi: { git: "https://github.com/pulp-platform/axi.git", rev: 6ca80be513c050a971a128ed10f9cbea7f6ba142 }
+  axi: { git: "https://github.com/pulp-platform/axi.git", rev: urania }
 
 sources:
   - rtl/axi4_ar_buffer.sv
