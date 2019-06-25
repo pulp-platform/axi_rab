@@ -55,7 +55,7 @@ module axi_rab_top
   // Parameters {{{
   #(
     parameter int unsigned N_PORTS             =  2,
-    parameter int unsigned N_L1_SLICES [3:0]   = '{default: 0}, // number of L1 slices per port
+    parameter int unsigned N_L1_SLICES [3:0]   = '{0, 0, 32, 4}, // number of L1 slices per port
     parameter int unsigned N_L1_SLICES_MAX     = 0, // maximum of per-port values above
     parameter bit          EN_ACP              = 0, // enable ACP
     parameter bit          ENABLE_L2TLB [3:0]  = '{default: 0}, // enable L2 TLB per port
