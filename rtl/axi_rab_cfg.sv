@@ -30,6 +30,7 @@ module axi_rab_cfg
   #(
     parameter N_PORTS         =   3,
     parameter N_REGS          = 196,
+    parameter N_SLICES_TOT    =  48,
     parameter N_L2_SETS       =  32,
     parameter N_L2_SET_ENTRIES=  32,
     parameter ADDR_WIDTH_PHYS =  40,
@@ -76,13 +77,22 @@ module axi_rab_cfg
     // L2 TLB
     output logic [N_PORTS-1:0] [AXI_DATA_WIDTH-1:0] wdata_l2,
     output logic [N_PORTS-1:0] [AXI_ADDR_WIDTH-1:0] waddr_l2,
-    output logic [N_PORTS-1:0]                      wren_l2
+    output logic [N_PORTS-1:0]                      wren_l2,
+
+    // Invalidation
+    input logic                                     l1_invalidate_ready_i,
+    input logic  [N_SLICES_TOT-1:0]                 l1_invalidate_slices_i,
+    input logic  [N_PORTS-1:0]                      l2_invalidate_done_i,
+    output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_min_o,
+    output logic [ADDR_WIDTH_VIRT-1:0]              invalidate_addr_max_o,
+    output logic                                    invalidate_addr_valid_o
   );
 
   localparam ADDR_LSB = log2(64/8); // 64 even if the AXI Lite interface is 32,
                                     // because RAB slices are 64 bit wide.
   localparam ADDR_MSB = log2(N_REGS)+ADDR_LSB-1;
 
+  localparam CONFIG_SIZE = 'h20; // Addresses at start to use for config registers
   localparam L2SINGLE_AMAP_SIZE = 16'h4000; // Maximum 2048 TLB entries in L2
 
   localparam integer N_L2_ENTRIES = N_L2_SETS * N_L2_SET_ENTRIES;
@@ -90,6 +100,7 @@ module axi_rab_cfg
   localparam logic [AXI_ADDR_WIDTH-1:0] L2_VA_MAX_ADDR = (N_L2_ENTRIES-1) << 2;
 
   logic [AXI_DATA_WIDTH/8-1:0][7:0] L1Cfg_DP[N_REGS]; // [Byte][Bit]
+  logic                             WriteConfigDisabled;
   genvar j;
 
   //  █████╗ ██╗  ██╗██╗██╗  ██╗      ██╗     ██╗████████╗███████╗
@@ -112,6 +123,7 @@ module axi_rab_cfg
 
   logic                             wresp_done_reg;
   logic                             wresp_running_reg;
+  logic                             wresp_block;
 
   logic [AXI_ADDR_WIDTH-1:0]        araddr_reg;
   logic                             araddr_done_reg;
@@ -123,12 +135,13 @@ module axi_rab_cfg
   logic                             awready;
   logic                             wready;
   logic                             bvalid;
+  logic [1:0]                       bresp;
 
   logic                             arready;
   logic                             rvalid;
 
   logic                             wren;
-  logic                             wren_l1;
+  logic                             wrvalid;
 
   assign wren = ( wdata_done_rise & awaddr_done_reg ) | ( awaddr_done_rise & wdata_done_reg );
   assign wdata_done_rise  = wdata_done_reg  & ~wdata_done_reg_dly;
@@ -207,21 +220,27 @@ module axi_rab_cfg
        if (!Rst_RBI)
          begin
             bvalid            <= 1'b0;
+            bresp             <= 2'b00;
             wresp_done_reg    <= 1'b0;
             wresp_running_reg <= 1'b0;
          end
        else
          begin
-            if (awaddr_done_reg && wdata_done_reg && !wresp_done_reg)
+            if (awaddr_done_reg && wdata_done_reg && !wresp_done_reg && !wresp_block)
               begin
                  if (!wresp_running_reg)
                    begin
                       bvalid            <= 1'b1;
+                      if (wrvalid)
+                        bresp           <= 2'b00;
+                      else
+                        bresp           <= 2'b10;
                       wresp_running_reg <= 1'b1;
                    end
                  else if (s_axi_bready)
                    begin
                       bvalid            <= 1'b0;
+                      bresp             <= 2'b00;
                       wresp_done_reg    <= 1'b1;
                       wresp_running_reg <= 1'b0;
                    end
@@ -229,6 +248,7 @@ module axi_rab_cfg
             else
               begin
                  bvalid            <= 1'b0;
+                 bresp             <= 2'b00;
                  wresp_done_reg    <= 1'b0;
                  wresp_running_reg <= 1'b0;
               end
@@ -294,6 +314,16 @@ module axi_rab_cfg
          end
     end
 
+  assign s_axi_awready = awready;
+  assign s_axi_wready  = wready;
+
+  assign s_axi_bresp   = bresp;
+  assign s_axi_bvalid  = bvalid;
+
+  assign s_axi_arready = arready;
+  assign s_axi_rresp   = 2'b00;
+  assign s_axi_rvalid  = rvalid;
+
   // ██╗     ██╗     ██████╗███████╗ ██████╗     ██████╗ ███████╗ ██████╗
   // ██║    ███║    ██╔════╝██╔════╝██╔════╝     ██╔══██╗██╔════╝██╔════╝
   // ██║    ╚██║    ██║     █████╗  ██║  ███╗    ██████╔╝█████╗  ██║  ███╗
@@ -301,17 +331,28 @@ module axi_rab_cfg
   // ███████╗██║    ╚██████╗██║     ╚██████╔╝    ██║  ██║███████╗╚██████╔╝
   // ╚══════╝╚═╝     ╚═════╝╚═╝      ╚═════╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝
   //
-  assign wren_l1 = wren && (awaddr_reg < L2SINGLE_AMAP_SIZE);
+  logic invalidate_in_progress_q, invalidate_in_progress_d;
+
+  logic wren_l1;
+  assign wren_l1 = wren && (CONFIG_SIZE <= awaddr_reg) && (awaddr_reg < L2SINGLE_AMAP_SIZE);
 
   always @( posedge Clk_CI or negedge Rst_RBI )
     begin
-      var integer idx_reg, idx_byte;
+      var integer idx_reg, idx_byte, idx_slice;
       if ( Rst_RBI == 1'b0 )
         begin
           for ( idx_reg = 0; idx_reg < N_REGS; idx_reg++ )
             L1Cfg_DP[idx_reg] <= '0;
         end
-      else if ( wren_l1 )
+      else if ( invalidate_in_progress_q && l1_invalidate_ready_i )
+        begin
+           for ( idx_slice = 0; idx_slice < N_SLICES_TOT; ++idx_slice ) begin
+              if ( l1_invalidate_slices_i[idx_slice] ) begin
+                 L1Cfg_DP[4*idx_slice+7] <= 'h0; // disable the slice that hit
+              end
+           end
+        end
+      else if ( wren_l1 & wrvalid )
           begin
             if ( awaddr_reg[ADDR_LSB+1] == 1'b0 ) begin                     // VIRT_ADDR
               for ( idx_byte = 0; idx_byte < AXI_DATA_WIDTH/8; idx_byte++ ) begin
@@ -372,16 +413,6 @@ module axi_rab_cfg
         rdata_reg = L1Cfg_DO[araddr_reg[ADDR_MSB:ADDR_LSB]];
     end
 
-  assign s_axi_awready = awready;
-  assign s_axi_wready  = wready;
-
-  assign s_axi_bresp   = 2'b00;
-  assign s_axi_bvalid  = bvalid;
-
-  assign s_axi_arready = arready;
-  assign s_axi_rresp   = 2'b00;
-  assign s_axi_rvalid  = rvalid;
-
   // ██╗     ██████╗      ██████╗███████╗ ██████╗
   // ██║     ╚════██╗    ██╔════╝██╔════╝██╔════╝
   // ██║      █████╔╝    ██║     █████╗  ██║  ███╗
@@ -412,7 +443,7 @@ module axi_rab_cfg
               wren_l2[j]  <= 1'b0;
               wdata_l2[j] <= '0;
             end
-          else if (wren)
+          else if (wren & wrvalid)
             begin
               if ( (awaddr_reg >= (j+1)*L2SINGLE_AMAP_SIZE) && (awaddr_reg < (j+2)*L2SINGLE_AMAP_SIZE) && (|wstrb_reg) )
                 wren_l2[j] <= 1'b1;
@@ -508,13 +539,16 @@ module axi_rab_cfg
 
   logic                       FifosDisabled_S;
   logic                       ConfRegWen_S;
-  logic                 [1:0] ConfReg_DN;
-  logic                 [1:0] ConfReg_DP;
+  logic [2:0]                 ConfReg_DN;
+  logic [2:0]                 ConfReg_DP;
 
-  logic [AXI_DATA_WIDTH-1:0] wdata_reg_vec;
+  logic [AXI_DATA_WIDTH-1:0]  wdata_reg_vec;
 
-  assign FifosDisabled_S    = ConfReg_DP[0];
-  assign L1AllowMultiHit_SO = ConfReg_DP[1];
+  logic                       wren_config;
+
+  assign FifosDisabled_S     = ConfReg_DP[0];
+  assign L1AllowMultiHit_SO  = ConfReg_DP[1];
+  assign WriteConfigDisabled = ConfReg_DP[2];
 
   assign AddrFifoEmpty_S = ~AddrFifoEmpty_SB;
   assign MetaFifoEmpty_S = ~MetaFifoEmpty_SB;
@@ -529,6 +563,11 @@ module axi_rab_cfg
        assign wdata_reg_vec[(j+1)*8-1:j*8] = wdata_reg[j];
   endgenerate
 
+  assign wren_config = wren && (awaddr_reg < CONFIG_SIZE);
+
+  // check if write to address was valid (NOTE: wren check only works for non-blocked responses)
+  assign wrvalid = !wren | (wren & (wren_config | !WriteConfigDisabled));
+
   // write address FIFO
   always_comb
     begin
@@ -539,7 +578,7 @@ module axi_rab_cfg
             AddrFifoWen_S = 1'b1;
             AddrFifoDin_D = MissAddr_DI;
          end
-       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 'b0) && (FifosDisabled_S == 1'b0)) // write request from AXI interface
+       else if ( (wren_config == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 'b0) && (FifosDisabled_S == 1'b0)) // write request from AXI interface
          begin
             AddrFifoWen_S = 1'b1;
             AddrFifoDin_D = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
@@ -556,7 +595,7 @@ module axi_rab_cfg
             MetaFifoWen_S                      = 1'b1;
             MetaFifoDin_D[MISS_META_WIDTH-1:0] = MissMeta_DI;
          end
-       else if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'h8) && (FifosDisabled_S == 1'b0) ) // write request from AXI interface
+       else if ( (wren_config == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'h8) && (FifosDisabled_S == 1'b0) ) // write request from AXI interface
          begin
             MetaFifoWen_S = 1'b1;
             MetaFifoDin_D = wdata_reg_vec[MISS_META_WIDTH-1:0];
@@ -568,7 +607,7 @@ module axi_rab_cfg
     begin
        ConfRegWen_S = 1'b0;
        ConfReg_DN   = 1'b0;
-       if ( (wren_l1 == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) ) // write request from AXI interface
+       if ( (wren_config == 1'b1) && (awaddr_reg[ADDR_MSB:0] == 4'hC) ) // write request from AXI interface
          begin
             ConfRegWen_S = 1'b1;
             ConfReg_DN   = wdata_reg_vec[$high(ConfReg_DN):0];
@@ -601,7 +640,7 @@ module axi_rab_cfg
                   MetaFifoRen_S = 1'b1;
               end
             // read configuration register
-            else if ( araddr_reg[ADDR_MSB:0] == 8'h10 )
+            else if ( araddr_reg[ADDR_MSB:0] == 4'hC )
               begin
                 s_axi_rdata                      = {AXI_DATA_WIDTH{1'b0}};
                 s_axi_rdata[$high(ConfReg_DP):0] = ConfReg_DP;
@@ -656,6 +695,83 @@ module axi_rab_cfg
       .grant_i     ( MetaFifoRen_S                   ),
       .test_mode_i ( 1'b0                            )
     );
+
+
+  //
+  // INVALIDATE
+  //
+
+  logic                       l1_invalidate_done_q, l1_invalidate_done_d;
+  logic [N_PORTS-1:0]         l2_invalidate_done_q, l2_invalidate_done_d;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_q;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_min_d;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_q;
+  logic [ADDR_WIDTH_VIRT-1:0] invalidate_addr_max_d;
+
+  assign wresp_block = invalidate_in_progress_q || invalidate_in_progress_d; // FIXME: should this be set at the beginning
+  assign invalidate_addr_min_o = invalidate_addr_min_q;
+  assign invalidate_addr_max_o = invalidate_addr_max_q;
+  assign invalidate_addr_valid_o = invalidate_in_progress_q;
+
+  // write start invalidate register
+  always_comb begin
+     invalidate_addr_min_d = invalidate_addr_min_q;
+     if ( (wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h10) && !invalidate_in_progress_q) begin
+        invalidate_addr_min_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
+     end
+  end
+  // write end invalidate register (NOTE: blocks until invalidation is completed)
+  always_comb begin
+     invalidate_addr_max_d = invalidate_addr_max_q;
+     invalidate_in_progress_d = invalidate_in_progress_q;
+     if ((wren_config == 'b1) && (awaddr_reg[ADDR_MSB:0] == 8'h18) && !invalidate_in_progress_q) begin
+        invalidate_addr_max_d = wdata_reg_vec[ADDR_WIDTH_VIRT-1:0];
+        invalidate_in_progress_d = 'b1;
+     end else if (l1_invalidate_done_q && (&l2_invalidate_done_q)) begin
+        invalidate_in_progress_d = 'b0;
+     end
+  end
+
+  // handle invalidation of l1 registers that are hit
+  always_comb begin
+     l1_invalidate_done_d = l1_invalidate_done_q;
+     if (invalidate_in_progress_q && l1_invalidate_ready_i) begin
+        // NOTE: the actual invalidation will happen in the same cycle in the L1 config logic
+        l1_invalidate_done_d = 'b1;
+     end else if (!invalidate_in_progress_q) begin
+        l1_invalidate_done_d = 'b0;
+     end
+  end
+
+  // check if every l2 is finished invalidating
+  generate for (j = 0; j < N_PORTS; ++j) begin
+    always_comb begin
+      l2_invalidate_done_d[j] = l2_invalidate_done_q[j];
+      if (invalidate_in_progress_q && l2_invalidate_done_i[j]) begin
+        l2_invalidate_done_d[j] = 'b1;
+      end else if (!invalidate_in_progress_q) begin
+        l2_invalidate_done_d[j] = 'b0;
+      end
+    end
+  end
+  endgenerate
+
+  // store invalidation registers
+  always_ff @(posedge Clk_CI or negedge Rst_RBI) begin
+     if (Rst_RBI == 'b0) begin
+        invalidate_addr_min_q <= 'b0;
+        invalidate_addr_max_q <= 'b0;
+        invalidate_in_progress_q <= 'b0;
+        l1_invalidate_done_q <= 'b0;
+        l2_invalidate_done_q <= 'b0;
+     end else begin
+        invalidate_addr_min_q <= invalidate_addr_min_d;
+        invalidate_addr_max_q <= invalidate_addr_max_d;
+        invalidate_in_progress_q <= invalidate_in_progress_d;
+        l1_invalidate_done_q <= l1_invalidate_done_d;
+        l2_invalidate_done_q <= l2_invalidate_done_d;
+     end
+  end
 
 endmodule
 
